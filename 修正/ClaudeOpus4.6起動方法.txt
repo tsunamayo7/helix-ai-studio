@@ -1,2 +1,0 @@
-cd "C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio"
-claude --model claude-opus-4-6
