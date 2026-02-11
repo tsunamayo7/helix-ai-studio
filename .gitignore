@@ -1,0 +1,54 @@
+# Helix AI Studio .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# PyInstaller
+*.exe
+*.spec.bak
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# Config (contains API keys)
+config/
+!config/config.example.json
+
+# Runtime data
+data/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Node (for Claude Code CLI)
+node_modules/
+
+# Temporary
+*.tmp
+*.bak
+*.orig
+
+nul

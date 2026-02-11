@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(if not exist data mkdir data)",
+      "Bash(if not exist logs mkdir logs)",
+      "Bash(cmd /c \"if not exist data mkdir data\")",
+      "Bash(cmd /c \"if not exist logs mkdir logs\")",
+      "Bash(pyinstaller:*)",
+      "Bash(cmd /c \"if not exist src\\\\ui\\\\components mkdir src\\\\ui\\\\components\")",
+      "Bash(cmd /c \"if not exist src\\\\claude mkdir src\\\\claude\")",
+      "Bash(dir:*)",
+      "Bash(if not exist srcsecurity mkdir srcsecurity)",
+      "Bash(if exist build rmdir /s /q build)",
+      "Bash(if exist dist rmdir /s /q dist)",
+      "Bash(if exist HelixAIStudio.exe del /q HelixAIStudio.exe)",
+      "Bash(cmd /c \"if exist build rmdir /s /q build\")",
+      "Bash(cmd /c \"if exist dist rmdir /s /q dist\")",
+      "Bash(cmd /c \"if exist HelixAIStudio.exe del /q HelixAIStudio.exe\")",
+      "Bash(cmd /c build.bat)",
+      "Bash(cmd /c \"rmdir /s /q build 2>nul\")",
+      "Bash(cmd /c \"rmdir /s /q dist 2>nul\")",
+      "Bash(del \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\backends\\\\parallel_pool.py\")",
+      "Bash(del \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\backends\\\\phase4_prompt.py\")",
+      "Bash(del \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\backends\\\\phase1_prompt.py\")",
+      "Bash(del \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\backends\\\\phase1_parser.py\")",
+      "Bash(del \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\backends\\\\quality_verifier.py\")",
+      "Bash(if not exist \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\data\\\\sessions\" mkdir \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\data\\\\sessions\")",
+      "Bash(timeout 8 python:*)",
+      "Bash(claude:*)",
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(cat:*)",
+      "Bash(if not exist \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\memory\" mkdir \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\src\\\\memory\")",
+      "Bash(findstr:*)",
+      "Bash(copy /y \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\dist\\\\HelixAIStudio.exe\" \"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\HelixAIStudio.exe\")",
+      "Bash(cmd /c \"copy /y \"\"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\dist\\\\HelixAIStudio.exe\"\" \"\"C:\\\\Users\\\\tomot\\\\Desktop\\\\開発環境\\\\生成AIアプリ\\\\Helix AI Studio\\\\HelixAIStudio.exe\"\"\")"
+    ]
+  }
+}

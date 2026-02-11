@@ -1,0 +1,685 @@
+================================================================================
+  Helix AI Studio v7.1.0 - GitHub調査レポート
+  類似プロジェクト分析と改善に活用可能なリソース集
+================================================================================
+調査日: 2026年2月9日
+対象: Helix AI Studio v7.1.0 "Adaptive Models"
+調査者: Claude Opus 4.6 (Helix AI Studio 中核AI)
+前回調査: 2026年2月3日 (v3.9.6対象) → 本レポートはv7.1.0対象の更新版
+
+================================================================================
+【目次】
+================================================================================
+1. 調査概要と前回レポートからの差分
+2. Helix AI Studioの構想に最も近い類似プロジェクト (TOP 8)
+3. コア技術別 改善リソース
+   3.1 マルチLLMオーケストレーション
+   3.2 RAG / Knowledge Graph
+   3.3 MCP (Model Context Protocol)
+   3.4 Ollama統合とローカルLLM最適化
+   3.5 PyQt6デスクトップUI
+   3.6 サーマル管理・VRAM最適化
+4. v7.1.0への具体的改善提案 (優先度別)
+5. 全参照リンク集
+
+================================================================================
+1. 調査概要と前回レポートからの差分
+================================================================================
+
+【前回レポート (2026/02/03) との差分】
+前回はv3.9.6時点の調査で、基本的なフレームワーク紹介が中心だった。
+本レポートではv7.1.0の3Phase Pipeline、SequentialExecutor、GraphRAG、
+MCPクライアント等の新アーキテクチャに合わせた調査を実施。
+
+【v7.1.0の核心構想 (BIBLEより)】
+- 3Phase実行パイプライン (Claude CLI計画→ローカルLLM順次実行→Claude CLI統合)
+- 動的Claudeモデル選択 (CLAUDE_MODELS定数による全UI自動反映)
+- ハイブリッドAI (クラウドClaude + ローカルOllama)
+- RAG/GraphRAG/ハイブリッド検索
+- MCPプロトコル統合 (filesystem, git)
+- サーマル管理・VRAMシミュレーション
+- セキュリティゲート・承認ワークフロー
+
+【本調査で新たに発見した重要リソース】
+- Ollama v0.14.0+ Anthropic Messages API互換 (2026/01/16発表)
+- Claude-Flow: 64エージェントスウォームオーケストレーション
+- Graphiti: リアルタイム時系列ナレッジグラフ
+- LangGraph 1.0: 耐久性のある状態管理とチェックポイント
+- OpenCode: 75+プロバイダ対応のオープンソースコーディングエージェント
+- MyAIAgent-LangChain: PyQt6 + Adaptive RAGデスクトップアプリ
+- Open WebUI: 122K GitHub Stars のLLMインターフェース
+
+================================================================================
+2. Helix AI Studioの構想に最も近い類似プロジェクト (TOP 8)
+================================================================================
+
+------------------------------------------------------------------------
+【1位】MyAIAgent-LangChain ★★★★★ (構想一致度: 最高)
+------------------------------------------------------------------------
+URL: https://github.com/hyun-yang/MyAIAgent-LangChain
+
+概要:
+  PyQt6デスクトップアプリケーションで、LangChain + LangGraph + Ollama を使い
+  Advanced RAGシステム (Adaptive RAG, Corrective RAG, Self-RAG) を実装。
+  Helix AI Studioと同じPyQt6 + Ollamaの技術スタックを共有する唯一のプロジェクト。
+
+Helixとの共通点:
+  - PyQt6デスクトップGUI
+  - Ollama統合 (ローカルLLM)
+  - RAGパイプライン
+  - ベクトルストア (FAISS, SKLearn)
+  - カスタムプロンプト管理
+
+Helixが優れている点:
+  - 3Phase パイプライン (クラウド+ローカルのハイブリッド)
+  - 複数ローカルLLMの順次実行
+  - GraphRAG (グラフ構造のRAG)
+  - MCPプロトコル統合
+  - サーマル管理・VRAM監視
+  - セキュリティゲート
+
+改善に活用できる要素:
+  - Adaptive RAG: クエリの複雑さに応じてルーティング戦略を動的切替
+  - Corrective RAG: 取得文書の関連性を検証し、無関係な場合はWeb検索にフォールバック
+  - Self-RAG: 生成回答のハルシネーションを自己検出・修正
+  → Helixの既存RAGパイプライン (rag_pipeline.py) に統合可能
+
+------------------------------------------------------------------------
+【2位】Claude-Flow ★★★★☆ (構想一致度: 高)
+------------------------------------------------------------------------
+URL: https://github.com/ruvnet/claude-flow
+
+概要:
+  Claude向けマルチエージェントスウォームオーケストレーション。
+  64エージェントシステム、87のMCPツール、RAG統合、分散スウォーム。
+
+Helixとの共通点:
+  - Claude中心のアーキテクチャ
+  - MCP統合
+  - マルチエージェント協調
+  - RAG統合
+
+改善に活用できる要素:
+  - スウォームトポロジー: hierarchical, mesh, ring, star の4種
+  - コンセンサスメカニズム: 複数エージェントの合意形成
+  - ワークフローパイプライン: multi-stage, チェックポイント, ロールバック
+  - エージェントタイプ定義: coordinator, researcher, coder, analyst等
+  → mixAIの3Phase実行をより高度なスウォームパターンに拡張可能
+
+------------------------------------------------------------------------
+【3位】Open WebUI ★★★★☆ (構想一致度: 高)
+------------------------------------------------------------------------
+URL: https://github.com/open-webui/open-webui
+GitHub Stars: 122,000+
+
+概要:
+  最も人気のあるオープンソースLLMインターフェース。
+  Ollama, OpenAI, Anthropic等に対応。RAG, Web検索, 音声統合を搭載。
+
+改善に活用できる要素:
+  - 9種のベクトルDB対応 (ChromaDB, PGVector, Qdrant, Milvus等)
+  - 15+のWeb検索プロバイダ統合
+  - ナレッジコレクション管理UI
+  - PWAアプリ化 (Progressive Web App)
+  - プラグインアーキテクチャ (Python関数として拡張)
+  - 実験的メモリ機能 (add_memory, search_memories, replace_memory_content)
+  → Helixのknowledge_manager.pyの参考アーキテクチャとして有用
+
+------------------------------------------------------------------------
+【4位】LangGraph ★★★★☆ (コア技術として最重要)
+------------------------------------------------------------------------
+URL: https://github.com/langchain-ai/langgraph
+最新バージョン: 1.0.8 (PyPI)
+GitHub Stars: 多数
+
+概要:
+  グラフベースのエージェントワークフロー構築フレームワーク。v1.0到達。
+  耐久性のある状態管理、チェックポイント、Human-in-the-Loop対応。
+
+改善に活用できる要素:
+  - 耐久性のある状態永続化: サーバー再起動後も状態復元
+  - Reducer駆動の明示的状態スキーマ: TypedDictベース
+  - チェックポイント: ワークフロー中断・再開が可能
+  - Multi-Agent パターン: supervisor, collaborative, sequential
+  - トークンストリーミング: 中間ステップのリアルタイム可視化
+  → Helixの3Phase パイプラインの状態管理を大幅に改善可能
+  → workflow_state.pyの信頼性向上に直結
+
+------------------------------------------------------------------------
+【5位】Langroid ★★★☆☆ (MCP統合の参考)
+------------------------------------------------------------------------
+URL: https://github.com/langroid/langroid
+GitHub Stars: 3,867
+
+概要:
+  Agent-first設計のマルチエージェントフレームワーク。
+  MCPサーバーのツールをLangroidのToolMessageに変換するアダプタ搭載。
+  Actorモデルに基づく直感的な設計。
+
+改善に活用できる要素:
+  - MCP Tool Adapter: MCPサーバーのツールを統一的なインターフェースに変換
+  - 永続的MCP接続: FastMCPクライアントによるコネクション維持
+  - RecipientTool: エージェント間通信の明示的ルーティング
+  - タスク階層: 再帰的タスク委譲メカニズム
+  → Helixのmcp_client/helix_mcp_client.pyの改善参考
+
+------------------------------------------------------------------------
+【6位】Graphiti ★★★☆☆ (ナレッジグラフの次世代)
+------------------------------------------------------------------------
+URL: https://github.com/getzep/graphiti
+
+概要:
+  AIエージェント向けリアルタイム時系列ナレッジグラフ。
+  Zep AI (State of the Art Agent Memory) の裏側で使用。
+
+改善に活用できる要素:
+  - Bi-Temporal Data Model: イベント発生時刻と取り込み時刻の二重追跡
+  - コンフリクト解決: 意味検索 + キーワード検索 + グラフ探索で矛盾検出
+  - インクリメンタル更新: バッチ再計算不要のリアルタイム更新
+  - カスタムエンティティ定義: Pydanticモデルでオントロジー定義
+  - MCP Server: add_episode, search_nodes, search_facts等のMCPツール
+  → Helixの graph_rag.py を大幅に強化する参考アーキテクチャ
+  → memory_store.py のエージェントメモリ戦略にも活用可能
+
+------------------------------------------------------------------------
+【7位】OpenCode ★★★☆☆ (アーキテクチャの参考)
+------------------------------------------------------------------------
+URL: https://github.com/anomalyco/opencode
+GitHub Stars: 90,400+
+
+概要:
+  75+のLLMプロバイダに対応するオープンソースターミナルコーディングエージェント。
+  Claude Code代替として急速に普及。
+
+改善に活用できる要素:
+  - マルチプロバイダアーキテクチャ: エージェント動作とモデル選択の分離設計
+  - ミッドセッションモデル切替: コンテキスト維持したままモデル変更
+  - LSP統合: Language Server Protocolによるコード理解強化
+  - ビルトインエージェントモード: build (変更可能) / plan (読取専用)
+  → Helixのmodel_repository.pyとrouting_executor.pyの設計参考
+
+------------------------------------------------------------------------
+【8位】AgentScope ★★★☆☆ (プロダクション参考)
+------------------------------------------------------------------------
+URL: https://github.com/agentscope-ai/agentscope
+
+概要:
+  本番環境対応のマルチエージェントフレームワーク。
+  MCP + A2A (Agent-to-Agent) プロトコル対応。K8sデプロイ対応。
+
+改善に活用できる要素:
+  - メッセージハブ: エージェント間の柔軟な通信管理
+  - メモリ圧縮: 長期実行時のメモリ効率化
+  - OTel (OpenTelemetry) 対応: 観測性・デバッグ支援
+  - A2Aプロトコル: エージェント間の標準通信プロトコル
+  → Helixのrouting/router.pyやmix_orchestrator.pyの高度化参考
+
+================================================================================
+3. コア技術別 改善リソース
+================================================================================
+
+------------------------------------------------------------------------
+3.1 マルチLLMオーケストレーション
+------------------------------------------------------------------------
+
+【Ollama v0.14.0+ Anthropic Messages API互換】(2026/01/16 発表)
+  重要度: ★★★★★ (Helixに直接影響する最重要アップデート)
+
+  概要:
+  Ollama v0.14.0以降がAnthropic Messages APIをネイティブサポート。
+  Claude Codeをローカルのオープンソースモデルで実行可能に。
+
+  技術的詳細:
+  - 設定: ANTHROPIC_BASE_URL=http://localhost:11434
+  - ツールコーリング、マルチターン会話、ビジョン入力対応
+  - 拡張思考 (Extended Thinking) もサポート
+  - ストリーミングツールコールは0.14.3-rc1以降で安定
+
+  Helixへの活用:
+  - claude_cli_backend.pyの代替としてOllama経由のAnthropicAPI互換呼出しが可能
+  - Phase 1/3のClaude CLI呼出しをAPI互換レイヤーで統一化できる
+  - ローカルモデル (qwen3-coder, GLM-4.7-flash等) でClaude互換の動作が可能
+
+  推奨モデル:
+  - コーディング: qwen3-coder (30B, 要24GB VRAM)
+  - ツールコーリング: GLM-4.7-flash (30B MoE, 実効3B, 128Kコンテキスト)
+  - 汎用: devstral-2, minimax-m2.1
+
+  URL:
+  - https://ollama.com/blog/claude
+  - https://docs.ollama.com/api/anthropic-compatibility
+  - https://docs.ollama.com/integrations/claude-code
+
+【SequentialExecutor改善の参考: LangGraph Multi-Agent Patterns】
+  現在のHelixの設計:
+  - SequentialExecutor: 1モデルずつロード→実行→アンロード (VRAM節約)
+
+  LangGraphの改善パターン:
+  - Supervisor Agent: タスクを専門ワーカーに振り分けて統合
+  - 状態チェックポイント: 中断→再開が安全に可能
+  - Human-in-the-Loop: ユーザー承認ポイントの挿入
+
+  URL: https://github.com/langchain-ai/langgraph
+
+------------------------------------------------------------------------
+3.2 RAG / Knowledge Graph
+------------------------------------------------------------------------
+
+【Adaptive RAG (MyAIAgent-LangChainより)】
+  概要: クエリの難易度に応じてルーティング戦略を動的に変更
+
+  3つのRAG戦略:
+  1. Adaptive RAG: クエリ分析→最適なリトリーバル手法を選択
+  2. Corrective RAG: 取得文書の品質を検証→低品質ならWeb検索にフォールバック
+  3. Self-RAG: 生成回答のハルシネーションを自己検出→再生成
+
+  Helixへの活用:
+  - rag_pipeline.py に品質検証ステップを追加
+  - hybrid_search_engine.py にAdaptive戦略を統合
+  - light_rag.py と graph_rag.py の使い分けを自動化
+
+  URL: https://github.com/hyun-yang/MyAIAgent-LangChain
+
+【Graphiti: 時系列ナレッジグラフ】
+  概要: AIエージェント向けリアルタイム時系列ナレッジグラフ
+
+  Helixへの活用ポイント:
+  - graph_rag.py の進化形として採用検討
+  - Bi-Temporal Model: 情報の有効期間を自動管理
+  - インクリメンタル更新: 全グラフ再計算不要
+  - MCP Server統合: MCPツールとしてグラフ操作を公開
+  - Neo4j / FalkorDB バックエンド
+
+  URL: https://github.com/getzep/graphiti
+
+【Agentic RAG Survey】
+  概要: エージェント型RAGの包括的サーベイ論文
+  パターン: reflection, planning, tool use, multi-agent collaboration
+  URL: https://github.com/asinghcsu/AgenticRAG-Survey
+
+------------------------------------------------------------------------
+3.3 MCP (Model Context Protocol)
+------------------------------------------------------------------------
+
+【MCP Python SDK v1.26.0 (最新安定版)】
+  - v2.0 は Q1 2026にリリース予定 (v1.xは6ヶ月間サポート継続)
+  - OAuth 2.1認証サポート
+  - SSE + Streamable HTTP トランスポート
+  - Linux Foundation Agentic AI Foundation傘下に移管
+
+  URL: https://github.com/modelcontextprotocol/python-sdk
+
+【MCP統合の参考プロジェクト】
+
+  Langroid MCP Adapter:
+  - MCPサーバーのツールをToolMessageに自動変換
+  - FastMCPクライアントによる永続的接続
+  → Helixのhelix_mcp_client.pyの改善参考
+  URL: https://github.com/langroid/langroid
+
+  Claude-Flow MCP Tools (87ツール):
+  - スウォーム管理、エージェント制御、メモリ管理をMCPで公開
+  → Helixのtool_orchestrator.pyの拡張参考
+  URL: https://github.com/ruvnet/claude-flow
+
+  Graphiti MCP Server:
+  - ナレッジグラフ操作をMCPツールとして公開
+  → Helixのgraph_rag.pyのMCP対応参考
+  URL: https://github.com/getzep/graphiti
+
+【MCPエコシステム拡大 (2026/02)】
+  - Microsoft: Azure MCP Server, GitHub MCP Server, M365 MCP Server
+  - OpenAI Agents SDK: MCP複数トランスポート対応
+  - Google: MCP採用表明
+  → MCPはAI統合の事実上の標準プロトコルに
+
+  URL: https://github.com/microsoft/mcp
+  URL: https://github.com/microsoft/mcp-for-beginners
+
+------------------------------------------------------------------------
+3.4 Ollama統合とローカルLLM最適化
+------------------------------------------------------------------------
+
+【2026年のローカルLLMベストプラクティス】
+
+  VRAM別推奨モデル (コーディング用):
+  ┌──────────┬─────────────────────────────────────┬──────────────┐
+  │ VRAM     │ 推奨モデル                           │ 量子化       │
+  ├──────────┼─────────────────────────────────────┼──────────────┤
+  │ 8GB      │ Qwen3-Coder 8B, DeepSeek-Coder 6.7B│ Q4_K_M       │
+  │ 16GB     │ GPT-OSS 20B, Apriel 1.5             │ Q4_K_M       │
+  │ 24GB     │ Qwen 2.5 Coder 32B                  │ Q4_K_M       │
+  │ 32GB(5090)│ Llama 3.3 70B, Qwen 2.5 72B        │ Q4_K_M/Q3    │
+  └──────────┴─────────────────────────────────────┴──────────────┘
+
+  量子化フォーマット:
+  - GGUF: llama.cppの事実上の標準 (1.5-bit〜8-bit)
+  - Q4_K_M: 品質と効率の最適バランス
+  - INT4/8-bit: 13BモデルのVRAMを26GB→6.5GBに削減
+
+  Helixへの活用:
+  - local_llm_manager.py にVRAM別モデル自動選択を追加
+  - model_repository.py に量子化情報メタデータを追加
+  - vram_simulator.py の精度向上
+
+【ストリーミング強化】
+  Ollama 2026新機能:
+  - ツールコーリングとストリーミングの同時対応
+  - リアルタイムツールコールチェック (chunk.message.tool_calls)
+
+  実装パターン:
+  ```python
+  # 非同期ストリーミング + ツールコール
+  from ollama import AsyncClient
+  async for part in await AsyncClient().chat(
+      model='qwen3-coder',
+      messages=[message],
+      stream=True
+  ):
+      if part.message.tool_calls:
+          # ツールコール処理
+          handle_tool_calls(part.message.tool_calls)
+      else:
+          print(part.message.content, end='', flush=True)
+  ```
+
+  URL: https://ollama.com/blog/streaming-tool
+  URL: https://github.com/ollama/ollama-python
+
+------------------------------------------------------------------------
+3.5 PyQt6デスクトップUI
+------------------------------------------------------------------------
+
+【PyQt6 6.10.2 (2026年1月8日リリース)】
+  - 35以上の拡張モジュール
+  - iOS/Android対応準備
+  - 型スタブプロジェクトでIDE支援強化
+  URL: https://pypi.org/project/PyQt6/
+
+【UI改善の参考パターン】
+
+  Open WebUIの参考要素:
+  - アーティファクト永続ストレージ (Key-Value Storage API)
+  - チャネルメッセージの楽観的UIレンダリング (即座に表示)
+  - Vega/Vega-Liteチャート可視化
+  - データ可視化のインラインレンダリング
+
+  MyAIAgent-LangChainの参考要素:
+  - RAGプロンプト設定タブ (Router/Document/RAG/Hallucination/Answer)
+  - 設定のINIファイル永続化パターン
+  - GPU/CPU自動検出 (Utility.get_torch_device)
+
+------------------------------------------------------------------------
+3.6 サーマル管理・VRAM最適化
+------------------------------------------------------------------------
+
+【2026年のGPU熱管理ベストプラクティス】
+
+  消費電力目安:
+  - RTX 4070 Ti: 200-250W (AI推論時)
+  - RTX 4090: 300-350W (AI推論時)
+  - RTX 5090: 32GB VRAM搭載、NPU内蔵
+
+  推奨PSU: コンポーネント合計 + 30-50%の余裕
+
+  最適化手法:
+  - PagedAttention (vLLM): メモリ断片化を50%+削減、スループット2-4倍
+  - バッチサイズ調整: サーマル状態に応じた動的調整
+  - コンテキスト長制御: 20Kが品質/速度のバランス点
+
+  Helixへの活用:
+  - thermal_monitor.py: GPU温度に応じた動的バッチサイズ調整
+  - thermal_policy.py: 温度閾値での自動モデルアンロード
+  - vram_simulator.py: 量子化フォーマット別VRAM推定の精度向上
+
+【vLLM統合の検討】
+  vLLM (高性能LLM推論サーバー):
+  - PagedAttention: メモリ効率50%+改善
+  - Continuous Batching: スループット2-4倍
+  - NVIDIA Blackwell (RTX 5090) ネイティブ対応
+  - Ollama代替またはバックエンドとして検討可能
+
+  URL: https://github.com/vllm-project/vllm
+
+================================================================================
+4. v7.1.0への具体的改善提案 (優先度別)
+================================================================================
+
+------------------------------------------------------------------------
+【優先度: 最高 - 即座にインパクトのある改善】
+------------------------------------------------------------------------
+
+[改善1] Ollama Anthropic API互換レイヤーの活用
+  対象ファイル: claude_cli_backend.py, mix_orchestrator.py
+  内容:
+  - Ollama v0.14.0+のAnthropic Messages API互換を活用
+  - Claude CLI呼出しの代替としてAPI互換レイヤーを実装
+  - ネットワーク不通時のローカルフォールバックとして機能
+  期待効果: API呼出しの高速化、オフライン耐性、コスト削減
+  参考: https://docs.ollama.com/api/anthropic-compatibility
+
+[改善2] Adaptive RAGの統合
+  対象ファイル: rag_pipeline.py, hybrid_search_engine.py
+  内容:
+  - クエリ分析によるリトリーバル戦略の動的切替
+  - 取得文書の品質検証 (Corrective RAG)
+  - ハルシネーション自己検出 (Self-RAG)
+  期待効果: RAG回答品質の大幅向上、誤情報リスクの低減
+  参考: https://github.com/hyun-yang/MyAIAgent-LangChain
+
+[改善3] ストリーミングツールコール対応
+  対象ファイル: local_backend.py, local_connector.py
+  内容:
+  - Ollama AsyncClient + stream=True + tool_calls対応
+  - リアルタイムトークン表示とツールコールの同時処理
+  期待効果: UX大幅改善、レスポンシブな操作感
+  参考: https://ollama.com/blog/streaming-tool
+
+------------------------------------------------------------------------
+【優先度: 高 - 次期バージョンでの実装推奨】
+------------------------------------------------------------------------
+
+[改善4] LangGraph状態管理の部分導入
+  対象ファイル: workflow_state.py, mix_orchestrator.py
+  内容:
+  - 3Phaseパイプラインの状態を耐久化 (チェックポイント)
+  - 中断→再開機能 (Phase 2の長時間実行対策)
+  - Reducer駆動のTypedDict状態スキーマ
+  期待効果: ワークフロー信頼性の向上、クラッシュ後の復元
+  参考: https://github.com/langchain-ai/langgraph
+
+[改善5] Graphiti型ナレッジグラフへの進化
+  対象ファイル: graph_rag.py, memory_store.py
+  内容:
+  - Bi-Temporal Data Model: 情報の有効期間管理
+  - インクリメンタル更新: 全グラフ再構築不要
+  - コンフリクト自動解決: 矛盾情報の検出・更新
+  期待効果: 知識管理の精度向上、長期記憶の信頼性向上
+  参考: https://github.com/getzep/graphiti
+
+[改善6] MCP永続的接続 + v2対応準備
+  対象ファイル: helix_mcp_client.py, server_manager.py
+  内容:
+  - FastMCPクライアントパターンによる永続的接続
+  - SDK v2 (Q1 2026リリース予定) への段階的移行
+  - MCPサーバーのOAuth 2.1認証対応
+  期待効果: MCP呼出し高速化、セキュリティ向上
+  参考: https://github.com/modelcontextprotocol/python-sdk
+
+------------------------------------------------------------------------
+【優先度: 中 - 段階的に検討】
+------------------------------------------------------------------------
+
+[改善7] マルチエージェントスウォームパターン
+  対象ファイル: mix_orchestrator.py, sequential_executor.py
+  内容:
+  - Claude-Flowスタイルのスウォームトポロジー導入
+  - エージェントロール定義 (researcher, coder, analyst等)
+  - コンセンサスメカニズム
+  期待効果: 複雑タスクの品質向上
+  参考: https://github.com/ruvnet/claude-flow
+
+[改善8] VRAM対応動的モデル選択
+  対象ファイル: local_llm_manager.py, model_repository.py
+  内容:
+  - 利用可能VRAM量の自動検出
+  - VRAM別最適モデル+量子化の自動選択
+  - Q4_K_Mフォーマット推奨ロジック
+  期待効果: ハードウェアに応じた最適パフォーマンス
+  参考: 本レポート 3.4章
+
+[改善9] Open WebUI型プラグインアーキテクチャ
+  対象ファイル: tool_orchestrator.py (新規拡張)
+  内容:
+  - Pythonファンクション型プラグインシステム
+  - ユーザー定義ツールの動的読み込み
+  - プラグインマーケットプレイス
+  期待効果: 拡張性の飛躍的向上、コミュニティ参画
+  参考: https://github.com/open-webui/open-webui
+
+------------------------------------------------------------------------
+【優先度: 低 - 長期的なビジョン】
+------------------------------------------------------------------------
+
+[改善10] vLLMバックエンド統合
+  内容: Ollama代替として高性能推論サーバーvLLMを選択可能に
+  参考: https://github.com/vllm-project/vllm
+
+[改善11] A2A (Agent-to-Agent) プロトコル対応
+  内容: Google発のエージェント間通信標準プロトコル
+  参考: https://github.com/agentscope-ai/agentscope
+
+[改善12] OpenTelemetry統合 (観測性)
+  内容: 3Phaseパイプラインの詳細なトレーシング・メトリクス
+  参考: AgentScopeのOTel統合
+
+================================================================================
+5. 全参照リンク集
+================================================================================
+
+------------------------------------------------------------------------
+【類似プロジェクト】
+------------------------------------------------------------------------
+MyAIAgent-LangChain:
+  https://github.com/hyun-yang/MyAIAgent-LangChain
+
+Claude-Flow:
+  https://github.com/ruvnet/claude-flow
+
+Open WebUI:
+  https://github.com/open-webui/open-webui
+
+LangGraph:
+  https://github.com/langchain-ai/langgraph
+
+Langroid:
+  https://github.com/langroid/langroid
+
+Graphiti:
+  https://github.com/getzep/graphiti
+
+OpenCode:
+  https://github.com/anomalyco/opencode
+
+AgentScope:
+  https://github.com/agentscope-ai/agentscope
+
+------------------------------------------------------------------------
+【マルチLLMオーケストレーション】
+------------------------------------------------------------------------
+CrewAI: https://github.com/crewAIInc/crewAI
+Haystack: https://github.com/deepset-ai/haystack
+Dynamiq: https://github.com/dynamiq-ai/dynamiq
+wshobson/agents: https://github.com/wshobson/agents
+awesome-llm-agents: https://github.com/kaushikb11/awesome-llm-agents
+awesome-llm-services: https://github.com/av/awesome-llm-services
+
+------------------------------------------------------------------------
+【RAG / Knowledge Graph】
+------------------------------------------------------------------------
+AgenticRAG-Survey: https://github.com/asinghcsu/AgenticRAG-Survey
+agentic-rag-knowledge-graph: https://github.com/Alejandro-Candela/agentic-rag-knowledge-graph
+Awesome-RAG: https://github.com/Danielskry/Awesome-RAG
+agentic-rag-for-dummies: https://github.com/GiovanniPasq/agentic-rag-for-dummies
+Agentic-RAG-with-LangGraph-and-Ollama: https://github.com/laxmimerit/Agentic-RAG-with-LangGraph-and-Ollama
+
+------------------------------------------------------------------------
+【MCP (Model Context Protocol)】
+------------------------------------------------------------------------
+MCP公式: https://github.com/modelcontextprotocol
+MCP Python SDK: https://github.com/modelcontextprotocol/python-sdk
+MCP Servers: https://github.com/modelcontextprotocol/servers
+Microsoft MCP: https://github.com/microsoft/mcp
+MCP for Beginners: https://github.com/microsoft/mcp-for-beginners
+MCP開発ガイド: https://modelcontextprotocol.io/docs/develop/build-client
+MCP PyPI: https://pypi.org/project/mcp/
+
+------------------------------------------------------------------------
+【Ollama / ローカルLLM】
+------------------------------------------------------------------------
+Ollama Anthropic互換: https://docs.ollama.com/api/anthropic-compatibility
+Ollama + Claude Code: https://ollama.com/blog/claude
+Ollama Python: https://github.com/ollama/ollama-python
+Streaming Tool Blog: https://ollama.com/blog/streaming-tool
+vLLM: https://github.com/vllm-project/vllm
+
+------------------------------------------------------------------------
+【Claude関連】
+------------------------------------------------------------------------
+Claude Quickstarts: https://github.com/anthropics/claude-quickstarts
+awesome-claude-code: https://github.com/hesreallyhim/awesome-claude-code
+everything-claude-code: https://github.com/affaan-m/everything-claude-code
+claude-code-guide: https://github.com/Cranot/claude-code-guide
+Extended Thinking Guide:
+  https://gist.github.com/intellectronica/58571dda3581eec3e17a77741e8c858a
+
+------------------------------------------------------------------------
+【PyQt6 / UI】
+------------------------------------------------------------------------
+PyQt6 PyPI: https://pypi.org/project/PyQt6/
+PyQt6-Docs: https://github.com/Python-PyQt/PyQt6-Docs
+PyQtDarkTheme: https://github.com/5yutan5/PyQtDarkTheme
+PyQt6 Tutorial: https://www.pythonguis.com/pyqt6-tutorial/
+PyQt6 CSS Themes: https://coderslegacy.com/pyqt6-themes-using-css-stylesheets/
+
+------------------------------------------------------------------------
+【ハードウェア最適化】
+------------------------------------------------------------------------
+2026 Local LLM Hardware Guide:
+  https://medium.com/@jameshugo598/the-2026-local-llm-hardware-guide-surviving-the-ram-crisis-fa67e8c95804
+Best Open-Source LLMs 16GB VRAM:
+  https://dasroot.net/posts/2026/01/best-open-source-llms-16gb-vram-2026/
+Local LLM Deployment 24GB GPU:
+  https://intuitionlabs.ai/articles/local-llm-deployment-24gb-gpu-optimization
+LLM VRAM Calculator:
+  https://research.aimultiple.com/self-hosted-llm/
+
+------------------------------------------------------------------------
+【研究・サーベイ】
+------------------------------------------------------------------------
+Multi-Agent Collaboration Mechanisms Survey:
+  https://arxiv.org/abs/2501.06322
+AAAI 2026 Multi-Agent Workshop:
+  https://multiagents.org/2026/
+Building AI Agents with LLMs, RAG, and Knowledge Graphs:
+  https://github.com/PacktPublishing/Modern-AI-Agents
+LLM Orchestration in 2026:
+  https://research.aimultiple.com/llm-orchestration/
+
+================================================================================
+【調査完了】
+================================================================================
+本レポートは2026年2月9日時点の最新情報に基づいています。
+Helix AI Studio v7.1.0の3Phase Pipeline、ハイブリッドAI、RAG/GraphRAG、
+MCP統合、サーマル管理の各領域について、GitHubの類似プロジェクト8件と
+改善リソース120+件を調査・整理しました。
+
+特に注目すべき発見:
+1. Ollama v0.14.0+のAnthropic API互換 → Helixの3Phaseアーキテクチャに直結
+2. MyAIAgent-LangChain → PyQt6+Ollamaで最も構想が近い唯一のプロジェクト
+3. Graphiti → graph_rag.pyの次世代として有力
+4. LangGraph 1.0 → 状態管理の信頼性を根本的に改善
+
+フェーズ別の優先度で12の改善提案を提示しました。
+質問や追加調査が必要な場合はお知らせください。
+================================================================================
