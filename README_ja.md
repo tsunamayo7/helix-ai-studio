@@ -3,8 +3,8 @@
 
 # Helix AI Studio
 
-**Claude中忁E�EマルチモチE��オーケストレーション チE��クトップアプリ (Windows)**
-Claude Code CLIを「頭脳」、ローカルLLM�E�Ellama�E�を「専門チ�Eム」として配置  ECyberpunk Minimal GUIで統合、E
+**Claude中心のマルチモデルオーケストレーション デスクトップアプリ (Windows)**
+Claude Code CLIを「頭脳」、ローカルLLM（Ollama）を「専門チーム」として配置 — Cyberpunk Minimal GUIで統合。
 
 ![Version](https://img.shields.io/badge/version-8.4.2-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
@@ -13,63 +13,71 @@ Claude Code CLIを「頭脳」、ローカルLLM�E�Ellama�E�を「専門チ�E�
 
 > English README: [README.md](README.md)
 
-> 🧩 **目皁E*: クラウドAI�E�Elaude�E��E強みを活かしながら、ローカルLLMの得意刁E���E�軽量推論、常駐�E琁E��機寁E�E離�E�を併用して、回答品質と再現性を底上げする、E
+> 🧩 **目的**: クラウドAI（Claude）の強みを活かしながら、ローカルLLMの得意分野（軽量推論、常駐・監視機能）を分離・併用して、回答品質と再現性を底上げする。
 
 ---
 
-## 動作概要E
+## 動作概要
 
-Helix AI Studioは **3Phaseパイプライン** で動作しまぁE
+Helix AI Studioは **3Phaseパイプライン** で動作します：
 
-1. **Phase 1 (Claude Code CLI)**  E設計�E极EↁE吁E��ーカルモチE��への構造化指示書を生戁E
-2. **Phase 2 (ローカルLLMチ�Eム / Ollama, 頁E��実衁E**  E専門カチE��リ別に実衁E(coding / research / reasoning / translation / vision)
-3. **Phase 3 (Claude Code CLI)**  E統合�EAcceptance Criteria (PASS/FAIL) で検証・最終回答を生�E
+1. **Phase 1 (Claude Code CLI)** — 設計分析 → 各ローカルモデルへの構造化指示書を生成
+2. **Phase 2 (ローカルLLMチーム / Ollama, 順次実行)** — 専門カテゴリ別に実行 (coding / research / reasoning / translation / vision)
+3. **Phase 3 (Claude Code CLI)** — 統合、Acceptance Criteria (PASS/FAIL) で検証・最終回答を生成
 
-こ�Eアプローチ�E、褁E��の視点を統合することで回答品質を向上させつつ、E*VRAM雁E��E��の120BクラスモチE��**�E�頁E��実行）にも対応します、E
+このアプローチは、複数の視点を統合することで回答品質を向上させつつ、**VRAM負荷の高い120Bクラスモデル**（順次実行）にも対応します。
 
 ---
 
-## 主な機�E (v8.4.2 "Contextual Intelligence")
+## 主な機能 (v8.4.2 "Contextual Intelligence")
 
 ### オーケストレーション
-- **3Phaseパイプライン**: Claude計画 ↁEローカルチ�Eム実衁EↁEClaude統合�E検証
+- **3Phaseパイプライン**: Claude計画 → ローカルチーム実行 → Claude統合・検証
 - **構造化Phase 1**: design_analysis + acceptance_criteria + expected_output_format
-- **Phase 3でのAcceptance Criteria評価** (PASS/FAILチェチE��リスチE
-- **品質ルーチE*: 設定可能なPhase 2リトライ上限 (`max_phase2_retries`)
-- **Neural Flow / Phase進捗可視化** (パイプラインの透�E性)
+- **Phase 3でのAcceptance Criteria評価** (PASS/FAILチェックリスト)
+- **品質ループ**: 設定可能なPhase 2リトライ上限 (`max_phase2_retries`)
+- **Neural Flow / Phase進捗可視化** (パイプラインの透明性)
 
-### ローカルLLMチ�Eム (Ollama)
-- **5つの専門カチE��リ**: coding / research / reasoning / translation / vision
-- **SequentialExecutor**: 大型モチE��用 (ローチEↁE実衁EↁEアンローチE
-- **常駐モチE��**: 制御AI + EmbeddingモチE��を小型GPU固宁E(任愁E
+### ローカルLLMチーム (Ollama)
+- **5つの専門カテゴリ**: coding / research / reasoning / translation / vision
+- **SequentialExecutor**: 大型モデル用 (ロード → 実行 → アンロード)
+- **常駐モデル**: 制御AI + Embeddingモデルを小型GPU固定 (任意)
 
-### メモリ・ナレチE�� (Adaptive / Living Memory)
+### メモリ・ナレッジ (Adaptive / Living Memory)
 - **4層メモリ**: Thread / Episodic / Semantic / Procedural
-- **Memory Risk Gate**: 常駐LLMが記�E候補を品質判宁E(ADD/UPDATE/DEPRECATE/SKIP)
-- **RAPTOR多段要紁E* (session ↁEweekly) でスケーラブルな長期コンチE��スチE
-- **Temporal KGエチE��** + **GraphRAGコミュニティ要紁E*
-- **防御皁E���E注入** (保存済み記�Eからのプロンプトインジェクションを防止するガードテキスチE
+- **Memory Risk Gate**: 常駐LLMが記憶候補を品質判定 (ADD/UPDATE/DEPRECATE/SKIP)
+- **RAPTOR多段要約** (session → weekly) でスケーラブルな長期コンテキスト
+- **Temporal KGエッジ** + **GraphRAGコミュニティ要約**
+- **防御的メモリ注入** (保存済み記憶からのプロンプトインジェクションを防止するガードテキスト)
 
-### "BIBLE-first" ドキュメントシスチE��
-- **BIBLE Manager**: 自動検�E ↁEパ�Eス ↁEPhase 1/3注入 ↁEライフサイクル管琁E
-- 現在のBIBLEの完�E性スコア・セクション数を表示
+### "BIBLE-first" ドキュメントシステム
+- **BIBLE Manager**: 自動検出 → パース → Phase 1/3注入 → ライフサイクル管理
+- 現在のBIBLEの完全性スコア・セクション数を表示
 
-### UX / チE��クトップアプリ
-- Cyberpunk MinimalなチE��イン、一貫したスタイルとチE�Eルチップ（セルフドキュメンチE��ングUI�E�E
-- ファイル添仁E/ クリチE�Eボ�Eドインポ�EチE/ スポットアクション / チE�Eル実行ログ
+### UX / デスクトップアプリ
+- Cyberpunk Minimalなデザイン、一貫したスタイルとツールチップ（セルフドキュメンティングUI）
+- ファイル添付 / クリップボードインポート / スポットアクション / ツール実行ログ
 - **VRAM Budget Simulator**
-- **GPUモニター** (タイムライン + 記録機�E)
+- **GPUモニター** (タイムライン + 記録機能)
 
-### MCP (Model Context Protocol) サポ�EチE
-- MCPサーバ�E管琁E(filesystem / git / web search コネクタ筁E
-- MCPの使用には注意が忁E��です。サードパーチE��MCPサーバ�Eはプロンプトインジェクションのリスクがあります、E
-  詳細は公式MCPドキュメントを参�Eしてください、E
+### MCP (Model Context Protocol) サポート
+- MCPサーバー管理 (filesystem / git / web search コネクタ等)
+- MCPの使用には注意が必要です。サードパーティMCPサーバーはプロンプトインジェクションのリスクがあります。
+  詳細は公式MCPドキュメントを参照してください。
 
 ---
 
-## スクリーンショチE��
+## デモ
 
-> `docs/screenshots/` にスクリーンショチE��を�E置し、以下�Eパスを更新してください、E
+### mixAI — 3Phaseパイプライン (Claude → ローカルLLM → Claude)
+![mixAI デモ](docs/screenshots/mixai_demo.gif)
+
+### soloAI — Claude CLI直接実行
+![soloAI デモ](docs/screenshots/soloai_demo.gif)
+
+---
+
+## スクリーンショット
 
 | mixAI Chat | mixAI Settings | soloAI Chat | General Settings |
 |---|---|---|---|
@@ -77,21 +85,21 @@ Helix AI Studioは **3Phaseパイプライン** で動作しまぁE
 
 ---
 
-## クイチE��スターチE
+## クイックスタート
 
 ### 前提条件
 - Windows 10/11
 - Python 3.12+
 - NVIDIA GPU (CUDA) 推奨
-- **Ollama** がローカルで動作してぁE��こと (チE��ォルチEPI: `http://localhost:11434/api`)
+- **Ollama** がローカルで動作していること (デフォルトAPI: `http://localhost:11434/api`)
 - **Claude Code CLI** (Node.js 18+)
 
-公式ドキュメンチE
-- Claude Code CLI 概要E https://docs.claude.com/en/docs/claude-code/overview
+公式ドキュメント:
+- Claude Code CLI 概要: https://docs.claude.com/en/docs/claude-code/overview
 - Ollama API 入門: https://docs.ollama.com/api/introduction
-- MCP ドキュメンチE https://docs.anthropic.com/en/docs/mcp
+- MCP ドキュメント: https://docs.anthropic.com/en/docs/mcp
 
-### インスト�Eル
+### インストール
 
 ```bash
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
@@ -99,25 +107,25 @@ cd helix-ai-studio
 
 pip install -r requirements.txt
 
-# Claude Code CLI のインスト�Eル (Node.js 18+)
+# Claude Code CLI のインストール (Node.js 18+)
 npm install -g @anthropic-ai/claude-code
 
-# (任愁E Phase 2用のローカルモチE��をOllamaでプル
+# (任意) Phase 2用のローカルモデルをOllamaでプル
 ollama pull devstral-2:123b
 ollama pull command-a:111b
 ollama pull gpt-oss:120b
 ollama pull translategemma:27b
 ollama pull gemma3:27b
 
-# 常駐モチE�� (任愁E
+# 常駐モデル (任意)
 ollama pull ministral-3:8b
 ollama pull qwen3-embedding:4b
 
-# アプリ起勁E
+# アプリ起動
 python HelixAIStudio.py
 ````
 
-### スタンドアロン実行ファイルのビルチE(Windows)
+### スタンドアロン実行ファイルのビルド (Windows)
 
 ```bash
 pip install pyinstaller
@@ -127,7 +135,7 @@ pyinstaller HelixAIStudio.spec --noconfirm
 
 ---
 
-## アーキチE��チャ
+## アーキテクチャ
 
 ```mermaid
 graph LR
@@ -146,28 +154,28 @@ graph LR
 
 ---
 
-## セキュリチE��・プライバシーにつぁE��
+## セキュリティ・プライバシーについて
 
-* Helixは **ローカルLLM** (Ollama) でPhase 2の機寁E��ークフローを実行可能です、E
-* **MCPチE�Eル**を有効にする際�E、サードパーチE��サーバ�Eに注意してください。監査しなぁE��り信頼しなぁE��ください、E
-* ファイルシスチE�� / git / ネットワークチE�Eルには、許可リスト�E確認�Eスコープ制限を推奨します、E
+* Helixは **ローカルLLM** (Ollama) でPhase 2の機密ワークフローを実行可能です。
+* **MCPツール**を有効にする際は、サードパーティサーバーに注意してください。監査しない限り信頼しないでください。
+* ファイルシステム / git / ネットワークツールには、許可リスト・確認・スコープ制限を推奨します。
 
 ---
 
-## 技術スタチE��
+## 技術スタック
 
-| コンポ�EネンチE| 技衁E|
+| コンポーネント | 技術 |
 | -------------- | ---- |
 | GUI | PyQt6 |
 | Claude | Claude Code CLI (`claude`) |
 | ローカルLLM | Ollama API (`http://localhost:11434/api`) |
-| メモリ・ナレチE�� | SQLite + ベクトル埋め込み + グラフユーチE��リチE�� |
-| ビルチE| PyInstaller |
-| チE��イン | Cyberpunk Minimal |
+| メモリ・ナレッジ | SQLite + ベクトル埋め込み + グラフユーティリティ |
+| ビルド | PyInstaller |
+| デザイン | Cyberpunk Minimal |
 
 ---
 
-## プロジェクト構�E (概要E
+## プロジェクト構成 (概要)
 
 ```
 src/
@@ -176,7 +184,7 @@ src/
   widgets/           # Neural Flow, VRAM simulator, GPU monitor
   bible/             # BIBLE discovery/parser/panel
   memory/            # 4層メモリ, risk gate, RAPTOR/GraphRAG
-  mcp/               # MCP統吁E/ サーバ�E管琁E
+  mcp/               # MCP統合 / サーバー管理
   security/          # approvals / safety gates
   utils/             # constants, diagnostics
 config/
@@ -191,21 +199,18 @@ MIT (詳細は LICENSE を参照)
 
 ## 変更履歴
 
-[CHANGELOG.md](CHANGELOG.md) に詳細なバ�Eジョン履歴を記載してぁE��す、E
+[CHANGELOG.md](CHANGELOG.md) に詳細なバージョン履歴を記載しています。
 
 ---
 
-## コントリビューチE
+## コントリビュート
 
-コントリビュートを歓迎しまぁE PRを提出する前に [CONTRIBUTING.md](CONTRIBUTING.md) をお読みください、E
+コントリビュートを歓迎します！ PRを提出する前に [CONTRIBUTING.md](CONTRIBUTING.md) をお読みください。
 
-## セキュリチE��
+## セキュリティ
 
-セキュリチE��脁E��性につぁE��は [SECURITY.md](SECURITY.md) を参照してください、E
+セキュリティ脆弱性については [SECURITY.md](SECURITY.md) を参照してください。
 
 ---
 
-## AI支援につぁE���E�任意で開示�E�E
-
-本プロジェクト�E、設計�E実裁E�Eドキュメント�E一部に生�EAI�E�Elaude等）を活用してぁE��す、E
-ただし、E*最終的な意思決定�E統合�E検証は人間が行う** ことを前提としてぁE��す、E
+> 🤖 **AI支援について**: このプロジェクトの開発・ドキュメント作成にはAIツール（Claude）を活用しています。最終的な設計判断・検証・品質管理は開発者が責任を持って行っています。

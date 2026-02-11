@@ -4,7 +4,7 @@
 # Helix AI Studio
 
 **Claude-centric multi-model orchestration desktop app (Windows)**  
-Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers  Eunified in a Cyberpunk Minimal GUI.
+Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI.
 
 ![Version](https://img.shields.io/badge/version-8.4.2-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
@@ -19,18 +19,18 @@ Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers  Euni
 
 Helix AI Studio runs a **3-Phase pipeline**:
 
-1. **Phase 1 (Claude Code CLI)**  Edesign analysis ↁEstructured instructions for each local model
-2. **Phase 2 (Local LLM team via Ollama, sequential)**  Especialized execution (coding / research / reasoning / translation / vision)
-3. **Phase 3 (Claude Code CLI)**  Eintegrate, validate with Acceptance Criteria (PASS/FAIL), produce final output
+1. **Phase 1 (Claude Code CLI)** — design analysis → structured instructions for each local model
+2. **Phase 2 (Local LLM team via Ollama, sequential)** — specialized execution (coding / research / reasoning / translation / vision)
+3. **Phase 3 (Claude Code CLI)** — integrate, validate with Acceptance Criteria (PASS/FAIL), produce final output
 
 This approach improves answer quality by combining multiple viewpoints while staying practical for **VRAM-heavy 120B-class models** (run sequentially).
 
 ---
 
-## Key Features (v8.4.2 “Contextual Intelligence E
+## Key Features (v8.4.2 "Contextual Intelligence")
 
 ### Orchestration
-- **3-Phase Pipeline**: Claude plans ↁElocal team executes ↁEClaude integrates & validates
+- **3-Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates
 - **Structured Phase 1**: design_analysis + acceptance_criteria + expected_output_format
 - **Acceptance Criteria evaluation in Phase 3** (PASS/FAIL checklist)
 - **Quality loop**: configurable Phase-2 retry cap (`max_phase2_retries`)
@@ -38,18 +38,18 @@ This approach improves answer quality by combining multiple viewpoints while sta
 
 ### Local LLM Team (Ollama)
 - **5 specialized categories**: coding / research / reasoning / translation / vision
-- **SequentialExecutor** for large models (load ↁErun ↁEunload)
+- **SequentialExecutor** for large models (load → run → unload)
 - **Resident models**: Control AI + Embedding model pinned to smaller GPU (optional)
 
 ### Memory & Knowledge (Adaptive / Living Memory)
 - **4-layer memory**: Thread / Episodic / Semantic / Procedural
 - **Memory Risk Gate**: resident LLM quality-checks memory candidates (ADD/UPDATE/DEPRECATE/SKIP)
-- **RAPTOR multi-level summaries** (session ↁEweekly) for scalable long-term context
+- **RAPTOR multi-level summaries** (session → weekly) for scalable long-term context
 - **Temporal KG edges** + **GraphRAG community summaries**
 - **Defensive memory injection** (guard text to reduce prompt injection via stored memory)
 
-### “BIBLE-first EDocumentation System
-- **BIBLE Manager**: auto-discover ↁEparse ↁEinject into Phase 1/3 ↁElifecycle management
+### "BIBLE-first" Documentation System
+- **BIBLE Manager**: auto-discover → parse → inject into Phase 1/3 → lifecycle management
 - Completeness score & section count for your current BIBLE
 
 ### UX / Desktop App
@@ -65,9 +65,17 @@ This approach improves answer quality by combining multiple viewpoints while sta
 
 ---
 
-## Screenshots
+## Demo
 
-> Put screenshots under `docs/screenshots/` and update paths below.
+### mixAI — 3-Phase Pipeline (Claude → Local LLMs → Claude)
+![mixAI Demo](docs/screenshots/mixai_demo.gif)
+
+### soloAI — Direct Claude CLI
+![soloAI Demo](docs/screenshots/soloai_demo.gif)
+
+---
+
+## Screenshots
 
 | mixAI Chat | mixAI Settings | soloAI Chat | General Settings |
 |---|---|---|---|
