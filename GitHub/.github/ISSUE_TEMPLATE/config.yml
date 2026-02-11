@@ -1,8 +1,0 @@
-blank_issues_enabled: true
-contact_links:
-  - name: Discussions
-    url: https://github.com/tsunamayo7/helix-ai-studio/discussions
-    about: Questions, ideas, and general discussions
-  - name: Security Vulnerability
-    url: https://github.com/tsunamayo7/helix-ai-studio/security/advisories/new
-    about: Report a security vulnerability privately

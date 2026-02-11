@@ -52,3 +52,9 @@ node_modules/
 *.orig
 
 nul
+# Personal/development files
+.claude/
+èCê≥/
+ê¨â ïi/
+BIBLE/
+GitHub/
