@@ -552,10 +552,40 @@ class RAGBuilder(QThread):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id INTEGER REFERENCES documents(id),
                 semantic_node_id INTEGER REFERENCES semantic_nodes(id),
-                relation_type TEXT DEFAULT 'extracted_from',
+                link_type TEXT DEFAULT 'extracted',
+                confidence REAL DEFAULT 1.0,
                 UNIQUE(document_id, semantic_node_id)
             )
         """)
+
+        # マイグレーション: 旧スキーマ(relation_type)から新スキーマ(link_type/confidence)へ
+        try:
+            cols = [row[1] for row in c.execute(
+                "PRAGMA table_info(document_semantic_links)"
+            ).fetchall()]
+            if "relation_type" in cols and "link_type" not in cols:
+                logger.info("Migrating document_semantic_links: relation_type -> link_type/confidence")
+                c.execute("ALTER TABLE document_semantic_links RENAME TO _dsl_old")
+                c.execute("""
+                    CREATE TABLE document_semantic_links (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        document_id INTEGER REFERENCES documents(id),
+                        semantic_node_id INTEGER REFERENCES semantic_nodes(id),
+                        link_type TEXT DEFAULT 'extracted',
+                        confidence REAL DEFAULT 1.0,
+                        UNIQUE(document_id, semantic_node_id)
+                    )
+                """)
+                c.execute("""
+                    INSERT OR IGNORE INTO document_semantic_links
+                        (document_id, semantic_node_id, link_type, confidence)
+                    SELECT document_id, semantic_node_id, relation_type, 1.0
+                    FROM _dsl_old
+                """)
+                c.execute("DROP TABLE _dsl_old")
+                logger.info("Migration complete: document_semantic_links")
+        except Exception as e:
+            logger.debug(f"document_semantic_links migration check: {e}")
 
         # インデックス
         c.execute("CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source_file)")

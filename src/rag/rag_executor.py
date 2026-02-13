@@ -334,8 +334,10 @@ JSON形式で出力:
                     break
 
             except json.JSONDecodeError as e:
+                raw_text = resp.text[:200] if 'resp' in dir() else "(response unavailable)"
                 logger.warning(
-                    f"KG生成のJSON解析エラー (chunk {i}): {e}"
+                    f"KG生成のJSON解析エラー (chunk {i}): {e}\n"
+                    f"  raw response (先頭200字): {raw_text}"
                 )
                 failed_count += 1
                 consecutive_failures = 0
@@ -907,8 +909,8 @@ JSON形式で出力:
                         try:
                             conn.execute(
                                 "INSERT OR IGNORE INTO document_semantic_links "
-                                "(document_id, semantic_node_id, relation_type) "
-                                "VALUES (?, ?, 'extracted_from')",
+                                "(document_id, semantic_node_id, link_type, confidence) "
+                                "VALUES (?, ?, 'extracted', 1.0)",
                                 (doc_id, node_id)
                             )
                         except Exception as e:
