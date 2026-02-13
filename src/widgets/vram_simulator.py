@@ -14,9 +14,10 @@ v6.3.0: GPU動的検出機能追加、実際のハードウェア構成を自動
 """
 
 import logging
-import subprocess
 import os
 from typing import Optional, Dict, Any, List, Tuple
+
+from ..utils.subprocess_utils import run_hidden
 from dataclasses import dataclass
 from enum import Enum
 
@@ -163,16 +164,11 @@ def detect_gpus() -> List[GPUInfo]:
             "--query-gpu=index,name,memory.total",
             "--format=csv,noheader,nounits"
         ]
-        creationflags = 0
-        if os.name == 'nt':
-            creationflags = subprocess.CREATE_NO_WINDOW
-
-        result = subprocess.run(
+        result = run_hidden(
             cmd,
             capture_output=True,
             text=True,
             timeout=10,
-            creationflags=creationflags,
         )
 
         if result.returncode == 0:

@@ -17,6 +17,8 @@ import subprocess
 import shutil
 import os
 from typing import Optional, Dict, Any, List
+
+from ..utils.subprocess_utils import run_hidden
 from pathlib import Path
 from datetime import datetime
 
@@ -643,11 +645,6 @@ class MixAIWorker(QThread):
                     "error": "Claude CLIが見つかりません。Claude Codeをインストールしてください。",
                 }
 
-            # Claude CLIを実行
-            creationflags = 0
-            if os.name == 'nt':
-                creationflags = subprocess.CREATE_NO_WINDOW
-
             # プロンプトをファイル経由で渡す（長いプロンプト対応）
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
@@ -656,12 +653,11 @@ class MixAIWorker(QThread):
 
             try:
                 # v5.0.0: Claude CLI実行（--dangerously-skip-permissions で自動許可）
-                result = subprocess.run(
+                result = run_hidden(
                     [claude_cmd, "-p", "--dangerously-skip-permissions", prompt],
                     capture_output=True,
                     text=True,
                     timeout=timeout_seconds,
-                    creationflags=creationflags,
                     encoding='utf-8',
                     errors='replace',
                 )
@@ -2803,10 +2799,9 @@ class HelixOrchestratorTab(QWidget):
                 return
 
             # claude mcp list でMCPサーバー一覧を取得
-            result = subprocess.run(
+            result = run_hidden(
                 [claude_cmd, "mcp", "list"],
                 capture_output=True, text=True, timeout=10,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0,
             )
 
             if result.returncode == 0 and result.stdout.strip():
@@ -2963,18 +2958,13 @@ class HelixOrchestratorTab(QWidget):
             if nvidia_smi is None:
                 return
 
-            creationflags = 0
-            if os.name == 'nt':
-                creationflags = subprocess.CREATE_NO_WINDOW
-
-            result = subprocess.run(
+            result = run_hidden(
                 [nvidia_smi,
                  "--query-gpu=index,memory.used,memory.total",
                  "--format=csv,noheader,nounits"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                creationflags=creationflags,
             )
 
             if result.returncode != 0:
@@ -3095,19 +3085,13 @@ class HelixOrchestratorTab(QWidget):
                 self.gpu_info_label.setStyleSheet("color: #9ca3af;")
                 return
 
-            # CREATE_NO_WINDOW フラグでコンソール非表示（Windows）
-            creationflags = 0
-            if os.name == 'nt':
-                creationflags = subprocess.CREATE_NO_WINDOW
-
-            result = subprocess.run(
+            result = run_hidden(
                 [nvidia_smi,
                  "--query-gpu=index,name,memory.used,memory.total,utilization.gpu",
                  "--format=csv,noheader,nounits"],
                 capture_output=True,
                 text=True,
                 timeout=10,
-                creationflags=creationflags,
             )
 
             if result.returncode != 0:

@@ -136,6 +136,8 @@ a = Analysis(
         'src.rag.document_cleanup',
         'src.rag.diff_detector',
         'src.rag.time_estimator',
+        # v8.5.0 Patch 2: subprocess非表示ユーティリティ
+        'src.utils.subprocess_utils',
     ],
     hookspath=[],
     hooksconfig={},

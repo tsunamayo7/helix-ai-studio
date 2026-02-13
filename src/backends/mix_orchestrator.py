@@ -17,6 +17,8 @@ import subprocess
 import json
 import os
 import time
+
+from ..utils.subprocess_utils import run_hidden
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -787,12 +789,7 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
 
         try:
-            # Windows用の処理
-            creationflags = 0
-            if os.name == 'nt':
-                creationflags = subprocess.CREATE_NO_WINDOW
-
-            result = subprocess.run(
+            result = run_hidden(
                 cmd,
                 input=prompt,
                 capture_output=True,
@@ -801,7 +798,6 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
                 errors='replace',
                 timeout=self.config.get("timeout", 600),
                 env={**os.environ, "FORCE_COLOR": "0", "PYTHONIOENCODING": "utf-8"},
-                creationflags=creationflags,
                 cwd=run_cwd,
             )
 

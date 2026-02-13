@@ -25,14 +25,9 @@ from typing import Optional, List, Callable
 import logging
 
 from .base import LLMBackend, BackendRequest, BackendResponse
+from ..utils.subprocess_utils import run_hidden, popen_hidden
 
 logger = logging.getLogger(__name__)
-
-# Windows: コンソールウィンドウを非表示にするフラグ
-if sys.platform == 'win32':
-    CREATE_NO_WINDOW = subprocess.CREATE_NO_WINDOW
-else:
-    CREATE_NO_WINDOW = 0
 
 
 def find_claude_command() -> str:
@@ -75,12 +70,11 @@ def check_claude_cli_available() -> tuple[bool, str]:
     claude_cmd = find_claude_command()
 
     try:
-        result = subprocess.run(
+        result = run_hidden(
             [claude_cmd, '--version'],
             capture_output=True,
             text=True,
             timeout=10,
-            creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
         )
         if result.returncode == 0:
             version = result.stdout.strip()
@@ -318,7 +312,7 @@ class ClaudeCLIBackend(LLMBackend):
             # プロセス実行
             with self._process_lock:
                 self._stop_requested = False
-                self._current_process = subprocess.Popen(
+                self._current_process = popen_hidden(
                     cmd,
                     cwd=self._working_dir,
                     stdin=subprocess.PIPE,
@@ -327,7 +321,6 @@ class ClaudeCLIBackend(LLMBackend):
                     text=True,
                     encoding='utf-8',
                     errors='replace',
-                    creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
                 )
 
             # 出力収集用リスト

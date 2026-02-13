@@ -10,11 +10,12 @@ v2.4.0 更新 (2026-01-24):
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Callable
 from enum import Enum
-import subprocess
 import shlex
 import json
 import logging
 from pathlib import Path
+
+from ..utils.subprocess_utils import run_hidden
 
 logger = logging.getLogger(__name__)
 
@@ -175,7 +176,7 @@ class MCPServerManager:
 
         info = self.AVAILABLE_SERVERS[name]
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 ['npx', '-y', f'@anthropic/mcp-server-{name}', '--version'],
                 capture_output=True,
                 text=True,
@@ -211,7 +212,7 @@ class MCPServerManager:
 
         try:
             # shlex.split()でコマンドインジェクション対策
-            result = subprocess.run(
+            result = run_hidden(
                 shlex.split(install_cmd),
                 capture_output=True,
                 text=True,

@@ -309,7 +309,7 @@ class RAGBuilder(QThread):
                 self._finish(False, "ユーザーにより中止されました")
                 return
 
-            kg_model = "command-a:111b"
+            kg_model = "command-a:latest"
             for step in steps:
                 if "Semantic" in step.get("name", "") or "TKG" in step.get("name", ""):
                     kg_model = step.get("model", kg_model)
@@ -652,12 +652,20 @@ class RAGBuilder(QThread):
                 "SELECT COUNT(*) as cnt FROM document_summaries"
             ).fetchone()["cnt"]
             builds = conn.execute(
-                "SELECT COUNT(*) as cnt FROM rag_build_logs WHERE status = 'completed'"
+                "SELECT COUNT(*) as cnt FROM rag_build_logs "
+                "WHERE status IN ('completed', 'failed')"
             ).fetchone()["cnt"]
             last_build = conn.execute(
-                "SELECT completed_at FROM rag_build_logs WHERE status = 'completed' "
-                "ORDER BY completed_at DESC LIMIT 1"
+                "SELECT completed_at, started_at, status FROM rag_build_logs "
+                "ORDER BY created_at DESC LIMIT 1"
             ).fetchone()
+
+            last_build_time = None
+            last_build_status = None
+            if last_build:
+                last_build_time = (last_build["completed_at"]
+                                   or last_build["started_at"])
+                last_build_status = last_build["status"]
 
             return {
                 "total_chunks": total_chunks,
@@ -665,7 +673,8 @@ class RAGBuilder(QThread):
                 "semantic_nodes": nodes,
                 "document_summaries": summaries,
                 "build_count": builds,
-                "last_build": last_build["completed_at"] if last_build else None,
+                "last_build": last_build_time,
+                "last_build_status": last_build_status,
             }
         except Exception as e:
             logger.debug(f"RAG stats query error: {e}")

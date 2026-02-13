@@ -10,6 +10,8 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
+from ..utils.subprocess_utils import run_hidden
+
 from .document_chunker import DocumentChunker
 from ..utils.constants import SUPPORTED_DOC_EXTENSIONS
 
@@ -168,7 +170,7 @@ JSONのみ出力してください。"""
             "--output-format", "text",
         ]
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 cmd,
                 capture_output=True,
                 text=True,

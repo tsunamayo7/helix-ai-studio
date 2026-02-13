@@ -21,9 +21,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Callable
 
-import aiohttp
-import asyncio
-
 from .document_chunker import DocumentChunker, Chunk
 from ..utils.constants import (
     INFORMATION_FOLDER, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP,
@@ -34,7 +31,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 EMBEDDING_MODEL = "qwen3-embedding:4b"
 CONTROL_MODEL = "ministral-3:8b"
-KG_MODEL = "command-a:111b"
+KG_MODEL = "command-a:latest"
 
 
 def _embedding_to_blob(embedding: List[float]) -> bytes:
@@ -207,19 +204,21 @@ class RAGExecutor:
 
     def execute_summarization(self, chunks: List[Chunk],
                                progress_callback: Optional[Callable] = None) -> List[Chunk]:
-        """ministral-3:8bで要約・キーワード抽出"""
+        """ministral-3:8bで要約/キーワード抽出"""
         import requests
 
-        EXTRACT_PROMPT = """以下のテキストチャンクから:
-1. 1-2文の要約を生成
-2. 主要キーワードを3-5個抽出
-3. エンティティ（人名・組織名・技術名等）を抽出
+        EXTRACT_PROMPT = """以下のテキストチャンクについて、JSON形式のみ出力してください。
+説明文やマークダウンは不要です。
 
-JSON形式で出力:
-{{"summary": "...", "keywords": ["..."], "entities": ["..."]}}
+出力形式:
+{{"summary": "1-2文の要約", "keywords": ["キーワード1", "キーワード2", "キーワード3"], "entities": ["エンティティ1", "エンティティ2"]}}
 
 テキスト:
-{chunk_text}"""
+{chunk_text}
+
+JSON:"""
+
+        parse_fail_count = 0
 
         for i, chunk in enumerate(chunks):
             if self._cancelled:
@@ -234,7 +233,7 @@ JSON形式で出力:
                     "stream": False,
                     "options": {"temperature": 0.1, "num_predict": 512},
                 }
-                resp = requests.post(url, json=payload, timeout=60)
+                resp = requests.post(url, json=payload, timeout=120)
 
                 if resp.status_code == 200:
                     raw = resp.json().get("response", "")
@@ -242,15 +241,28 @@ JSON形式で出力:
                     chunk.summary = parsed.get("summary", "")
                     chunk.keywords = parsed.get("keywords", [])
                     chunk.entities = parsed.get("entities", [])
+                    if not chunk.summary:
+                        parse_fail_count += 1
+                        logger.debug(
+                            f"Summarization chunk {i}: empty summary, "
+                            f"raw response (先頭200字): {raw[:200]}"
+                        )
+                else:
+                    logger.warning(
+                        f"Summarization HTTP error chunk {i}: status={resp.status_code}"
+                    )
             except Exception as e:
                 logger.warning(f"Summarization error for chunk {i}: {e}")
 
             if progress_callback:
-                progress_callback("要約・キーワード抽出", i + 1, len(chunks),
+                progress_callback("要約/キーワード抽出", i + 1, len(chunks),
                                   chunk.source_file)
 
         summarized_count = sum(1 for c in chunks if c.summary)
-        logger.info(f"Summarization complete: {summarized_count}/{len(chunks)} chunks")
+        logger.info(
+            f"Summarization complete: {summarized_count}/{len(chunks)} chunks "
+            f"(parse_failures={parse_fail_count})"
+        )
         return chunks
 
     # =========================================================================
@@ -285,6 +297,8 @@ JSON形式で出力:
         failed_count = 0
         consecutive_failures = 0
 
+        logger.info(f"KG生成開始: {len(chunks)}チャンク対象, モデル: {model}")
+
         for i, chunk in enumerate(chunks):
             if self._cancelled:
                 break
@@ -317,6 +331,10 @@ JSON形式で出力:
                     total_edges += edges_added
                     success_count += 1
                     consecutive_failures = 0
+                    logger.debug(
+                        f"KG chunk {i}/{len(chunks)}: "
+                        f"nodes={nodes_added}, edges={edges_added}"
+                    )
                 else:
                     logger.warning(
                         f"KG generation HTTP error for chunk {i}: "

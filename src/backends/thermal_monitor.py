@@ -15,6 +15,8 @@ import subprocess
 import threading
 import time
 from typing import Optional, Dict, Any, Callable, List
+
+from ..utils.subprocess_utils import run_hidden
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from datetime import datetime
@@ -171,12 +173,11 @@ class ThermalMonitor:
     def _check_nvidia_smi(self) -> bool:
         """nvidia-smiが利用可能か確認"""
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 ["nvidia-smi", "--version"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
             )
             return result.returncode == 0
         except Exception:
@@ -199,7 +200,7 @@ class ThermalMonitor:
         try:
             # nvidia-smi CSV形式で取得
             # timestamp, name, temperature.gpu, utilization.gpu, memory.used, memory.total
-            result = subprocess.run(
+            result = run_hidden(
                 [
                     "nvidia-smi",
                     "--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total",
@@ -208,7 +209,6 @@ class ThermalMonitor:
                 capture_output=True,
                 text=True,
                 timeout=10,
-                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
             )
 
             if result.returncode != 0:

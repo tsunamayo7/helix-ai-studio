@@ -104,7 +104,14 @@ class RAGProgressWidget(QWidget):
         self._step_items = {}
 
     def setup_steps(self, steps: list):
-        """ステップ一覧を設定"""
+        """ステップ一覧を設定
+
+        RAGBuilder は Sub-step A-H(step_id 1-8) + plan(0) + verify(9) の
+        計10ステップ固定で step_id を発行する。
+        プランの steps リスト長とは無関係に step_id 1-8 を登録する。
+        """
+        from ..rag.rag_builder import SUBSTEP_DEFINITIONS, TOTAL_SUBSTEPS
+
         self.step_tree.clear()
         self._step_items.clear()
 
@@ -113,22 +120,31 @@ class RAGProgressWidget(QWidget):
         self.step_tree.addTopLevelItem(item0)
         self._step_items[0] = item0
 
+        # Sub-step A-H (step_id 1-8)
+        # プランの steps からモデル/推定時間を取得(あれば)
+        plan_step_map = {}
         for step in steps:
-            step_id = step.get("step_id", 0)
-            name = step.get("name", f"Step {step_id}")
-            model = step.get("model", "")
-            est = step.get("estimated_minutes", 0)
+            sid = step.get("step_id", 0)
+            plan_step_map[sid] = step
 
+        for sub in SUBSTEP_DEFINITIONS:
+            step_id = sub["index"] + 1
+            name = sub["name"]
+            plan_step = plan_step_map.get(step_id, {})
+            model = plan_step.get("model", "")
+            est = plan_step.get("estimated_minutes", 0)
+
+            detail = f"モデル: {model} / 推定: {est:.1f}分" if model else ""
             item = QTreeWidgetItem([
                 f"Step {step_id}: {name}",
                 "待機中",
-                f"モデル: {model} / 推定: {est:.1f}分"
+                detail,
             ])
             self.step_tree.addTopLevelItem(item)
             self._step_items[step_id] = item
 
-        # Step N+1: 検証
-        verify_id = len(steps) + 1
+        # Step 9: 検証 (TOTAL_SUBSTEPS + 1 = 9)
+        verify_id = TOTAL_SUBSTEPS + 1
         item_verify = QTreeWidgetItem([f"Step {verify_id}: Claude 品質検証", "待機中", ""])
         self.step_tree.addTopLevelItem(item_verify)
         self._step_items[verify_id] = item_verify

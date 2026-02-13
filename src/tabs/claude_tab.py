@@ -938,10 +938,10 @@ class ClaudeTab(QWidget):
                     return
 
                 # CLI テスト（簡易）
-                import subprocess
+                from ..utils.subprocess_utils import run_hidden
                 import time
                 start = time.time()
-                result = subprocess.run(
+                result = run_hidden(
                     ["claude", "--version"],
                     capture_output=True, text=True, timeout=10
                 )

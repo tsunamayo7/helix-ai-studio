@@ -15,6 +15,7 @@ import subprocess
 from typing import Optional, List
 
 from ..utils.constants import RAG_VERIFICATION_SAMPLE_SIZE
+from ..utils.subprocess_utils import run_hidden
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class RAGVerifier:
             "--output-format", "text",
         ]
         try:
-            result = subprocess.run(
+            result = run_hidden(
                 cmd, capture_output=True, text=True, timeout=300, encoding='utf-8',
             )
             if result.returncode != 0:
