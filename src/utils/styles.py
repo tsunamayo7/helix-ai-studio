@@ -387,6 +387,70 @@ def score_bar_style(score: float) -> str:
 
 
 # =============================================================================
+# v8.5.0: 情報収集タブ用スタイル
+# =============================================================================
+
+RAG_STATUS_BADGE = """
+    QLabel {
+        background-color: #1a2a3e;
+        border: 1px solid #00d4ff;
+        border-radius: 10px;
+        padding: 4px 12px;
+        color: #00d4ff;
+        font-size: 11px;
+        font-weight: bold;
+    }
+"""
+
+RAG_STATUS_RUNNING = """
+    QLabel {
+        background-color: #1a3a1a;
+        border: 1px solid #00ff88;
+        border-radius: 10px;
+        padding: 4px 12px;
+        color: #00ff88;
+        font-size: 11px;
+        font-weight: bold;
+    }
+"""
+
+RAG_STATUS_ERROR = """
+    QLabel {
+        background-color: #3a1a1a;
+        border: 1px solid #ff6666;
+        border-radius: 10px;
+        padding: 4px 12px;
+        color: #ff6666;
+        font-size: 11px;
+        font-weight: bold;
+    }
+"""
+
+RAG_FILE_LIST_STYLE = """
+    QTreeWidget {
+        background-color: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        color: #e0e0e0;
+        font-size: 12px;
+    }
+    QTreeWidget::item {
+        padding: 4px 8px;
+    }
+    QTreeWidget::item:selected {
+        background-color: #00d4ff;
+        color: #0a0a0a;
+    }
+    QHeaderView::section {
+        background-color: #1f2937;
+        color: #00d4ff;
+        padding: 6px;
+        border: 1px solid #374151;
+        font-weight: bold;
+    }
+"""
+
+# =============================================================================
 # v8.1.0: SpinBox拡大スタイル
 # =============================================================================
 SPINBOX_STYLE = """

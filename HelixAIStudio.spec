@@ -83,6 +83,7 @@ a = Analysis(
         'src.tabs.settings_cortex_tab',
         # v4.0: 削除済み - 'src.tabs.trinity_ai_tab'
         'src.tabs.helix_orchestrator_tab',  # v4.0: Claude中心型ToolOrchestrator
+        'src.tabs.information_collection_tab',  # v8.5.0: 情報収集タブ
         # v6.0.0: 削除済み - 'src.tabs.chat_creation_tab'
         # v4.0: 削除済み - 'src.tabs.cortex_audit_tab'
         # v4.0: 削除済み - 'src.tabs.routing_log_widget'
@@ -98,6 +99,8 @@ a = Analysis(
         'src.widgets.bible_panel',  # v8.0.0: BIBLE Manager UI Panel
         'src.widgets.bible_notification',  # v8.0.0: BIBLE Notification Widget
         'src.widgets.chat_widgets',  # v8.0.0: Chat enhancement widgets
+        'src.widgets.rag_progress_widget',  # v8.5.0: RAG Progress Widget
+        'src.widgets.rag_lock_overlay',  # v8.5.0: RAG Lock Overlay
         # v6.1.0: ondemand_settings 削除 (5Phase統合で不要)
         'src.knowledge',  # v5.0: Knowledge management
         'src.knowledge.knowledge_manager',  # v5.0: Knowledge manager
@@ -123,6 +126,16 @@ a = Analysis(
         'src.bible.bible_discovery',
         'src.bible.bible_injector',
         'src.bible.bible_lifecycle',
+        # v8.5.0: RAG構築モジュール
+        'src.rag',
+        'src.rag.rag_builder',
+        'src.rag.rag_planner',
+        'src.rag.rag_executor',
+        'src.rag.rag_verifier',
+        'src.rag.document_chunker',
+        'src.rag.document_cleanup',
+        'src.rag.diff_detector',
+        'src.rag.time_estimator',
     ],
     hookspath=[],
     hooksconfig={},

@@ -7,12 +7,37 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "8.4.2"
-APP_CODENAME = "Contextual Intelligence"
+APP_VERSION = "8.5.0"
+APP_CODENAME = "Autonomous RAG"
 APP_DESCRIPTION = (
-    "Helix AI Studio v8.4.2 'Contextual Intelligence' - "
-    "BibleParser根本修正・設定永続化修正・保存ボタン統一"
+    "Helix AI Studio v8.5.0 'Autonomous RAG' - "
+    "情報収集タブ新設・自律RAG構築パイプライン・Document Memory・ロック機構"
 )
+
+# v8.5.0: 情報収集フォルダ
+INFORMATION_FOLDER = "data/information"
+SUPPORTED_DOC_EXTENSIONS = {'.txt', '.md', '.pdf', '.docx', '.csv', '.json'}
+
+# v8.5.0: チャンキングデフォルト
+DEFAULT_CHUNK_SIZE = 512          # トークン
+DEFAULT_CHUNK_OVERLAP = 64        # トークン
+MAX_FILE_SIZE_MB = 50             # 1ファイルの最大サイズ
+
+# v8.5.0 Patch 1: RAG設定デフォルト値
+RAG_DEFAULT_TIME_LIMIT = 90       # 分
+RAG_MIN_TIME_LIMIT = 10           # 分
+RAG_MAX_TIME_LIMIT = 1440         # 分（24時間）
+RAG_TIME_STEP = 10                # 分刻み
+RAG_CHUNK_STEP = 64               # チャンクサイズ刻み
+RAG_OVERLAP_STEP = 8              # オーバーラップ刻み
+
+# v8.5.0: RAG構築（後方互換エイリアス）
+RAG_MIN_TIME_MINUTES = RAG_MIN_TIME_LIMIT
+RAG_MAX_TIME_MINUTES = RAG_MAX_TIME_LIMIT
+RAG_VERIFICATION_SAMPLE_SIZE = 10 # 検証時のサンプリング数
+
+# v8.5.0: ロック
+RAG_LOCK_POLL_INTERVAL_MS = 1000  # ロック状態確認間隔
 
 # v8.4.0: Mid-Session Summary設定
 MID_SESSION_TRIGGER_COUNT = 5    # 中間要約トリガーのメッセージ間隔

@@ -6,6 +6,8 @@ UI強化ウィジェット群
 - VRAMBudgetSimulator: インタラクティブGPUリソース管理盤
 - BibleStatusPanel: BIBLE管理UIパネル
 - BibleNotificationWidget: BIBLE検出通知バー
+- RAGProgressWidget: RAG構築進捗表示 (v8.5.0)
+- RAGLockOverlay: RAG構築中ロックオーバーレイ (v8.5.0)
 """
 
 from .chat_input import (
@@ -41,6 +43,10 @@ from .chat_widgets import (
     InterruptionBanner,
 )
 
+# v8.5.0: RAG構築ウィジェット
+from .rag_progress_widget import RAGProgressWidget
+from .rag_lock_overlay import RAGLockOverlay
+
 __all__ = [
     # chat_input
     "EnhancedChatInput",
@@ -68,4 +74,7 @@ __all__ = [
     "SoloAIStatusBar",
     "ExecutionIndicator",
     "InterruptionBanner",
+    # rag widgets (v8.5.0)
+    "RAGProgressWidget",
+    "RAGLockOverlay",
 ]

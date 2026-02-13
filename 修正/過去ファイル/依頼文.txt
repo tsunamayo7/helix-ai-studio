@@ -1,0 +1,958 @@
+## 依頼文（ここから貼り付け）
+
+```
+作業ディレクトリ: C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio
+
+# Helix AI Studio v8.1.0 "Adaptive Memory" アップグレード依頼
+
+v8.0.0 "Living Bible" を v8.1.0 "Adaptive Memory" にアップグレードしてください。
+本アップグレードは以下の5本柱で構成されます:
+
+1. **記憶アーキテクチャ刷新** — 4層メモリ + Memory Risk Gate + Temporal KG
+2. **UI構造再編** — 設定の重複排除・タブ間共有化・不要UI除去
+3. **UIポリッシュ** — スピンボックス拡大・プレースホルダー簡素化・説明文削除
+4. **UX強化** — 全UIにツールチップ追加・「設定を保存」ボタンの全タブ有効化
+5. **BIBLE v8.1.0** — 全変更を正確に反映した新BIBLEを生成
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ0: 現状把握（必須 — スキップ厳禁）
+
+以下のコマンドを全て実行し、結果を報告してから実装を開始すること。
+
+```bash
+echo "===== 1. バージョン確認 ====="
+grep -n "APP_VERSION\|APP_CODENAME" src/utils/constants.py
+
+echo "===== 2. ファイル構造 ====="
+find src/ -type f -name "*.py" | sort
+
+echo "===== 3. 記憶系モジュールの実態確認 ====="
+echo "--- memory_store.py ---"
+wc -l src/helix_core/memory_store.py 2>/dev/null && head -50 src/helix_core/memory_store.py 2>/dev/null
+echo "--- light_rag.py ---"
+wc -l src/helix_core/light_rag.py 2>/dev/null && head -50 src/helix_core/light_rag.py 2>/dev/null
+echo "--- graph_rag.py ---"
+wc -l src/helix_core/graph_rag.py 2>/dev/null && head -50 src/helix_core/graph_rag.py 2>/dev/null
+echo "--- hybrid_search_engine.py ---"
+wc -l src/helix_core/hybrid_search_engine.py 2>/dev/null && head -50 src/helix_core/hybrid_search_engine.py 2>/dev/null
+echo "--- vector_store.py ---"
+wc -l src/helix_core/vector_store.py 2>/dev/null && head -50 src/helix_core/vector_store.py 2>/dev/null
+echo "--- knowledge_manager.py ---"
+wc -l src/knowledge/knowledge_manager.py 2>/dev/null && head -80 src/knowledge/knowledge_manager.py 2>/dev/null
+echo "--- knowledge_worker.py ---"
+wc -l src/knowledge/knowledge_worker.py 2>/dev/null && head -50 src/knowledge/knowledge_worker.py 2>/dev/null
+echo "--- rag_pipeline.py ---"
+wc -l src/helix_core/rag_pipeline.py 2>/dev/null && head -50 src/helix_core/rag_pipeline.py 2>/dev/null
+
+echo "===== 4. SQLiteテーブル構造 ====="
+find data/ -name "*.db" -o -name "*.sqlite" 2>/dev/null
+for db in $(find data/ -name "*.db" -o -name "*.sqlite" 2>/dev/null); do
+  echo "--- $db ---"
+  sqlite3 "$db" ".tables" 2>/dev/null
+  sqlite3 "$db" ".schema" 2>/dev/null | head -60
+done
+
+echo "===== 5. 常駐モデル活用状況 ====="
+grep -rn "ministral\|制御AI\|control.*model\|resident" src/ --include="*.py" | head -20
+
+echo "===== 6. 後処理（ナレッジ保存）の現状 ====="
+grep -n "knowledge\|ナレッジ\|save.*memory\|store.*memory\|embedding\|embed" src/backends/mix_orchestrator.py | head -20
+
+echo "===== 7. soloAI設定 — 削除候補の特定 ====="
+grep -n "API_KEY\|ANTHROPIC.*KEY\|api_key\|sk-ant\|API.*接続テスト" src/tabs/claude_tab.py
+grep -n "MCPサーバー\|mcp_server\|ファイルシステム\|Git\|Brave" src/tabs/claude_tab.py
+grep -n "Claudeモデル設定\|claude_model\|モデル選択" src/tabs/claude_tab.py | head -10
+grep -n "新規セッション\|new_session\|new.*chat" src/tabs/claude_tab.py
+
+echo "===== 8. 一般設定タブ — 現在の構成 ====="
+grep -n "def\|セクション\|QGroupBox\|addWidget\|Claude.*CLI\|Knowledge\|Encyclopedia\|RAG\|自動化\|テーマ" src/tabs/settings_cortex_tab.py | head -40
+
+echo "===== 9. mixAI設定 — MCP/RAGの位置 ====="
+grep -n "ツール設定\|MCP\|RAG設定\|RAG" src/tabs/helix_orchestrator_tab.py | head -15
+
+echo "===== 10. 設定保存ボタンの状態 ====="
+grep -n "設定を保存\|save.*config\|save.*settings\|_save_settings\|config\.json" src/tabs/claude_tab.py src/tabs/helix_orchestrator_tab.py src/tabs/settings_cortex_tab.py
+
+echo "===== 11. ツールチップの現状 ====="
+grep -c "setToolTip" src/tabs/claude_tab.py src/tabs/helix_orchestrator_tab.py src/tabs/settings_cortex_tab.py src/widgets/*.py 2>/dev/null
+
+echo "===== 12. スピンボックス ====="
+grep -n "QSpinBox\|SpinBox" src/tabs/ -r --include="*.py"
+
+echo "===== 13. チャット入力欄プレースホルダー ====="
+grep -n "setPlaceholderText\|placeholder\|例:" src/tabs/ src/widgets/ -r --include="*.py"
+
+echo "===== 14. Claude CLI状態の説明文 ====="
+grep -n "150/月\|無制限CLI\|API認証は廃止\|v6.0.0.*Claude\|Max.*月" src/tabs/settings_cortex_tab.py
+
+echo "===== 15. BIBLE検索パス確認 ====="
+grep -n "BIBLE_PATTERNS\|BIBLE.*PATH\|bible.*path\|BIBLE.*folder" src/bible/ -r --include="*.py" 2>/dev/null
+ls -la BIBLE/ 2>/dev/null
+```
+
+**報告事項（各項目に対して事実を1行で回答）:**
+- [A] memory_store.pyは何行で主なクラス/メソッドは？ → 行数 + クラス名
+- [B] graph_rag.pyは何行でnetworkxを使用しているか？ → 行数 + Yes/No
+- [C] vector_store.pyのEmbedding方式は？ → qwen3-embedding/その他
+- [D] SQLiteに既存のテーブルは？ → テーブル名リスト
+- [E] ministral-3:8bは現在何に使われているか？ → 具体的な用途
+- [F] 後処理でナレッジ保存は実際に動作しているか？ → Yes/No + 保存先
+- [G] soloAI設定にAPIキー入力欄は存在するか？ → Yes/No + 行番号
+- [H] soloAI設定にMCPサーバー管理は存在するか？ → Yes/No + 行番号
+- [I] soloAI設定にClaudeモデル設定は存在するか？ → Yes/No + 行番号
+- [J] 一般設定にMCPサーバー管理はあるか？ → Yes/No
+- [K] 「設定を保存」ボタンは各タブに存在し、clicked接続されているか？ → 各タブごとにYes/No
+- [L] setToolTipは各ファイルに何件あるか？ → 数字
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ1: 記憶アーキテクチャ刷新 — 4層メモリシステム
+
+### 設計背景
+
+現在のHelixは `memory_store.py`、`light_rag.py`、`graph_rag.py`、`knowledge_manager.py` 等の
+記憶系モジュールを持つが、各モジュール間の連携と役割分担が明確でない。
+v8.1.0では MemGPT/Letta の「短期↔長期の出し入れ」思想、
+Temporal Knowledge Graph の「時間付き更新」、
+RAPTOR の「多段要約」を Helix の3Phase + 常駐モデルアーキテクチャに最適化して統合する。
+
+### 1A: 4層メモリ統合マネージャーの実装
+
+**新規ファイル**: `src/memory/memory_manager.py`
+**新規ファイル**: `src/memory/__init__.py`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  HelixMemoryManager                          │
+│  4層メモリの統合管理 + Memory Risk Gate                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Layer 1: Thread Memory（セッション内短期記憶）              │
+│  ・現在の会話コンテキスト                                    │
+│  ・mixAI: 3Phaseの中間結果                                  │
+│  ・soloAI: 現在のチャットセッション                          │
+│  ・保存先: メモリ内 (dict) — セッション終了で消滅            │
+│                                                             │
+│  Layer 2: Episodic Memory（エピソード記憶 = 会話ログ検索）   │
+│  ・各セッションの要約+詳細ログ                               │
+│  ・RAPTOR風多段要約: 詳細→セッション要約→週次要約            │
+│  ・保存先: SQLite episodes テーブル                          │
+│  ・検索: qwen3-embedding:4b によるベクトル検索               │
+│                                                             │
+│  Layer 3: Semantic Memory（意味記憶 = プロジェクト知識）     │
+│  ・仕様決定、環境依存、設計思想、ユーザ嗜好                  │
+│  ・Temporal Knowledge Graph（networkx）で管理                │
+│  ・valid_from/valid_to で時間変化を保持                      │
+│  ・保存先: SQLite semantic_nodes + semantic_edges テーブル   │
+│  ・BIBLEコンテキストもここに注入                             │
+│                                                             │
+│  Layer 4: Procedural Memory（手続き記憶 = 再利用パターン）   │
+│  ・成功したプロンプトテンプレート                             │
+│  ・再発防止策、バグ対処パターン                               │
+│  ・保存先: SQLite procedures テーブル                        │
+│  ・検索: タグ + ベクトル検索のハイブリッド                    │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  Memory Risk Gate（記憶品質ゲート）                          │
+│  ・ministral-3:8b が応答後に「記憶候補」を抽出               │
+│  ・重複/矛盾/揮発性/再利用性/出典を判定                      │
+│  ・判定結果: ADD / UPDATE / DEPRECATE / SKIP                │
+│  ・Temporal KGなら"期間を閉じる"で矛盾を解消                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**HelixMemoryManager クラス仕様:**
+
+```python
+class HelixMemoryManager:
+    """4層メモリの統合管理"""
+
+    def __init__(self, db_path: str = "data/helix_memory.db",
+                 ollama_host: str = "http://localhost:11434"):
+        # SQLite初期化（4テーブル）
+        # qwen3-embedding:4b 接続設定
+        # networkx グラフ初期化（semantic layer用）
+
+    # === Layer 1: Thread Memory ===
+    def push_thread(self, role: str, content: str, metadata: dict = None):
+        """現在のセッションにメッセージを追加"""
+    def get_thread_context(self, max_tokens: int = 4000) -> str:
+        """直近のスレッドコンテキストを取得"""
+    def clear_thread(self):
+        """セッション終了時にスレッドをクリア（→ Episode化前に呼ばれる）"""
+
+    # === Layer 2: Episodic Memory ===
+    def save_episode(self, session_id: str, messages: list,
+                     summary: str = None) -> int:
+        """セッションをエピソードとして保存
+           summary未指定時はministral-3:8bで自動要約"""
+    def search_episodes(self, query: str, top_k: int = 5) -> list:
+        """qwen3-embedding:4bでベクトル検索"""
+    def get_episode_summary(self, session_id: str) -> str:
+        """特定エピソードの要約を取得"""
+
+    # === Layer 3: Semantic Memory (Temporal KG) ===
+    def add_fact(self, entity: str, attribute: str, value: str,
+                 source_session: str, confidence: float = 1.0):
+        """事実ノードを追加（valid_from=now, valid_to=None）
+           同じentity+attributeの既存factがあれば期間を閉じてから追加"""
+    def get_current_facts(self, entity: str = None) -> list:
+        """有効な事実のみ返す（valid_to is None）"""
+    def search_semantic(self, query: str, top_k: int = 10) -> list:
+        """意味検索（ベクトル + グラフ構造のハイブリッド）"""
+    def get_fact_history(self, entity: str, attribute: str) -> list:
+        """事実の変遷履歴（Temporal）"""
+
+    # === Layer 4: Procedural Memory ===
+    def save_procedure(self, title: str, content: str,
+                       tags: list, source_session: str):
+        """手続きパターンを保存"""
+    def search_procedures(self, query: str = None, tags: list = None,
+                          top_k: int = 5) -> list:
+        """タグ + ベクトルのハイブリッド検索"""
+
+    # === Memory Risk Gate ===
+    def evaluate_and_store(self, session_id: str,
+                           ai_response: str, user_query: str):
+        """応答後に記憶候補を抽出し、Risk Gateで判定して保存
+           ministral-3:8b による以下の判定:
+           1. 記憶候補抽出（JSON出力）
+           2. 各候補の重複/矛盾/揮発性/再利用性チェック
+           3. ADD/UPDATE/DEPRECATE/SKIP判定
+           4. 判定結果に基づき各Layerへ振り分け"""
+
+    # === Phase注入用 ===
+    def build_context_for_phase1(self, user_query: str,
+                                  max_tokens: int = 8000) -> str:
+        """Phase 1注入用コンテキストを構築
+           = 直近Thread + 関連Episode要約 + 関連Semantic Facts + 関連Procedures"""
+    def build_context_for_phase3(self, user_query: str,
+                                  phase1_result: str,
+                                  max_tokens: int = 6000) -> str:
+        """Phase 3注入用コンテキストを構築
+           = Semantic Facts（設計情報） + BIBLE要約"""
+    def build_context_for_solo(self, user_query: str,
+                                max_tokens: int = 6000) -> str:
+        """soloAI注入用コンテキストを構築
+           = 直近Thread + 関連Episode + 関連Facts"""
+```
+
+### 1B: SQLiteスキーマ設計
+
+**データベース**: `data/helix_memory.db`
+
+```sql
+-- Layer 2: Episodic Memory
+CREATE TABLE IF NOT EXISTS episodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT UNIQUE NOT NULL,
+    tab TEXT NOT NULL CHECK(tab IN ('mixAI', 'soloAI')),
+    summary TEXT,
+    summary_embedding BLOB,     -- qwen3-embedding:4b による768次元ベクトル
+    detail_log TEXT,             -- JSON: 全メッセージ
+    token_count INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    weekly_summary_id INTEGER REFERENCES episode_summaries(id)
+);
+
+-- Layer 2: 多段要約（RAPTOR風）
+CREATE TABLE IF NOT EXISTS episode_summaries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level TEXT NOT NULL CHECK(level IN ('session', 'weekly', 'version')),
+    period_start TIMESTAMP,
+    period_end TIMESTAMP,
+    summary TEXT NOT NULL,
+    summary_embedding BLOB,
+    episode_ids TEXT,            -- JSON: 含まれるepisode id群
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Layer 3: Semantic Memory (Temporal Knowledge Graph ノード)
+CREATE TABLE IF NOT EXISTS semantic_nodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity TEXT NOT NULL,       -- 例: "GPU設定", "claude_model", "soloAIタブ"
+    attribute TEXT NOT NULL,    -- 例: "default_value", "purpose", "status"
+    value TEXT NOT NULL,        -- 例: "claude-opus-4-6", "計画立案用"
+    value_embedding BLOB,
+    confidence FLOAT DEFAULT 1.0,
+    source_session TEXT,
+    valid_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valid_to TIMESTAMP,         -- NULL = 現在有効
+    UNIQUE(entity, attribute, valid_from)
+);
+
+-- Layer 3: Semantic Memory (Temporal Knowledge Graph エッジ)
+CREATE TABLE IF NOT EXISTS semantic_edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_node_id INTEGER REFERENCES semantic_nodes(id),
+    target_node_id INTEGER REFERENCES semantic_nodes(id),
+    relation TEXT NOT NULL,     -- 例: "depends_on", "replaced_by", "part_of"
+    weight FLOAT DEFAULT 1.0,
+    valid_from TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    valid_to TIMESTAMP
+);
+
+-- Layer 4: Procedural Memory
+CREATE TABLE IF NOT EXISTS procedures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,       -- 手順・テンプレート・再発防止策
+    content_embedding BLOB,
+    tags TEXT,                   -- JSON: ["debugging", "pyinstaller", "cuda"]
+    source_session TEXT,
+    use_count INTEGER DEFAULT 0,
+    last_used TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- インデックス
+CREATE INDEX IF NOT EXISTS idx_episodes_session ON episodes(session_id);
+CREATE INDEX IF NOT EXISTS idx_episodes_tab ON episodes(tab);
+CREATE INDEX IF NOT EXISTS idx_semantic_entity ON semantic_nodes(entity, attribute);
+CREATE INDEX IF NOT EXISTS idx_semantic_valid ON semantic_nodes(valid_to);
+CREATE INDEX IF NOT EXISTS idx_procedures_tags ON procedures(tags);
+```
+
+### 1C: Memory Risk Gate の実装
+
+**ministral-3:8b を記憶品質判定に活用する。**
+
+常駐制御AIであるministral-3:8bは、以下の記憶品質判定タスクを担う:
+
+```python
+class MemoryRiskGate:
+    """記憶の品質を判定するゲート
+       ministral-3:8b が常駐しているため即応可能"""
+
+    EXTRACTION_PROMPT = """
+以下のAI応答から、長期的に記憶すべき情報を抽出してJSON形式で出力してください。
+
+[ユーザーの質問]
+{user_query}
+
+[AIの応答]
+{ai_response}
+
+以下のカテゴリで抽出:
+- facts: 事実情報（設定値、仕様決定、環境情報、ユーザ嗜好）
+- procedures: 再利用可能な手順やパターン（バグ修正手順、設定方法）
+- episode_tags: このセッションを後で検索するためのキーワード
+
+出力形式（JSON のみ出力。説明不要）:
+{
+  "facts": [
+    {"entity": "...", "attribute": "...", "value": "...", "confidence": 0.0-1.0}
+  ],
+  "procedures": [
+    {"title": "...", "content": "...", "tags": ["...", "..."]}
+  ],
+  "episode_tags": ["...", "..."]
+}
+
+抽出すべき情報がない場合は各配列を空にしてください。
+"""
+
+    VALIDATION_PROMPT = """
+以下の記憶候補が既存の記憶と矛盾・重複しないか判定してください。
+
+[新規候補]
+{candidate}
+
+[既存の関連記憶]
+{existing_memories}
+
+各候補に対してアクションを決定:
+- ADD: 新規追加（重複なし、有用）
+- UPDATE: 既存を更新（同じentity+attributeで値が変化）
+- DEPRECATE: 既存を無効化（矛盾する古い情報）
+- SKIP: 保存不要（揮発性が高い、再利用性が低い、重複）
+
+出力形式（JSON のみ）:
+[
+  {"index": 0, "action": "ADD|UPDATE|DEPRECATE|SKIP", "reason": "..."}
+]
+"""
+```
+
+**mixAI/soloAI両方で共通の後処理として動作:**
+
+```
+mixAI: Phase 3完了 → ナレッジ保存 → Memory Risk Gate → 4層振り分け
+soloAI: Claude応答完了 → Memory Risk Gate → 4層振り分け
+```
+
+### 1D: Temporal Knowledge Graph（graph_rag.py 拡張）
+
+既存の `src/helix_core/graph_rag.py` にTemporal機能を追加:
+
+```python
+# graph_rag.py に追加するメソッド
+
+def add_temporal_node(self, entity: str, attribute: str, value: str,
+                      source: str, valid_from: datetime = None):
+    """時間付きノードを追加
+       同じentity+attributeの既存ノードがあればvalid_toを設定して期間を閉じる"""
+
+def get_current_graph(self) -> nx.DiGraph:
+    """有効なノード/エッジのみのグラフを返す（valid_to is None）"""
+
+def get_history(self, entity: str) -> list:
+    """特定エンティティの変遷履歴を時系列で返す"""
+```
+
+### 1E: 3Phase + soloAI への記憶注入統合
+
+**mix_orchestrator.py の変更:**
+
+```python
+# Phase 1 プロンプトに記憶コンテキストを注入
+async def _execute_phase1(self, user_query, ...):
+    memory_context = self.memory_manager.build_context_for_phase1(user_query)
+    bible_context = self.bible_injector.build_context("phase1", ...)
+    prompt = f"""
+{bible_context}
+
+## 記憶コンテキスト（過去のセッション情報）
+{memory_context}
+
+## ユーザーの質問
+{user_query}
+"""
+    # Claude CLI実行...
+
+# Phase 3 にも記憶注入
+async def _execute_phase3(self, user_query, phase1_result, phase2_results, ...):
+    memory_context = self.memory_manager.build_context_for_phase3(
+        user_query, phase1_result)
+    # ...
+
+# 後処理で Memory Risk Gate を実行
+async def _post_processing(self, session_id, user_query, final_response):
+    # 既存: ナレッジ保存
+    await self._save_to_knowledge(...)
+    # 新規: Memory Risk Gate
+    await self.memory_manager.evaluate_and_store(
+        session_id, final_response, user_query)
+    # 既存: BIBLE Lifecycle
+    await self._bible_lifecycle_check(...)
+```
+
+**claude_tab.py (soloAI) の変更:**
+
+```python
+# soloAI送信時に記憶コンテキストを注入
+def _send_message(self):
+    user_text = self.input_area.toPlainText()
+    # 記憶コンテキスト取得
+    memory_context = self.memory_manager.build_context_for_solo(user_text)
+    if memory_context:
+        augmented_prompt = f"""
+## 過去の関連情報
+{memory_context}
+
+## ユーザーの質問
+{user_text}
+"""
+    else:
+        augmented_prompt = user_text
+    # Claude CLI実行...
+
+# 応答完了後に Memory Risk Gate
+def _on_response_complete(self, response):
+    # UIに応答表示...
+    # バックグラウンドでメモリ評価
+    self.memory_manager.evaluate_and_store(
+        self.current_session_id, response, self.last_user_query)
+```
+
+### 1F: Episodic Memory の多段要約（RAPTOR風）
+
+ministral-3:8b を使って定期的に要約を生成:
+
+```python
+EPISODE_SUMMARY_PROMPT = """
+以下の会話セッションを1-2文で要約してください。
+重要な決定事項、解決した問題、使用した技術に焦点を当ててください。
+
+{session_messages}
+
+出力（日本語、1-2文のみ）:
+"""
+
+WEEKLY_SUMMARY_PROMPT = """
+以下は今週のセッション要約群です。
+週次の主要な進捗と決定事項を3-5文にまとめてください。
+
+{session_summaries}
+
+出力（日本語、3-5文のみ）:
+"""
+```
+
+要約タイミング:
+- **Session要約**: セッション終了時（mixAI: Phase完了後、soloAI: セッションクリア時）
+- **Weekly要約**: 毎週月曜、またはセッション数が10を超えた時
+- **Version要約**: BIBLEバージョンアップ時に自動生成
+
+### フェーズ1 完了確認
+
+```bash
+echo "=== メモリモジュール ==="
+ls -la src/memory/
+wc -l src/memory/memory_manager.py
+# → 300行以上
+
+echo "=== SQLiteスキーマ ==="
+sqlite3 data/helix_memory.db ".tables"
+# → episodes, episode_summaries, semantic_nodes, semantic_edges, procedures
+
+echo "=== 注入統合 ==="
+grep -c "memory_manager\|build_context_for" src/backends/mix_orchestrator.py
+# → 3以上
+grep -c "memory_manager\|build_context_for" src/tabs/claude_tab.py
+# → 2以上
+
+echo "=== Risk Gate ==="
+grep -c "evaluate_and_store\|MemoryRiskGate" src/memory/memory_manager.py
+# → 3以上
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ2: UI構造再編 — 設定の重複排除
+
+### 2A: soloAI設定タブの簡素化
+
+**削除する要素:**
+
+(1) 「API/CLI認証設定」セクション内:
+  - APIキー入力欄（QLineEdit）とそのラベル
+  - 「API 接続テスト」ボタン
+  - 理由: このアプリはCLI認証のみ使用
+
+(2) 「MCPサーバー管理」セクション全体:
+  - → 一般設定タブに移設するため（フェーズ2B）
+
+(3) 「Claudeモデル設定」セクション全体:
+  - → 一般設定タブに移設するため（フェーズ2B）
+
+**残す要素（soloAI設定タブ）:**
+  - Claude CLI: 有効チェック + 確認ボタン
+  - 「モデルテスト（現在の認証で実行）」ボタン
+  - Ollama（ローカルLLM）設定
+  - 「設定を保存」ボタン
+
+### 2B: 一般設定タブの拡充
+
+**一般設定タブ最終レイアウト（上から順）:**
+
+```
+1. Claudeモデル設定（soloAIから移設 ★新）
+   - デフォルトモデル: [Claude Opus 4.6 (最高知能) ▼]
+   - タイムアウト: [ 30 ] 分  （singleStep=10、10分単位）
+
+2. Claude CLI 状態（説明文削除、ボタンのみ）
+
+3. MCPサーバー管理（soloAIから移設 ★新）
+   - ☑ ファイルシステム  ☑ Git  ☑ Brave検索
+   - デフォルト: 全項目チェックON
+   - [全て有効]  [全て無効]
+
+4. 記憶・知識管理（RAG+Knowledge+Encyclopedia統合 ★新）
+   ┌─ 記憶・知識管理 ──────────────────────────────┐
+   │ 📊 記憶統計                                    │
+   │  Episode記憶: 42件  Semantic記憶: 128件        │
+   │  手続き記憶: 15件                               │
+   │  Knowledge: 142件  Encyclopedia: 38件          │
+   │                                                │
+   │ ☑ RAGを有効化    ☑ 記憶の自動保存               │
+   │ 保存閾値: [中優先度以上 ▼]                       │
+   │ Memory Risk Gate: ☑ 有効（ministral-3:8bで品質判定） │
+   │                                                │
+   │ [📊 統計を更新]  [🗑 古い記憶の整理]              │
+   └──────────────────────────────────────────────┘
+
+5. 表示とテーマ（SpinBox拡大）
+
+6. 自動化
+
+7. [🔒 設定を保存] ボタン
+```
+
+### 2C: mixAI設定タブの整理
+
+**削除する要素:**
+- 「ツール設定(MCP)」セクション → 一般設定に統合済み
+- 「RAG設定」セクション → 一般設定に統合済み
+
+**残す要素（変更なし）:**
+- Claude設定、Ollama接続、常駐モデル、3Phase実行設定
+- 品質検証設定、BIBLE Manager、VRAM Budget Simulator、GPUモニター
+
+### フェーズ2 完了確認
+
+```bash
+echo "=== 2A: soloAIからAPIキー/MCP/モデル設定が除去 ==="
+grep -c "API_KEY\|ANTHROPIC_KEY\|api_key\|sk-ant" src/tabs/claude_tab.py
+grep -c "MCPサーバー管理\|全て有効\|全て無効" src/tabs/claude_tab.py
+grep -c "Claudeモデル設定" src/tabs/claude_tab.py
+# → 全て0
+
+echo "=== 2B: 一般設定にMCP/記憶/モデルが追加 ==="
+grep -c "MCPサーバー\|ファイルシステム\|Git\|Brave" src/tabs/settings_cortex_tab.py
+grep -c "記憶.*知識\|Memory Risk\|Episode\|Semantic" src/tabs/settings_cortex_tab.py
+grep -c "Claudeモデル\|デフォルトモデル\|タイムアウト" src/tabs/settings_cortex_tab.py
+# → 各3以上
+
+echo "=== 2C: mixAIからMCP/RAGが除去 ==="
+grep -c "ツール設定.*MCP" src/tabs/helix_orchestrator_tab.py
+grep -c "RAG設定" src/tabs/helix_orchestrator_tab.py
+# → 全て0
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ3: UIポリッシュ
+
+### 3A: 全QSpinBoxのボタン拡大
+
+```python
+# src/utils/styles.py に追加（未定義の場合）
+SPINBOX_STYLE = """
+    QSpinBox {
+        padding: 6px 12px; font-size: 14px;
+        min-height: 32px; min-width: 100px;
+        background: #1f2937; border: 1px solid #4b5563;
+        border-radius: 6px; color: #e5e7eb;
+    }
+    QSpinBox::up-button, QSpinBox::down-button {
+        width: 28px; border: none; background: #2a2a3e;
+    }
+    QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+        background: #374151;
+    }
+    QSpinBox::up-arrow {
+        image: none; border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-bottom: 9px solid #00d4ff; width: 0; height: 0;
+    }
+    QSpinBox::down-arrow {
+        image: none; border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-top: 9px solid #00d4ff; width: 0; height: 0;
+    }
+"""
+```
+
+### 3B: その他UIポリッシュ
+
+- mixAIチャット入力欄: プレースホルダーを `"メッセージを入力..."` に簡素化
+- soloAI「新規セッション」ボタン: 2つあれば1つに統合
+- soloAI認証バー: 「認証: CLI (Max/Proプラン)」表示を削除
+- 一般設定Claude CLI: 説明文を削除（ボタンのみ残す）
+- GPUモニター: LLM実行時自動記録の確認・改善
+- RAG/Knowledge/Encyclopedia: 一般設定「記憶・知識管理」で機能動作確認
+- タイムアウトSpinBox: `setSingleStep(10)` 設定
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ4: UX強化 — ツールチップ + 設定保存
+
+### 4A: 全UIにツールチップ（setToolTip）を追加
+
+カーソルを置くと機能の詳細説明が表示されるよう、以下の全要素に setToolTip() を追加。
+
+#### mixAIタブ — チャットサブタブ
+
+| 要素 | ツールチップテキスト |
+|------|-------------------|
+| 実行/送信ボタン | "3Phase実行パイプラインを開始します\n(Phase 1: Claude計画 → Phase 2: ローカルLLM → Phase 3: Claude統合)" |
+| ファイルを添付ボタン | "Claude CLIに渡すファイルを添付します\nコード、ドキュメント、画像などを指定できます" |
+| 履歴から引用ボタン | "過去のEpisodic Memory（会話履歴）から\n関連コンテキストを引用して追加します" |
+| スニペットボタン | "定型プロンプトのテンプレートを挿入します" |
+| Neural Flow Visualizer | "3Phase実行パイプラインの進捗をリアルタイムで表示します" |
+| PhaseIndicator各ノード | P1: "Phase 1: Claudeによる計画立案と初回回答生成\n記憶コンテキスト（Episodic+Semantic）を自動注入", P2: "Phase 2: ローカルLLMによる多角的分析（順次実行）", P3: "Phase 3: Claudeによる比較検証と最終統合\n完了後にMemory Risk Gateで記憶品質を判定" |
+
+#### mixAI設定 — 各セクション
+
+| 要素 | ツールチップテキスト |
+|------|-------------------|
+| Claude設定 モデル選択 | "mixAI実行時に使用するClaudeモデルを選択します" |
+| 認証方式 | "Claude CLIの認証方式（通常はCLI認証）" |
+| 思考モード | "Claudeの推論プロセスの深さ\nOFF: 通常 / Standard: 基本推論 / Deep: 詳細推論" |
+| Ollama接続テストボタン | "Ollamaサーバーへの接続を確認します" |
+| モデル一覧更新ボタン | "Ollamaにインストール済みのモデル一覧を取得します" |
+| 常駐モデル各行 | "GPU 0に常時ロードされるモデルです\nministral-3:8b = 記憶判定(Risk Gate) + タスク分類\nqwen3-embedding:4b = ベクトル検索用Embedding生成" |
+| カテゴリ別モデル選択 | coding: "コード生成・レビュー担当", research: "調査・情報収集担当", reasoning: "推論・論理検証担当", translation: "翻訳担当", vision: "画像解析担当" |
+| 品質検証 最大再実行回数SpinBox | "Phase 3で品質不足時にPhase 2を再実行する最大回数（0で再実行なし）" |
+| BIBLE Manager パネル | "プロジェクトBIBLEの自動検出・解析・注入状態を表示します" |
+| VRAM Budget Simulator | "各GPUのVRAM使用量をシミュレーションするツールです" |
+| GPUモニター | "GPU使用率とVRAM消費をリアルタイムモニタリング\nLLM実行時に自動で記録を開始します" |
+| 設定を保存ボタン | "mixAIタブの全設定をconfig/config.jsonに保存します" |
+
+#### soloAIタブ
+
+| 要素 | ツールチップテキスト |
+|------|-------------------|
+| 送信ボタン | "Claude CLIにメッセージを送信します（Ctrl+Enter）\n関連する記憶コンテキストが自動注入されます" |
+| ファイルを添付ボタン | "Claude CLIに渡すファイルを添付します" |
+| 新規セッションボタン | "会話をリセットし新規セッション開始\n現在の会話はEpisodic Memoryに自動保存されます" |
+| MCPチェックボックス | "外部ツール（ファイル操作・Git・Web検索）を有効化" |
+| 差分表示チェックボックス | "Claudeが変更したファイルの差分を視覚的に表示" |
+| 自動コンテキストチェックボックス | "プロジェクト構造を自動的にClaudeに提供" |
+| 🐙許可チェックボックス | "Claudeによるファイル変更の自動承認\n⚠ 有効にすると確認なしでファイル変更されます" |
+| モデル表示 | "現在のClaudeモデル（一般設定タブで変更可能）" |
+| 思考モード選択 | "推論の深さ: OFF / Standard / Deep" |
+| 設定を保存ボタン | "soloAIタブの設定をconfig/config.jsonに保存します" |
+
+#### 一般設定タブ
+
+| 要素 | ツールチップテキスト |
+|------|-------------------|
+| デフォルトモデル選択 | "全タブのデフォルトClaudeモデルを選択します" |
+| タイムアウトSpinBox | "Claude CLI応答待ちタイムアウト（分）\n10分単位で設定、直接入力で細かい値も可" |
+| Claude CLI 接続確認ボタン | "Claude Code CLIのインストール・認証状態を確認" |
+| MCP各チェックボックス | ファイルシステム: "ローカルファイルの読み書きを許可", Git: "Git操作を許可", Brave検索: "Web検索を許可" |
+| 全て有効/無効ボタン | "全MCPサーバーを一括で有効/無効にします" |
+| 記憶統計 | "4層メモリシステムの現在の保存件数\nEpisodic=会話ログ Semantic=事実 Procedural=手順" |
+| RAG有効化トグル | "RAG（検索拡張生成）を有効化\n過去の記憶を活用した応答を生成します" |
+| 記憶の自動保存トグル | "応答後にMemory Risk Gateで記憶品質を判定し\n有用な情報を自動的に4層メモリに保存します" |
+| Memory Risk Gate有効化 | "ministral-3:8bによる記憶品質判定\n重複/矛盾/揮発性をチェックして保存品質を担保" |
+| 保存閾値ドロップダウン | "記憶保存の重要度閾値" |
+| 統計を更新ボタン | "全メモリの最新件数と統計を取得します" |
+| 古い記憶の整理ボタン | "使用頻度の低い記憶を整理・圧縮します\n（削除ではなく要約に変換）" |
+| ダークテーマトグル | "カラーテーマを切り替えます" |
+| フォントサイズSpinBox | "全タブのフォントサイズを変更します" |
+| 設定を保存ボタン | "全設定をconfig.json + app_settings.jsonに保存します" |
+
+### 4B: 「設定を保存」ボタンの全タブ有効化
+
+各タブの「設定を保存」ボタンが正しく全設定値をconfig.jsonに書き込むようにする。
+
+**共通パターン:**
+```python
+def _save_settings(self):
+    import json
+    from pathlib import Path
+    config_path = Path("config/config.json")
+    config = {}
+    if config_path.exists():
+        with open(config_path, "r", encoding="utf-8") as f:
+            config = json.load(f)
+
+    # ウィジェットの値をconfigに反映（フェーズ0で特定した変数名を使用）
+    # ...
+
+    config_path.parent.mkdir(exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+    # 視覚フィードバック
+    sender = self.sender()
+    if sender:
+        original_text = sender.text()
+        sender.setText("✅ 保存しました")
+        sender.setEnabled(False)
+        QTimer.singleShot(2000, lambda: (
+            sender.setText(original_text), sender.setEnabled(True)))
+```
+
+**一般設定では app_settings.json も更新:**
+```python
+# memory セクション追加
+app_settings["memory"] = {
+    "auto_save": self.memory_auto_save.isChecked(),
+    "risk_gate_enabled": self.risk_gate_toggle.isChecked(),
+    "save_threshold": self.threshold_combo.currentText()
+}
+```
+
+### フェーズ4 完了確認
+
+```bash
+echo "=== ツールチップ件数 ==="
+grep -c "setToolTip" src/tabs/helix_orchestrator_tab.py  # → 15以上
+grep -c "setToolTip" src/tabs/claude_tab.py              # → 10以上
+grep -c "setToolTip" src/tabs/settings_cortex_tab.py     # → 15以上
+
+echo "=== 設定保存の接続 ==="
+grep -n "_save_settings\|json\.dump\|config\.json" src/tabs/claude_tab.py src/tabs/helix_orchestrator_tab.py src/tabs/settings_cortex_tab.py
+# → 全3ファイルに存在
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## フェーズ5: 仕上げ + BIBLE生成
+
+### 5A: constants.py更新
+
+```python
+APP_VERSION = "8.1.0"
+APP_CODENAME = "Adaptive Memory"
+```
+
+### 5B: HelixAIStudio.spec更新
+
+hiddenimports に追加:
+```python
+'src.memory',
+'src.memory.memory_manager',
+```
+
+### 5C: BIBLE v8.1.0 生成（最重要 — 必ず実行すること）
+
+`BIBLE/BIBLE_Helix AI Studio_8.1.0.md` を新規生成する。
+
+**ルール:**
+- ファイル名: `BIBLE_Helix AI Studio_8.1.0.md`（この命名規則を厳守）
+- 保存先: `BIBLE/` フォルダ直下
+- **500行以上**
+- 既存の `BIBLE/BIBLE_Helix AI Studio_8.0.0.md`（847行）をベースに更新
+
+**v8.0.0 BIBLEから更新が必要なセクション:**
+
+| セクション | 更新内容 |
+|-----------|---------|
+| 1.1 名称・バージョン | 8.1.0 "Adaptive Memory" |
+| 1.3 設計哲学 | 項目6「記憶の品質管理」追加（Memory Risk Gateによる記憶品質担保） |
+| 1.3 設計哲学 | 項目7「UIの自己文書化」追加（ツールチップによるUI内ドキュメンテーション） |
+| 2. バージョン変遷 | v8.1.0行追加 |
+| **★新規 3.7** | **4層メモリアーキテクチャ**: Thread/Episodic/Semantic/Procedural の詳細、SQLiteスキーマ、Memory Risk Gate、注入フロー |
+| **★新規 3.8** | **Memory Risk Gate**: ministral-3:8bの記憶品質判定の詳細、判定プロンプト、mixAI/soloAI共通フロー |
+| 3.3 常駐モデル機構 | ministral-3:8bの用途に「記憶品質判定（Memory Risk Gate）」を追加 |
+| **5.2 mixAI設定** | ツール設定(MCP)、RAG設定の除去を反映 |
+| **5.3 soloAIタブ** | 設定からAPI認証/MCP/モデル設定除去、記憶コンテキスト自動注入を記載 |
+| **5.4 一般設定タブ** | ★大幅更新: Claudeモデル設定、MCPサーバー管理、記憶・知識管理の7セクション構成を記載 |
+| 6. デザインシステム | SPINBOX_STYLEの追加 |
+| **★新規 9.x** | **ディレクトリ構造に src/memory/ を追加** |
+| 11. 設定ファイル | app_settings.json の memory セクション追加 |
+| 12. PyInstaller | src.memory をhiddenimportsに追加 |
+| 付録A | v8.1.0変更履歴に差し替え（後述の一覧を使用） |
+
+**v8.1.0変更履歴（付録A用）:**
+
+```markdown
+## 付録A: v8.1.0 変更履歴
+
+### 記憶アーキテクチャ刷新
+
+| # | 変更 | 対象 |
+|---|------|------|
+| 1 | 4層メモリ統合マネージャー(HelixMemoryManager)新規実装 | src/memory/memory_manager.py |
+| 2 | SQLite 4層スキーマ(episodes/semantic_nodes/semantic_edges/procedures)設計 | data/helix_memory.db |
+| 3 | Memory Risk Gate実装（ministral-3:8b常駐活用） | src/memory/memory_manager.py |
+| 4 | Temporal Knowledge Graph（valid_from/to）をgraph_rag.pyに拡張 | src/helix_core/graph_rag.py |
+| 5 | Phase 1/3への記憶コンテキスト注入統合 | src/backends/mix_orchestrator.py |
+| 6 | soloAIへの記憶コンテキスト自動注入 | src/tabs/claude_tab.py |
+| 7 | Episodic Memory多段要約（RAPTOR風：session→weekly→version） | src/memory/memory_manager.py |
+| 8 | 後処理にMemory Risk Gate組み込み（mixAI/soloAI共通） | mix_orchestrator.py, claude_tab.py |
+
+### UI構造再編
+
+| # | 変更 | 対象 |
+|---|------|------|
+| 9 | soloAI設定からAPIキー入力・接続テスト削除 | claude_tab.py |
+| 10 | soloAI設定からMCPサーバー管理を一般設定に移設 | claude_tab.py → settings_cortex_tab.py |
+| 11 | soloAI設定からClaudeモデル設定を一般設定に移設 | claude_tab.py → settings_cortex_tab.py |
+| 12 | mixAI設定からツール設定(MCP)を一般設定に統合 | helix_orchestrator_tab.py → settings_cortex_tab.py |
+| 13 | mixAI設定からRAG設定を一般設定に統合 | helix_orchestrator_tab.py → settings_cortex_tab.py |
+| 14 | 一般設定に「記憶・知識管理」セクション新設 | settings_cortex_tab.py |
+| 15 | 一般設定最上部に「Claudeモデル設定」配置 | settings_cortex_tab.py |
+| 16 | 一般設定に「MCPサーバー管理」配置（全ON初期値） | settings_cortex_tab.py |
+
+### UIポリッシュ
+
+| # | 変更 | 対象 |
+|---|------|------|
+| 17 | 全QSpinBoxの上下ボタン拡大（SPINBOX_STYLE） | styles.py + 全タブ |
+| 18 | mixAIチャット入力欄プレースホルダー簡素化 | helix_orchestrator_tab.py |
+| 19 | soloAI「新規セッション」ボタンを1つに統合 | claude_tab.py |
+| 20 | soloAI認証バーから「認証: CLI」表示削除 | claude_tab.py |
+| 21 | 一般設定Claude CLI説明文削除 | settings_cortex_tab.py |
+
+### UX強化
+
+| # | 変更 | 対象 |
+|---|------|------|
+| 22 | 全UI要素にsetToolTip()追加（40件以上） | 全タブ・ウィジェット |
+| 23 | 全3タブ「設定を保存」ボタン有効化 + 視覚フィードバック | 全タブ |
+
+### 定数更新
+
+| # | 変更 | 対象 |
+|---|------|------|
+| 24 | APP_VERSION→"8.1.0", APP_CODENAME→"Adaptive Memory" | constants.py |
+| 25 | BIBLE v8.1.0生成（500行以上） | BIBLE/BIBLE_Helix AI Studio_8.1.0.md |
+```
+
+### 5D: 最終受入条件
+
+```bash
+echo "=========================================="
+echo "  v8.1.0 "Adaptive Memory" 最終受入テスト"
+echo "=========================================="
+
+echo "=== バージョン ==="
+grep "APP_VERSION\|APP_CODENAME" src/utils/constants.py
+
+echo "=== メモリシステム ==="
+ls -la src/memory/
+wc -l src/memory/memory_manager.py
+sqlite3 data/helix_memory.db ".tables"
+python -c "from src.memory.memory_manager import HelixMemoryManager; print('import OK')"
+
+echo "=== 記憶注入 ==="
+grep -c "memory_manager\|build_context" src/backends/mix_orchestrator.py
+grep -c "memory_manager\|build_context" src/tabs/claude_tab.py
+
+echo "=== UI構造: soloAI簡素化 ==="
+grep -c "API_KEY\|ANTHROPIC_KEY\|api_key" src/tabs/claude_tab.py
+grep -c "MCPサーバー管理" src/tabs/claude_tab.py
+grep -c "Claudeモデル設定" src/tabs/claude_tab.py
+
+echo "=== UI構造: 一般設定拡充 ==="
+grep -c "MCPサーバー" src/tabs/settings_cortex_tab.py
+grep -c "記憶.*知識\|Memory Risk\|Episode" src/tabs/settings_cortex_tab.py
+grep -c "Claudeモデル" src/tabs/settings_cortex_tab.py
+
+echo "=== ツールチップ ==="
+grep -c "setToolTip" src/tabs/helix_orchestrator_tab.py
+grep -c "setToolTip" src/tabs/claude_tab.py
+grep -c "setToolTip" src/tabs/settings_cortex_tab.py
+
+echo "=== 設定保存 ==="
+grep -c "_save_settings\|json\.dump" src/tabs/claude_tab.py
+grep -c "_save_settings\|json\.dump" src/tabs/helix_orchestrator_tab.py
+grep -c "_save_settings\|json\.dump" src/tabs/settings_cortex_tab.py
+
+echo "=== BIBLE v8.1.0 ==="
+ls -la "BIBLE/BIBLE_Helix AI Studio_8.1.0.md"
+wc -l "BIBLE/BIBLE_Helix AI Studio_8.1.0.md"
+
+echo "=== ビルド ==="
+pyinstaller HelixAIStudio.spec --noconfirm
+```
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 禁止事項
+
+1. フェーズ0の現状把握をスキップしないこと
+2. 「既に実装済み」と言う場合、必ず根拠コード行番号を明示すること
+3. BIBLEを `BIBLE.md` という名前にしないこと（`BIBLE_Helix AI Studio_8.1.0.md`）
+4. BIBLE v8.1.0の生成を省略しないこと（500行以上）
+5. ツールチップの追加を省略しないこと（各タブ10件以上）
+6. 設定保存ボタンの動作確認を省略しないこと
+7. Memory Risk Gate のministral-3:8b連携を省略しないこと
+8. soloAIでの記憶注入を省略しないこと（mixAIのみではなく両方）
+
+## 途中で止まった場合の再開方法
+
+以下のメッセージで再開:
+
+  フェーズ{N}まで完了しています。フェーズ{N+1}から再開してください。
+  まずフェーズ{N}の完了確認コマンドを実行して現在の状態を確認してから進めてください。
+```
+
+---

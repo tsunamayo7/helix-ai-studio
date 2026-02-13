@@ -19,6 +19,8 @@ from .tabs.settings_cortex_tab import SettingsCortexTab
 from .tabs.helix_orchestrator_tab import HelixOrchestratorTab
 # v6.0.0: チャット作成タブを削除
 # from .tabs.chat_creation_tab import ChatCreationTab
+# v8.5.0: 情報収集タブ追加
+from .tabs.information_collection_tab import InformationCollectionTab
 from .utils.constants import APP_NAME, APP_VERSION
 
 
@@ -26,12 +28,13 @@ class MainWindow(QMainWindow):
     """
     Helix AI Studio メインウィンドウ
 
-    3タブ構成 (v6.0.0):
+    4タブ構成 (v8.5.0):
     1. mixAI - 3Phase実行アーキテクチャ・Claude中心型オーケストレーション
     2. soloAI - Claude単体チャット (旧Claude Code)
-    3. 一般設定 - アプリ全体の設定
+    3. 情報収集 - ドキュメントRAG自律構築パイプライン
+    4. 一般設定 - アプリ全体の設定
 
-    v6.0.0変更: チャット作成タブ削除、mixAIを先頭に配置
+    v8.5.0変更: 情報収集タブ追加（自律RAG構築）
     """
 
     VERSION = APP_VERSION
@@ -132,10 +135,23 @@ class MainWindow(QMainWindow):
             "<b>Ctrl+Enter</b> でメッセージ送信"
         )
 
-        # 3. 一般設定 タブ (v6.0.0: APIキー設定削除)
+        # 3. 情報収集 タブ (v8.5.0: 自律RAG構築)
+        self.info_tab = InformationCollectionTab(workflow_state=self.workflow_state, main_window=self)
+        self.tab_widget.addTab(self.info_tab, "📚 情報収集")
+        self.tab_widget.setTabToolTip(2,
+            "<b>情報収集 - 自律RAG構築パイプライン</b><br><br>"
+            "ドキュメントを格納し、Claude + ローカルLLMで<br>"
+            "自動的にRAGを構築します。<br><br>"
+            "<b>3ステップ:</b><br>"
+            "・Step 1: Claude プラン策定<br>"
+            "・Step 2: ローカルLLM自律実行<br>"
+            "・Step 3: Claude 品質検証"
+        )
+
+        # 4. 一般設定 タブ (v6.0.0: APIキー設定削除)
         self.settings_tab = SettingsCortexTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.settings_tab, "⚙️ 一般設定")
-        self.tab_widget.setTabToolTip(2,
+        self.tab_widget.setTabToolTip(3,
             "<b>一般設定 - アプリ全体の設定</b><br><br>"
             "表示設定、自動化オプションなど。<br><br>"
             "<b>主要機能:</b><br>"
@@ -196,6 +212,9 @@ class MainWindow(QMainWindow):
 
         # LLMmixタブのステータス
         self.llmmix_tab.statusChanged.connect(self._update_status)
+
+        # v8.5.0: 情報収集タブのステータス
+        self.info_tab.statusChanged.connect(self._update_status)
 
         # 設定変更の反映
         self.settings_tab.settingsChanged.connect(self._on_settings_changed)

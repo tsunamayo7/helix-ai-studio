@@ -1099,6 +1099,33 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'max_retries_spin') and hasattr(self.config, 'max_phase2_retries'):
             self.max_retries_spin.setValue(self.config.max_phase2_retries)
 
+    def _get_claude_timeout_sec(self) -> int:
+        """v8.4.3: 一般設定タブのClaudeタイムアウト値を取得（秒）
+
+        general_settings.json の timeout_minutes を読み取り秒数に変換して返す。
+        設定が見つからない場合は DefaultSettings.CLAUDE_TIMEOUT_MIN (30分) をフォールバックとして使用。
+        """
+        from ..utils.constants import DefaultSettings
+        default_min = DefaultSettings.CLAUDE_TIMEOUT_MIN  # 30分
+
+        # main_window経由で一般設定タブのtimeout_spinを直接参照
+        if self.main_window and hasattr(self.main_window, 'settings_tab'):
+            settings_tab = self.main_window.settings_tab
+            if hasattr(settings_tab, 'timeout_spin'):
+                return settings_tab.timeout_spin.value() * 60
+
+        # フォールバック: general_settings.json から読み込み
+        try:
+            config_path = Path(__file__).parent.parent.parent / "config" / "general_settings.json"
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return data.get("timeout_minutes", default_min) * 60
+        except Exception as e:
+            logger.debug(f"general_settings.json read failed: {e}")
+
+        return default_min * 60
+
     def _get_config_path(self) -> Path:
         """設定ファイルのパスを取得（PyInstaller対応）"""
         # ユーザーのホームディレクトリに保存（永続化のため）
@@ -1783,6 +1810,17 @@ class HelixOrchestratorTab(QWidget):
 
     def _on_execute(self):
         """実行開始"""
+        # v8.5.0: RAG構築中ロック判定
+        if hasattr(self, 'main_window') and self.main_window:
+            rag_lock = getattr(self.main_window, '_rag_lock', None)
+            if rag_lock and rag_lock.is_locked:
+                QMessageBox.information(
+                    self, "RAG構築中",
+                    "情報収集タブでRAG構築が進行中です。\n"
+                    "完了するまでmixAIは使用できません。"
+                )
+                return
+
         prompt = self.input_text.toPlainText().strip()
         if not prompt:
             QMessageBox.warning(self, "入力エラー", "タスクを入力してください。")
@@ -1820,7 +1858,7 @@ class HelixOrchestratorTab(QWidget):
         orchestrator_config = {
             "claude_model": claude_model_id,
             "claude_model_id": claude_model_id,
-            "timeout": self.config.claude_timeout_sec if hasattr(self.config, 'claude_timeout_sec') else 600,
+            "timeout": self._get_claude_timeout_sec(),
             "auto_knowledge": True,
             "project_dir": os.getcwd(),
             "max_phase2_retries": self.max_retries_spin.value() if hasattr(self, 'max_retries_spin') else 2,

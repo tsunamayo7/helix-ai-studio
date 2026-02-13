@@ -1969,6 +1969,18 @@ class ClaudeTab(QWidget):
         import logging
         logger = logging.getLogger(__name__)
 
+        # v8.5.0: RAG構築中ロック判定
+        if hasattr(self, 'main_window') and self.main_window:
+            rag_lock = getattr(self.main_window, '_rag_lock', None)
+            if rag_lock and rag_lock.is_locked:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self, "RAG構築中",
+                    "情報収集タブでRAG構築が進行中です。\n"
+                    "完了するまでsoloAIは使用できません。"
+                )
+                return
+
         try:
             # === 送信前の状態ガード (C: 状態のガード) ===
             # session_id の確保
