@@ -112,7 +112,7 @@ npm install -g @anthropic-ai/claude-code
 
 # (任意) Phase 2用のローカルモデルをOllamaでプル
 ollama pull devstral-2:123b
-ollama pull command-a:111b
+ollama pull command-a:latest
 ollama pull gpt-oss:120b
 ollama pull translategemma:27b
 ollama pull gemma3:27b
@@ -146,7 +146,7 @@ graph LR
   P3 --> User
 
   P2 --> coding["coding: devstral-2:123b"]
-  P2 --> research["research: command-a:111b"]
+  P2 --> research["research: command-a:latest"]
   P2 --> reasoning["reasoning: gpt-oss:120b"]
   P2 --> translation["translation: translategemma:27b"]
   P2 --> vision["vision: gemma3:27b"]

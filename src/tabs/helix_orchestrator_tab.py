@@ -1541,11 +1541,11 @@ class HelixOrchestratorTab(QWidget):
         self.research_model_combo = NoScrollComboBox()
         self.research_model_combo.setEditable(True)
         self.research_model_combo.addItems([
-            "command-a:111b",           # 67GB, 調査・RAG向き (推奨)
+            "command-a:latest",          # 67GB, 調査・RAG向き (推奨)
             "nemotron-3-nano:30b",      # 24GB, 代替
             "qwen3:30b",
         ])
-        self.research_model_combo.setCurrentText("command-a:111b")
+        self.research_model_combo.setCurrentText("command-a:latest")
         research_row.addWidget(self.research_model_combo)
         research_vram = QLabel("(67GB)")
         research_vram.setStyleSheet("color: #22c55e; font-size: 10px;")

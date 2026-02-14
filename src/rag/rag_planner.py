@@ -51,7 +51,7 @@ PLAN_SYSTEM_PROMPT = """あなたはHelix AI StudioのRAG構築プランナー�
         "step_id": 整数,
         "name": "ステップ名",
         "target_files": ["all"] または ["ファイル名"],
-        "model": "direct|qwen3-embedding:4b|ministral-3:8b|command-a:111b",
+        "model": "direct|qwen3-embedding:4b|ministral-3:8b|command-a:latest",
         "estimated_minutes": 小数,
         "gpu": 0または1
       }
@@ -154,7 +154,7 @@ class RAGPlanner:
 - 実行時間上限: {time_limit_minutes}分
 - 利用可能モデル:
   - 常駐 GPU0: ministral-3:8b (6GB), qwen3-embedding:4b (2.5GB)
-  - オンデマンド GPU1: command-a:111b (67GB)
+  - オンデマンド GPU1: command-a:latest (67GB)
 - Embedding次元: 768 (qwen3-embedding:4b)
 
 JSONのみ出力してください。"""
@@ -249,7 +249,7 @@ JSONのみ出力してください。"""
             {"step_id": 3, "name": "チャンク要約・キーワード抽出", "target_files": ["all"],
              "model": "ministral-3:8b", "estimated_minutes": estimated_chunks * 0.15, "gpu": 0},
             {"step_id": 4, "name": "Semantic Node/Edge生成", "target_files": ["all"],
-             "model": "command-a:111b", "estimated_minutes": estimated_chunks * 0.5 + 2.0, "gpu": 1},
+             "model": "command-a:latest", "estimated_minutes": estimated_chunks * 0.5 + 2.0, "gpu": 1},
             {"step_id": 5, "name": "多段要約生成", "target_files": ["all"],
              "model": "ministral-3:8b", "estimated_minutes": len(file_previews) * 0.5 + 1.0, "gpu": 0},
         ]

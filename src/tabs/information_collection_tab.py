@@ -268,7 +268,7 @@ class InformationCollectionTab(QWidget):
 
         model_info = [
             ("Claudeモデル:", "Claude Opus 4.6 (最高知能)"),
-            ("実行LLM:", "command-a:111b (research)"),
+            ("実行LLM:", "command-a:latest (research)"),
             ("品質判定:", "ministral-3:8b (常駐)"),
             ("Embedding:", "qwen3-embedding:4b (常駐)"),
         ]

@@ -65,7 +65,7 @@ MODEL_CATALOG: Dict[str, ModelInfo] = {
     "qwen3-coder:30b": ModelInfo("qwen3-coder:30b", 19, "coding", "SWE-bench 69.6% 軽量", "#ffadc6"),
 
     # research: 調査・RAG検索・情報収集
-    "command-a:111b": ModelInfo("command-a:111b", 67, "research", "調査・RAG向き", "#6bc5ff"),
+    "command-a:latest": ModelInfo("command-a:latest", 67, "research", "調査・RAG向き", "#6bc5ff"),
     "nemotron-3-nano:30b": ModelInfo("nemotron-3-nano:30b", 24, "research", "IFBench 71.5% 1Mコンテキスト", "#8bd5ff"),
     "qwen3:30b": ModelInfo("qwen3:30b", 19, "research", "汎用", "#aae5ff"),
 

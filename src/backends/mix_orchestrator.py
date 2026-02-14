@@ -68,7 +68,7 @@ class MixAIOrchestrator(QThread):
             attached_files: 添付ファイルパスのリスト（--cwdと組み合わせて使用）
             model_assignments: カテゴリ→Ollamaモデル名マッピング
                 例: {"coding": "devstral-2:123b",
-                     "research": "command-a:111b",
+                     "research": "command-a:latest",
                      "reasoning": "gpt-oss:120b",
                      "vision": "gemma3:27b",
                      "translation": "translategemma:27b"}

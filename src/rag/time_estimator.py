@@ -17,9 +17,9 @@ class TimeEstimator:
         "chunking_per_kb": 0.01,             # 分/KB
         "embedding_per_chunk": 0.02,          # 分/チャンク (qwen3-embedding:4b)
         "summary_per_chunk": 0.15,            # 分/チャンク (ministral-3:8b)
-        "kg_per_chunk": 0.5,                  # 分/チャンク (command-a:111b)
+        "kg_per_chunk": 0.5,                  # 分/チャンク (command-a:latest)
         "model_load_time": {
-            "command-a:111b": 2.0,            # 分（67GB VRAM ロード時間）
+            "command-a:latest": 2.0,          # 分（67GB VRAM ロード時間）
             "ministral-3:8b": 0.0,            # 常駐のためロード不要
             "qwen3-embedding:4b": 0.0,        # 常駐のためロード不要
         },
@@ -61,7 +61,7 @@ class TimeEstimator:
         # KG生成（高優先度ファイルのみと仮定して半数）
         kg_chunks = max(estimated_chunks // 2, 1)
         total += kg_chunks * self.BENCHMARKS["kg_per_chunk"]
-        total += self.BENCHMARKS["model_load_time"].get("command-a:111b", 2.0)
+        total += self.BENCHMARKS["model_load_time"].get("command-a:latest", 2.0)
 
         # 多段要約
         total += total_files * 0.5  # ファイル単位要約

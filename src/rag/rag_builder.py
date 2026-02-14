@@ -303,7 +303,7 @@ class RAGBuilder(QThread):
             # 要約結果をDBに反映
             self._update_chunk_metadata(chunks)
 
-            # Sub-step D: エンティティ抽出・TKGエッジ構築 (command-a:111b)
+            # Sub-step D: エンティティ抽出・TKGエッジ構築 (command-a:latest)
             self._run_step(steps, 3, "エンティティ抽出・TKGエッジ構築")
             if self._cancelled:
                 self._finish(False, "ユーザーにより中止されました")
@@ -331,7 +331,7 @@ class RAGBuilder(QThread):
                 self.signals.step_completed.emit(4, f"TKG構築完了: {kg_result}ノード")
             self._completed_steps += 1
 
-            # Sub-step E: RAPTOR階層要約生成 (command-a:111b)
+            # Sub-step E: RAPTOR階層要約生成 (command-a:latest)
             self._run_step(steps, 4, "RAPTOR階層要約生成")
             if self._cancelled:
                 self._finish(False, "ユーザーにより中止されました")
@@ -347,7 +347,7 @@ class RAGBuilder(QThread):
             self.signals.step_completed.emit(5, f"RAPTOR要約完了: {raptor_count}件")
             self._completed_steps += 1
 
-            # Sub-step F: GraphRAGコミュニティ検出・要約 (command-a:111b)
+            # Sub-step F: GraphRAGコミュニティ検出・要約 (command-a:latest)
             self._run_step(steps, 5, "GraphRAGコミュニティ検出・要約")
             if self._cancelled:
                 self._finish(False, "ユーザーにより中止されました")
