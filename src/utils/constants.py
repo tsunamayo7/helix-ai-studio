@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "8.5.0"
-APP_CODENAME = "Autonomous RAG"
+APP_VERSION = "9.6.0"
+APP_CODENAME = "Global Ready"
 APP_DESCRIPTION = (
-    "Helix AI Studio v8.5.0 'Autonomous RAG' - "
-    "情報収集タブ新設・自律RAG構築パイプライン・Document Memory・ロック機構"
+    "Helix AI Studio v9.6.0 'Global Ready' - "
+    "Multi-language UI (Japanese/English) with shared i18n for Desktop & Web"
 )
 
 # v8.5.0: 情報収集フォルダ
@@ -72,9 +72,9 @@ class ThinkingMode:
 # =============================================================================
 # v7.1.0: Claudeモデル定義（動的選択対応）
 CLAUDE_MODELS = [
-    {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6 (最高知能)", "description": "最も高度で知的なモデル。複雑な推論・計画立案に最適", "tier": "opus", "is_default": True},
-    {"id": "claude-opus-4-5-20250929", "display_name": "Claude Opus 4.5 (高品質)", "description": "高品質でバランスの取れた応答。安定性重視", "tier": "opus", "is_default": False},
-    {"id": "claude-sonnet-4-5-20250929", "display_name": "Claude Sonnet 4.5 (高速)", "description": "高速応答とコスト効率。日常タスク向き", "tier": "sonnet", "is_default": False},
+    {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6 (最高知能)", "description": "最も高度で知的なモデル。複雑な推論・計画立案に最適", "tier": "opus", "is_default": True, "i18n_display": "desktop.mixAI.claudeModelOpus46", "i18n_desc": "desktop.mixAI.claudeModelOpus46Desc"},
+    {"id": "claude-opus-4-5-20250929", "display_name": "Claude Opus 4.5 (高品質)", "description": "高品質でバランスの取れた応答。安定性重視", "tier": "opus", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelOpus45", "i18n_desc": "desktop.mixAI.claudeModelOpus45Desc"},
+    {"id": "claude-sonnet-4-5-20250929", "display_name": "Claude Sonnet 4.5 (高速)", "description": "高速応答とコスト効率。日常タスク向き", "tier": "sonnet", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelSonnet45", "i18n_desc": "desktop.mixAI.claudeModelSonnet45Desc"},
 ]
 DEFAULT_CLAUDE_MODEL_ID = "claude-opus-4-6"
 

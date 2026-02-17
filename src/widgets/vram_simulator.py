@@ -35,6 +35,8 @@ from PyQt6.QtGui import (
     QRadialGradient, QPainterPath, QDrag, QPixmap, QCursor
 )
 
+from ..utils.i18n import t
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,31 +62,31 @@ class GPUInfo:
 # 利用可能なモデルカタログ
 MODEL_CATALOG: Dict[str, ModelInfo] = {
     # coding: コード生成・修正・レビュー
-    "devstral-2:123b": ModelInfo("devstral-2:123b", 75, "coding", "SWE-bench 72.2% 最高", "#ff6b9d"),
-    "qwen3-coder-next:80b": ModelInfo("qwen3-coder-next:80b", 50, "coding", "軽量代替", "#ff8fab"),
-    "qwen3-coder:30b": ModelInfo("qwen3-coder:30b", 19, "coding", "SWE-bench 69.6% 軽量", "#ffadc6"),
+    "devstral-2:123b": ModelInfo("devstral-2:123b", 75, "coding", t('desktop.widgets.vramSim.modelDescriptions.codestral'), "#ff6b9d"),
+    "qwen3-coder-next:80b": ModelInfo("qwen3-coder-next:80b", 50, "coding", t('desktop.widgets.vramSim.modelDescriptions.codestralAlt'), "#ff8fab"),
+    "qwen3-coder:30b": ModelInfo("qwen3-coder:30b", 19, "coding", t('desktop.widgets.vramSim.modelDescriptions.qwen3'), "#ffadc6"),
 
     # research: 調査・RAG検索・情報収集
-    "command-a:latest": ModelInfo("command-a:latest", 67, "research", "調査・RAG向き", "#6bc5ff"),
-    "nemotron-3-nano:30b": ModelInfo("nemotron-3-nano:30b", 24, "research", "IFBench 71.5% 1Mコンテキスト", "#8bd5ff"),
-    "qwen3:30b": ModelInfo("qwen3:30b", 19, "research", "汎用", "#aae5ff"),
+    "command-a:latest": ModelInfo("command-a:latest", 67, "research", t('desktop.widgets.vramSim.modelDescriptions.ministral'), "#6bc5ff"),
+    "nemotron-3-nano:30b": ModelInfo("nemotron-3-nano:30b", 24, "research", t('desktop.widgets.vramSim.modelDescriptions.gemma3'), "#8bd5ff"),
+    "qwen3:30b": ModelInfo("qwen3:30b", 19, "research", t('desktop.widgets.vramSim.modelDescriptions.phi4'), "#aae5ff"),
 
     # reasoning: 推論・論理検証・品質チェック
-    "gpt-oss:120b": ModelInfo("gpt-oss:120b", 80, "reasoning", "推論最強", "#6bffb8"),
-    "phi4-reasoning:14b": ModelInfo("phi4-reasoning:14b", 9, "reasoning", "軽量推論", "#8bffcc"),
+    "gpt-oss:120b": ModelInfo("gpt-oss:120b", 80, "reasoning", t('desktop.widgets.vramSim.modelDescriptions.qwq'), "#6bffb8"),
+    "phi4-reasoning:14b": ModelInfo("phi4-reasoning:14b", 9, "reasoning", t('desktop.widgets.vramSim.modelDescriptions.qwqSmall'), "#8bffcc"),
 
     # translation: 翻訳タスク
-    "translategemma:27b": ModelInfo("translategemma:27b", 18, "translation", "翻訳専用", "#ffd66b"),
+    "translategemma:27b": ModelInfo("translategemma:27b", 18, "translation", t('desktop.widgets.vramSim.modelDescriptions.aya'), "#ffd66b"),
 
     # vision: 画像解析・UI検証
-    "gemma3:27b": ModelInfo("gemma3:27b", 18, "vision", "画像解析", "#e06bff"),
-    "mistral-small3.2:24b": ModelInfo("mistral-small3.2:24b", 15, "vision", "代替", "#e08bff"),
+    "gemma3:27b": ModelInfo("gemma3:27b", 18, "vision", t('desktop.widgets.vramSim.modelDescriptions.llava'), "#e06bff"),
+    "mistral-small3.2:24b": ModelInfo("mistral-small3.2:24b", 15, "vision", t('desktop.widgets.vramSim.modelDescriptions.minicpm'), "#e08bff"),
 }
 
 # フォールバック用のデフォルトGPU構成
 _FALLBACK_GPUS = [
-    GPUInfo(0, "GPU 0 (検出失敗)", 96, "#00ff88"),
-    GPUInfo(1, "GPU 1 (検出失敗)", 16, "#00d4ff"),
+    GPUInfo(0, t('desktop.widgets.vramSim.gpuFallback0'), 96, "#00ff88"),
+    GPUInfo(1, t('desktop.widgets.vramSim.gpuFallback1'), 16, "#00d4ff"),
 ]
 
 
@@ -339,7 +341,7 @@ class VRAMBlock(QFrame):
         self.setToolTip(
             f"<b>{self.model_info.name}</b><br>"
             f"VRAM: {self.model_info.vram_gb:.1f} GB<br>"
-            f"カテゴリ: {self.model_info.category}<br>"
+            f"{t('desktop.widgets.vramSim.categoryTooltip', category=self.model_info.category)}<br>"
             f"{self.model_info.description}"
         )
 
@@ -544,7 +546,7 @@ class GPUBar(QFrame):
 
         # オーバーフロー警告
         if overflow > 0:
-            self.warning_label.setText(f"⚠️ VRAM不足: {overflow:.1f} GB オーバー")
+            self.warning_label.setText(t('desktop.widgets.vramSim.vramOverWarning', overflow=f"{overflow:.1f}"))
             self.warning_label.setVisible(True)
             self.overflowChanged.emit(self.gpu_info.index, overflow)
         else:
@@ -648,20 +650,20 @@ class ModelSelector(QFrame):
         layout.setSpacing(8)
 
         # ヘッダー
-        header = QLabel("📦 モデルカタログ")
+        header = QLabel(t('desktop.widgets.vramSim.catalogHeader'))
         header.setStyleSheet("color: #ffffff; font-size: 13px; font-weight: bold;")
         layout.addWidget(header)
 
-        desc = QLabel("クリックでGPU 0に追加、ドラッグで任意のGPUに移動")
+        desc = QLabel(t('desktop.widgets.vramSim.catalogDesc'))
         desc.setStyleSheet("color: #888888; font-size: 10px;")
         layout.addWidget(desc)
 
         # カテゴリ別モデルボタン
         categories = {
-            "coding": "💻 コーディング",
-            "report": "📊 レポート/分析",
-            "search": "🔍 検索",
-            "verifier": "✅ 検証",
+            "coding": t('desktop.widgets.vramSim.catCoding'),
+            "report": t('desktop.widgets.vramSim.catReport'),
+            "search": t('desktop.widgets.vramSim.catSearch'),
+            "verifier": t('desktop.widgets.vramSim.catVerify'),
         }
 
         for cat_id, cat_name in categories.items():
@@ -736,7 +738,7 @@ class VRAMBudgetSimulator(QWidget):
 
         # ヘッダー
         header_layout = QHBoxLayout()
-        title = QLabel("🖥️ VRAM Budget Simulator")
+        title = QLabel(t('desktop.widgets.vramSim.simTitle'))
         title.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: bold;")
         header_layout.addWidget(title)
 
@@ -744,12 +746,12 @@ class VRAMBudgetSimulator(QWidget):
 
         # 合計VRAM表示
         total_vram = sum(g.total_vram_gb for g in self._gpus)
-        self.total_label = QLabel(f"合計: 0 / {total_vram:.0f} GB")
+        self.total_label = QLabel(t('desktop.widgets.vramSim.totalVram', used="0", total=f"{total_vram:.0f}"))
         self.total_label.setStyleSheet("color: #888888; font-size: 12px;")
         header_layout.addWidget(self.total_label)
 
         # リセットボタン
-        reset_btn = QPushButton("🔄 リセット")
+        reset_btn = QPushButton(t('desktop.widgets.vramSim.resetBtn'))
         reset_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3d3d3d;
@@ -804,7 +806,7 @@ class VRAMBudgetSimulator(QWidget):
         """)
         summary_layout = QHBoxLayout(self.summary_frame)
 
-        self.summary_label = QLabel("モデルを選択してください")
+        self.summary_label = QLabel(t('desktop.widgets.vramSim.emptyState'))
         self.summary_label.setStyleSheet("color: #b0b0b0; font-size: 11px;")
         summary_layout.addWidget(self.summary_label)
 
@@ -849,7 +851,7 @@ class VRAMBudgetSimulator(QWidget):
         total_used = sum(bar.get_used_vram() for bar in self._gpu_bars.values())
         total_vram = sum(g.total_vram_gb for g in self._gpus)
 
-        self.total_label.setText(f"合計: {total_used:.1f} / {total_vram:.0f} GB")
+        self.total_label.setText(t('desktop.widgets.vramSim.totalVram', used=f"{total_used:.1f}", total=f"{total_vram:.0f}"))
 
         # モデル一覧
         all_models = []
@@ -858,9 +860,9 @@ class VRAMBudgetSimulator(QWidget):
                 all_models.append(f"{model.name} (GPU{bar.gpu_info.index})")
 
         if all_models:
-            self.summary_label.setText("配置済み: " + ", ".join(all_models))
+            self.summary_label.setText(t('desktop.widgets.vramSim.placedSummary', summary=", ".join(all_models)))
         else:
-            self.summary_label.setText("モデルを選択してください")
+            self.summary_label.setText(t('desktop.widgets.vramSim.emptyState'))
 
         # オーバーフローチェック
         has_overflow = any(bar.get_overflow() > 0 for bar in self._gpu_bars.values())

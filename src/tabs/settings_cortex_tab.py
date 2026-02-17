@@ -2,11 +2,14 @@
 Settings / General Tab - 一般設定
 v3.9.0: 大幅簡略化（スクリーンキャプチャ、予算管理、Local接続、Gemini関連を削除）
 v8.1.0: Claudeモデル設定・MCPサーバー管理をsoloAIから移設、記憶・知識管理セクション追加
+v9.6.0: i18n対応（t()による多言語化）+ 言語切替UIセクション追加
 
 一般設定: モデル・CLI・MCP・記憶知識・表示・自動化
 """
 
+import json
 import logging
+from pathlib import Path
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget,
     QGroupBox, QLabel, QLineEdit, QPushButton,
@@ -21,7 +24,27 @@ try:
 except ImportError:
     SPINBOX_STYLE = ""
 
+from ..utils.i18n import t, set_language, get_language
+
 logger = logging.getLogger(__name__)
+
+
+class _NoScrollComboBox(QComboBox):
+    """QComboBox that ignores wheel events unless focused."""
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
+class _NoScrollSpinBox(QSpinBox):
+    """QSpinBox that ignores wheel events unless focused."""
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
 
 
 class SettingsCortexTab(QWidget):
@@ -81,35 +104,43 @@ class SettingsCortexTab(QWidget):
         content_layout = QVBoxLayout(content_widget)
         content_layout.setSpacing(15)
 
+        # 0. 言語切替 (v9.6.0)
+        self.lang_group = self._create_language_group()
+        content_layout.addWidget(self.lang_group)
+
         # 1. Claudeモデル設定（soloAIから移設）
-        model_group = self._create_model_group()
-        content_layout.addWidget(model_group)
+        self.model_group = self._create_model_group()
+        content_layout.addWidget(self.model_group)
 
         # 2. Claude CLI 状態
-        cli_group = self._create_cli_status_group()
-        content_layout.addWidget(cli_group)
+        self.cli_group = self._create_cli_status_group()
+        content_layout.addWidget(self.cli_group)
 
         # 3. MCPサーバー管理（soloAIから移設）
-        mcp_group = self._create_mcp_group()
-        content_layout.addWidget(mcp_group)
+        self.mcp_group = self._create_mcp_group()
+        content_layout.addWidget(self.mcp_group)
 
         # 4. 記憶・知識管理
-        memory_group = self._create_memory_knowledge_group()
-        content_layout.addWidget(memory_group)
+        self.memory_group = self._create_memory_knowledge_group()
+        content_layout.addWidget(self.memory_group)
 
         # 5. 表示とテーマ
-        display_group = self._create_display_group()
-        content_layout.addWidget(display_group)
+        self.display_group = self._create_display_group()
+        content_layout.addWidget(self.display_group)
 
         # 6. 自動化
-        auto_group = self._create_auto_group()
-        content_layout.addWidget(auto_group)
+        self.auto_group = self._create_auto_group()
+        content_layout.addWidget(self.auto_group)
 
-        # 7. 保存ボタン
+        # 7. Web UIサーバー
+        self.webui_group = self._create_web_ui_section()
+        content_layout.addWidget(self.webui_group)
+
+        # 8. 保存ボタン
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        self.save_settings_btn = QPushButton("🔒 設定を保存")
-        self.save_settings_btn.setToolTip("全設定をconfig.json + app_settings.jsonに保存します")
+        self.save_settings_btn = QPushButton(t('desktop.settings.saveButton'))
+        self.save_settings_btn.setToolTip(t('desktop.settings.saveButtonTip'))
         btn_layout.addWidget(self.save_settings_btn)
         content_layout.addLayout(btn_layout)
 
@@ -119,36 +150,82 @@ class SettingsCortexTab(QWidget):
         layout.addWidget(scroll_area)
 
     # ========================================
+    # 0. 言語切替 (v9.6.0)
+    # ========================================
+
+    def _create_language_group(self) -> QGroupBox:
+        """v9.6.0: 言語切替セクション"""
+        group = QGroupBox(t('desktop.settings.language'))
+        layout = QHBoxLayout(group)
+
+        self.lang_ja_btn = QPushButton(t('desktop.settings.langJa'))
+        self.lang_en_btn = QPushButton(t('desktop.settings.langEn'))
+
+        current_lang = get_language()
+        self._update_lang_button_styles(current_lang)
+
+        self.lang_ja_btn.clicked.connect(lambda: self._on_language_changed('ja'))
+        self.lang_en_btn.clicked.connect(lambda: self._on_language_changed('en'))
+
+        layout.addWidget(self.lang_ja_btn)
+        layout.addWidget(self.lang_en_btn)
+        layout.addStretch()
+
+        return group
+
+    def _on_language_changed(self, lang: str):
+        """言語変更時の処理"""
+        set_language(lang)
+        self._update_lang_button_styles(lang)
+        # 全UIテキストを更新
+        self.retranslateUi()
+        # メインウィンドウにも通知
+        if self.main_window and hasattr(self.main_window, 'retranslateUi'):
+            self.main_window.retranslateUi()
+
+    def _update_lang_button_styles(self, current_lang: str):
+        """言語ボタンのスタイルを更新"""
+        active_style = "background-color: #059669; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
+        inactive_style = "background-color: #2d2d2d; color: #888; padding: 8px 20px; border-radius: 6px;"
+        self.lang_ja_btn.setStyleSheet(active_style if current_lang == 'ja' else inactive_style)
+        self.lang_en_btn.setStyleSheet(active_style if current_lang == 'en' else inactive_style)
+
+    # ========================================
     # 1. Claudeモデル設定（soloAIから移設）
     # ========================================
 
     def _create_model_group(self) -> QGroupBox:
         """v8.1.0: Claudeモデル設定（soloAIから移設）"""
-        group = QGroupBox("🤖 Claudeモデル設定")
+        group = QGroupBox(t('desktop.settings.claudeModel'))
         layout = QFormLayout(group)
 
         # デフォルトモデル
-        self.default_model_combo = QComboBox()
-        self.default_model_combo.setToolTip("全タブのデフォルトClaudeモデルを選択します")
+        self.default_model_combo = _NoScrollComboBox()
+        self.default_model_combo.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.default_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
         try:
             from ..utils.constants import CLAUDE_MODELS
             for model_def in CLAUDE_MODELS:
+                display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
                 self.default_model_combo.addItem(
-                    model_def["display_name"], userData=model_def["id"]
+                    display, userData=model_def["id"]
                 )
         except ImportError:
-            self.default_model_combo.addItem("Claude Sonnet 4.5 (推奨)")
-        layout.addRow("デフォルトモデル:", self.default_model_combo)
+            self.default_model_combo.addItem(t('desktop.settings.sonnetFallback'))
+        self.default_model_label = QLabel(t('desktop.settings.defaultModel'))
+        layout.addRow(self.default_model_label, self.default_model_combo)
 
         # タイムアウト
-        self.timeout_spin = QSpinBox()
+        self.timeout_spin = _NoScrollSpinBox()
+        self.timeout_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.timeout_spin.setStyleSheet(SPINBOX_STYLE)
         self.timeout_spin.setRange(10, 120)
         self.timeout_spin.setValue(30)
-        self.timeout_spin.setSuffix(" 分")
+        self.timeout_spin.setSuffix(t('desktop.settings.timeoutSuffix'))
         self.timeout_spin.setSingleStep(10)
-        self.timeout_spin.setToolTip("Claude CLI応答待ちタイムアウト（分）\n10分単位で設定、直接入力で細かい値も可")
-        layout.addRow("タイムアウト:", self.timeout_spin)
+        self.timeout_spin.setToolTip(t('desktop.settings.timeoutTip'))
+        self.timeout_label = QLabel(t('desktop.settings.timeout'))
+        layout.addRow(self.timeout_label, self.timeout_spin)
 
         return group
 
@@ -158,14 +235,15 @@ class SettingsCortexTab(QWidget):
 
     def _create_cli_status_group(self) -> QGroupBox:
         """v8.1.0: Claude CLI状態表示（説明文削除、ボタンのみ）"""
-        group = QGroupBox("🖥️ Claude CLI 状態")
+        group = QGroupBox(t('desktop.settings.cliStatus'))
         layout = QVBoxLayout(group)
 
         # Claude CLI 状態 + ボタン
         cli_layout = QHBoxLayout()
-        cli_layout.addWidget(QLabel("Claude CLI:"))
-        self.cli_test_btn = QPushButton("接続確認")
-        self.cli_test_btn.setToolTip("Claude Code CLIのインストール・認証状態を確認")
+        self.cli_label = QLabel(t('desktop.settings.cliLabel'))
+        cli_layout.addWidget(self.cli_label)
+        self.cli_test_btn = QPushButton(t('desktop.settings.cliTest'))
+        self.cli_test_btn.setToolTip(t('desktop.settings.cliTestTip'))
         self.cli_test_btn.clicked.connect(self._test_cli_connection)
         cli_layout.addWidget(self.cli_test_btn)
         cli_layout.addStretch()
@@ -189,14 +267,17 @@ class SettingsCortexTab(QWidget):
             if available:
                 self.cli_status_label.setText(f"✅ {message}")
                 self.cli_status_label.setStyleSheet("color: #4CAF50;")
-                QMessageBox.information(self, "成功", f"Claude CLI が利用可能です。\n{message}")
+                QMessageBox.information(self, t('desktop.settings.cliSuccessTitle'),
+                                        t('desktop.settings.cliSuccessMsg', message=message))
             else:
-                self.cli_status_label.setText("❌ 利用不可")
+                self.cli_status_label.setText("❌ " + t('desktop.settings.cliUnavailable'))
                 self.cli_status_label.setStyleSheet("color: #f44336;")
-                QMessageBox.warning(self, "エラー", f"Claude CLI が利用できません:\n{message}")
+                QMessageBox.warning(self, t('desktop.settings.cliErrorTitle'),
+                                    t('desktop.settings.cliErrorMsg', message=message))
         except Exception as e:
-            self.cli_status_label.setText("❌ エラー")
-            QMessageBox.warning(self, "エラー", f"CLIチェック中にエラー:\n{str(e)}")
+            self.cli_status_label.setText(t('desktop.settings.cliError'))
+            QMessageBox.warning(self, t('desktop.settings.cliErrorTitle'),
+                                t('desktop.settings.cliCheckError', message=str(e)))
 
     def _check_cli_status(self):
         """CLI状態を確認"""
@@ -204,10 +285,10 @@ class SettingsCortexTab(QWidget):
             from ..backends.claude_cli_backend import check_claude_cli_available
             available, message = check_claude_cli_available()
             if available:
-                self.cli_status_label.setText("✅ CLI利用可能")
+                self.cli_status_label.setText(t('desktop.settings.cliAvailable'))
                 self.cli_status_label.setStyleSheet("color: #4CAF50;")
             else:
-                self.cli_status_label.setText("⚠️ CLI利用不可")
+                self.cli_status_label.setText(t('desktop.settings.cliUnavailable'))
                 self.cli_status_label.setStyleSheet("color: #ffa500;")
         except Exception:
             self.cli_status_label.setText("")
@@ -218,35 +299,35 @@ class SettingsCortexTab(QWidget):
 
     def _create_mcp_group(self) -> QGroupBox:
         """v8.1.0: MCPサーバー管理（soloAIから移設）"""
-        group = QGroupBox("🔧 MCPサーバー管理")
+        group = QGroupBox(t('desktop.settings.mcp'))
         layout = QVBoxLayout(group)
 
         # チェックボックス形式
-        self.mcp_filesystem_cb = QCheckBox("ファイルシステム")
-        self.mcp_filesystem_cb.setToolTip("ローカルファイルの読み書きを許可")
+        self.mcp_filesystem_cb = QCheckBox(t('desktop.settings.mcpFilesystem'))
+        self.mcp_filesystem_cb.setToolTip(t('desktop.settings.mcpFilesystemTip'))
         self.mcp_filesystem_cb.setChecked(True)
         layout.addWidget(self.mcp_filesystem_cb)
 
-        self.mcp_git_cb = QCheckBox("Git")
-        self.mcp_git_cb.setToolTip("Git操作を許可")
+        self.mcp_git_cb = QCheckBox(t('desktop.settings.mcpGit'))
+        self.mcp_git_cb.setToolTip(t('desktop.settings.mcpGitTip'))
         self.mcp_git_cb.setChecked(True)
         layout.addWidget(self.mcp_git_cb)
 
-        self.mcp_brave_cb = QCheckBox("Brave検索")
-        self.mcp_brave_cb.setToolTip("Web検索を許可")
+        self.mcp_brave_cb = QCheckBox(t('desktop.settings.mcpBrave'))
+        self.mcp_brave_cb.setToolTip(t('desktop.settings.mcpBraveTip'))
         self.mcp_brave_cb.setChecked(True)
         layout.addWidget(self.mcp_brave_cb)
 
         # 一括ボタン
         btn_layout = QHBoxLayout()
-        enable_all_btn = QPushButton("全て有効")
-        enable_all_btn.setToolTip("全MCPサーバーを一括で有効にします")
-        enable_all_btn.clicked.connect(lambda: self._set_all_mcp(True))
-        btn_layout.addWidget(enable_all_btn)
-        disable_all_btn = QPushButton("全て無効")
-        disable_all_btn.setToolTip("全MCPサーバーを一括で無効にします")
-        disable_all_btn.clicked.connect(lambda: self._set_all_mcp(False))
-        btn_layout.addWidget(disable_all_btn)
+        self.enable_all_btn = QPushButton(t('desktop.settings.mcpEnableAll'))
+        self.enable_all_btn.setToolTip(t('desktop.settings.mcpEnableAllTip'))
+        self.enable_all_btn.clicked.connect(lambda: self._set_all_mcp(True))
+        btn_layout.addWidget(self.enable_all_btn)
+        self.disable_all_btn = QPushButton(t('desktop.settings.mcpDisableAll'))
+        self.disable_all_btn.setToolTip(t('desktop.settings.mcpDisableAllTip'))
+        self.disable_all_btn.clicked.connect(lambda: self._set_all_mcp(False))
+        btn_layout.addWidget(self.disable_all_btn)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
@@ -264,79 +345,81 @@ class SettingsCortexTab(QWidget):
 
     def _create_memory_knowledge_group(self) -> QGroupBox:
         """v8.1.0: 記憶・知識管理セクション"""
-        group = QGroupBox("🧠 記憶・知識管理")
+        group = QGroupBox(t('desktop.settings.memory'))
         layout = QVBoxLayout(group)
 
         # 記憶統計
-        stats_label = QLabel("📊 記憶統計")
-        stats_label.setStyleSheet("font-weight: bold; color: #00d4ff;")
-        layout.addWidget(stats_label)
+        self.stats_title_label = QLabel(t('desktop.settings.memoryStats'))
+        self.stats_title_label.setStyleSheet("font-weight: bold; color: #00d4ff;")
+        layout.addWidget(self.stats_title_label)
 
-        self.memory_stats_label = QLabel(
-            "Episode記憶: 0件  Semantic記憶: 0件\n"
-            "手続き記憶: 0件\n"
-            "Knowledge: 0件  Encyclopedia: 0件"
-        )
-        self.memory_stats_label.setToolTip("4層メモリシステムの現在の保存件数\nEpisodic=会話ログ Semantic=事実 Procedural=手順")
+        self.memory_stats_label = QLabel(t('desktop.settings.memoryStatsDefault'))
+        self.memory_stats_label.setToolTip(t('desktop.settings.memoryStatsTip'))
         self.memory_stats_label.setStyleSheet("color: #aaa; padding-left: 10px;")
         layout.addWidget(self.memory_stats_label)
 
         # RAG有効化
-        self.rag_enabled_cb = QCheckBox("RAGを有効化")
-        self.rag_enabled_cb.setToolTip("RAG（検索拡張生成）を有効化\n過去の記憶を活用した応答を生成します")
+        self.rag_enabled_cb = QCheckBox(t('desktop.settings.ragEnabled'))
+        self.rag_enabled_cb.setToolTip(t('desktop.settings.ragEnabledTip'))
         self.rag_enabled_cb.setChecked(True)
         layout.addWidget(self.rag_enabled_cb)
 
         # 記憶の自動保存
-        self.memory_auto_save_cb = QCheckBox("記憶の自動保存")
-        self.memory_auto_save_cb.setToolTip("応答後にMemory Risk Gateで記憶品質を判定し\n有用な情報を自動的に4層メモリに保存します")
+        self.memory_auto_save_cb = QCheckBox(t('desktop.settings.memoryAutoSave'))
+        self.memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
         self.memory_auto_save_cb.setChecked(True)
         layout.addWidget(self.memory_auto_save_cb)
 
         # 保存閾値
         threshold_layout = QHBoxLayout()
-        threshold_layout.addWidget(QLabel("保存閾値:"))
+        self.threshold_label = QLabel(t('desktop.settings.saveThreshold'))
+        threshold_layout.addWidget(self.threshold_label)
         self.threshold_combo = QComboBox()
-        self.threshold_combo.setToolTip("記憶保存の重要度閾値")
-        self.threshold_combo.addItems(["低優先度以上", "中優先度以上", "高優先度のみ"])
+        self.threshold_combo.setToolTip(t('desktop.settings.saveThresholdTip'))
+        self.threshold_combo.addItems([
+            t('desktop.settings.thresholdLow'),
+            t('desktop.settings.thresholdMid'),
+            t('desktop.settings.thresholdHigh')
+        ])
         self.threshold_combo.setCurrentIndex(1)
         threshold_layout.addWidget(self.threshold_combo)
         threshold_layout.addStretch()
         layout.addLayout(threshold_layout)
 
         # Memory Risk Gate
-        self.risk_gate_toggle = QCheckBox("Memory Risk Gate: 有効（ministral-3:8bで品質判定）")
-        self.risk_gate_toggle.setToolTip("ministral-3:8bによる記憶品質判定\n重複/矛盾/揮発性をチェックして保存品質を担保")
+        self.risk_gate_toggle = QCheckBox(t('desktop.settings.riskGate'))
+        self.risk_gate_toggle.setToolTip(t('desktop.settings.riskGateTip'))
         self.risk_gate_toggle.setChecked(True)
         layout.addWidget(self.risk_gate_toggle)
 
         # Knowledge有効化
-        self.knowledge_enabled_cb = QCheckBox("Knowledge機能を有効化")
+        self.knowledge_enabled_cb = QCheckBox(t('desktop.settings.knowledgeEnabled'))
         self.knowledge_enabled_cb.setChecked(True)
         layout.addWidget(self.knowledge_enabled_cb)
 
         # Knowledge保存先
         path_layout = QHBoxLayout()
-        path_layout.addWidget(QLabel("Knowledge保存先:"))
+        self.knowledge_path_label = QLabel(t('desktop.settings.knowledgePath'))
+        path_layout.addWidget(self.knowledge_path_label)
         self.knowledge_path_edit = QLineEdit("data/knowledge")
         path_layout.addWidget(self.knowledge_path_edit)
         layout.addLayout(path_layout)
 
         # Encyclopedia有効化
-        self.encyclopedia_enabled_cb = QCheckBox("Encyclopedia機能を有効化")
+        self.encyclopedia_enabled_cb = QCheckBox(t('desktop.settings.encyclopediaEnabled'))
         self.encyclopedia_enabled_cb.setChecked(True)
         layout.addWidget(self.encyclopedia_enabled_cb)
 
         # ボタン
         btn_layout = QHBoxLayout()
-        refresh_stats_btn = QPushButton("📊 統計を更新")
-        refresh_stats_btn.setToolTip("全メモリの最新件数と統計を取得します")
-        refresh_stats_btn.clicked.connect(self._refresh_memory_stats)
-        btn_layout.addWidget(refresh_stats_btn)
-        cleanup_btn = QPushButton("🗑 古い記憶の整理")
-        cleanup_btn.setToolTip("使用頻度の低い記憶を整理・圧縮します\n（削除ではなく要約に変換）")
-        cleanup_btn.clicked.connect(self._cleanup_old_memories)
-        btn_layout.addWidget(cleanup_btn)
+        self.refresh_stats_btn = QPushButton(t('desktop.settings.refreshStats'))
+        self.refresh_stats_btn.setToolTip(t('desktop.settings.refreshStatsTip'))
+        self.refresh_stats_btn.clicked.connect(self._refresh_memory_stats)
+        btn_layout.addWidget(self.refresh_stats_btn)
+        self.cleanup_btn = QPushButton(t('desktop.settings.cleanupMemory'))
+        self.cleanup_btn.setToolTip(t('desktop.settings.cleanupMemoryTip'))
+        self.cleanup_btn.clicked.connect(self._cleanup_old_memories)
+        btn_layout.addWidget(self.cleanup_btn)
         btn_layout.addStretch()
         layout.addLayout(btn_layout)
 
@@ -367,13 +450,16 @@ class SettingsCortexTab(QWidget):
             encyclopedia_count = 0
 
             self.memory_stats_label.setText(
-                f"Episode記憶: {mem_stats.get('episodes', 0)}件  "
-                f"Semantic記憶: {mem_stats.get('semantic_nodes', 0)}件\n"
-                f"手続き記憶: {mem_stats.get('procedures', 0)}件\n"
-                f"Knowledge: {knowledge_count}件  Encyclopedia: {encyclopedia_count}件"
+                t('desktop.settings.memoryStatsFormat',
+                  episodes=mem_stats.get('episodes', 0),
+                  semantic=mem_stats.get('semantic_nodes', 0),
+                  procedures=mem_stats.get('procedures', 0),
+                  knowledge=knowledge_count,
+                  encyclopedia=encyclopedia_count)
             )
         except Exception as e:
-            self.memory_stats_label.setText(f"統計取得エラー: {str(e)[:40]}")
+            self.memory_stats_label.setText(
+                t('desktop.settings.memoryStatsError', error=str(e)[:40]))
 
     def _cleanup_old_memories(self):
         """古い記憶の整理"""
@@ -381,14 +467,16 @@ class SettingsCortexTab(QWidget):
             try:
                 deleted = self._memory_manager.cleanup_old_memories(days=90)
                 QMessageBox.information(
-                    self, "整理完了",
-                    f"90日以上未使用の記憶を整理しました。\n削除件数: {deleted}件"
+                    self, t('desktop.settings.cleanupDoneTitle'),
+                    t('desktop.settings.cleanupDoneMsg', count=deleted)
                 )
                 self._refresh_memory_stats()
             except Exception as e:
-                QMessageBox.warning(self, "エラー", f"記憶の整理に失敗:\n{str(e)}")
+                QMessageBox.warning(self, t('desktop.settings.cleanupErrorTitle'),
+                                    t('desktop.settings.cleanupErrorMsg', message=str(e)))
         else:
-            QMessageBox.warning(self, "エラー", "メモリマネージャーが初期化されていません。")
+            QMessageBox.warning(self, t('desktop.settings.cleanupErrorTitle'),
+                                t('desktop.settings.cleanupNoManager'))
 
     # ========================================
     # 5. 表示とテーマ
@@ -396,21 +484,22 @@ class SettingsCortexTab(QWidget):
 
     def _create_display_group(self) -> QGroupBox:
         """表示とテーマ設定グループを作成"""
-        group = QGroupBox("表示とテーマ")
+        group = QGroupBox(t('desktop.settings.display'))
         layout = QVBoxLayout(group)
 
         # ダークモード
-        self.dark_mode_cb = QCheckBox("ダークテーマを使用する")
-        self.dark_mode_cb.setToolTip("カラーテーマを切り替えます")
+        self.dark_mode_cb = QCheckBox(t('desktop.settings.darkMode'))
+        self.dark_mode_cb.setToolTip(t('desktop.settings.darkModeTip'))
         self.dark_mode_cb.setChecked(True)
         layout.addWidget(self.dark_mode_cb)
 
         # フォントサイズ
         font_layout = QHBoxLayout()
-        font_layout.addWidget(QLabel("基本フォントサイズ:"))
+        self.font_size_label = QLabel(t('desktop.settings.fontSize'))
+        font_layout.addWidget(self.font_size_label)
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setStyleSheet(SPINBOX_STYLE)
-        self.font_size_spin.setToolTip("全タブのフォントサイズを変更します")
+        self.font_size_spin.setToolTip(t('desktop.settings.fontSizeTip'))
         self.font_size_spin.setRange(8, 20)
         self.font_size_spin.setValue(10)
         font_layout.addWidget(self.font_size_spin)
@@ -425,18 +514,158 @@ class SettingsCortexTab(QWidget):
 
     def _create_auto_group(self) -> QGroupBox:
         """自動化設定グループを作成"""
-        group = QGroupBox("自動化")
+        group = QGroupBox(t('desktop.settings.automation'))
         layout = QVBoxLayout(group)
 
-        self.auto_save_cb = QCheckBox("セッションを自動保存する")
+        self.auto_save_cb = QCheckBox(t('desktop.settings.autoSave'))
         self.auto_save_cb.setChecked(True)
         layout.addWidget(self.auto_save_cb)
 
-        self.auto_context_cb = QCheckBox("コンテキストを自動読み込みする")
+        self.auto_context_cb = QCheckBox(t('desktop.settings.autoContext'))
         self.auto_context_cb.setChecked(True)
         layout.addWidget(self.auto_context_cb)
 
         return group
+
+    # ========================================
+    # 7. Web UIサーバー
+    # ========================================
+
+    def _create_web_ui_section(self) -> QGroupBox:
+        """Web UIサーバー設定セクション（v9.3.0拡張）"""
+        group = QGroupBox(t('desktop.settings.webUI'))
+        layout = QVBoxLayout(group)
+
+        # 起動/停止トグルボタン
+        toggle_row = QHBoxLayout()
+        self.web_ui_toggle = QPushButton(t('desktop.settings.webStart'))
+        self.web_ui_toggle.setCheckable(True)
+        self.web_ui_toggle.setStyleSheet("""
+            QPushButton {
+                background-color: #059669; color: white;
+                padding: 10px 20px; border-radius: 8px;
+                font-size: 13px; font-weight: bold;
+            }
+            QPushButton:checked {
+                background-color: #dc2626;
+            }
+        """)
+        self.web_ui_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.web_ui_toggle.clicked.connect(self._toggle_web_server)
+        toggle_row.addWidget(self.web_ui_toggle)
+
+        self.web_ui_status_label = QLabel(t('desktop.settings.webStopped'))
+        self.web_ui_status_label.setStyleSheet("color: #888; font-size: 12px;")
+        toggle_row.addWidget(self.web_ui_status_label)
+        toggle_row.addStretch()
+        layout.addLayout(toggle_row)
+
+        # アクセスURL表示
+        self.web_ui_url_label = QLabel("")
+        self.web_ui_url_label.setStyleSheet("color: #00d4ff; font-size: 12px;")
+        self.web_ui_url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(self.web_ui_url_label)
+
+        # v9.3.0: 自動起動チェックボックス
+        auto_row = QHBoxLayout()
+        self.web_auto_start_cb = QCheckBox(t('desktop.settings.webAutoStart'))
+        self.web_auto_start_cb.setStyleSheet("color: #e5e7eb; font-size: 12px;")
+        self.web_auto_start_cb.setChecked(self._load_auto_start_setting())
+        self.web_auto_start_cb.stateChanged.connect(self._save_auto_start_setting)
+        auto_row.addWidget(self.web_auto_start_cb)
+        auto_row.addStretch()
+        layout.addLayout(auto_row)
+
+        # ポート番号
+        port_row = QHBoxLayout()
+        self.port_label = QLabel(t('desktop.settings.webPort'))
+        self.port_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        port_row.addWidget(self.port_label)
+        self.web_port_spin = QSpinBox()
+        self.web_port_spin.setRange(1024, 65535)
+        self.web_port_spin.setValue(self._load_port_setting())
+        self.web_port_spin.setFixedWidth(80)
+        port_row.addWidget(self.web_port_spin)
+        port_row.addStretch()
+        layout.addLayout(port_row)
+
+        return group
+
+    def _toggle_web_server(self):
+        """サーバー起動/停止"""
+        if self.web_ui_toggle.isChecked():
+            try:
+                from ..web.launcher import start_server_background
+                port = self.web_port_spin.value()
+                self._web_server_thread = start_server_background(port=port)
+                self.web_ui_toggle.setText(t('desktop.settings.webStop'))
+                self.web_ui_status_label.setText(t('desktop.settings.webRunning', port=port))
+            except Exception as e:
+                self.web_ui_toggle.setChecked(False)
+                self.web_ui_toggle.setText(t('desktop.settings.webStart'))
+                self.web_ui_status_label.setText(t('desktop.settings.webStartFailed', error=e))
+                return
+
+            # Tailscale IP取得（失敗してもサーバー起動は成功扱い）
+            ip = "localhost"
+            try:
+                import subprocess as _sp
+                tailscale_cmds = [
+                    [r"C:\Program Files\Tailscale\tailscale.exe", "ip", "-4"],
+                    ["tailscale", "ip", "-4"],
+                ]
+                for cmd in tailscale_cmds:
+                    try:
+                        result = _sp.run(cmd, capture_output=True, text=True, timeout=10)
+                        if result.returncode == 0 and result.stdout.strip():
+                            ip = result.stdout.strip()
+                            break
+                    except (FileNotFoundError, _sp.TimeoutExpired):
+                        continue
+            except Exception:
+                pass
+            self.web_ui_url_label.setText(f"📱 http://{ip}:{port}")
+        else:
+            if hasattr(self, '_web_server_thread') and self._web_server_thread:
+                self._web_server_thread.stop()
+                self._web_server_thread = None
+            self.web_ui_toggle.setText(t('desktop.settings.webStart'))
+            self.web_ui_status_label.setText(t('desktop.settings.webStopped'))
+            self.web_ui_url_label.setText("")
+
+    def _load_auto_start_setting(self) -> bool:
+        """自動起動設定を読み込み"""
+        try:
+            with open("config/config.json", 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            return config.get("web_server", {}).get("auto_start", False)
+        except Exception:
+            return False
+
+    def _save_auto_start_setting(self, state):
+        """自動起動設定を保存"""
+        try:
+            config_path = Path("config/config.json")
+            config = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            if "web_server" not in config:
+                config["web_server"] = {}
+            config["web_server"]["auto_start"] = bool(state)
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Auto-start setting save failed: {e}")
+
+    def _load_port_setting(self) -> int:
+        """ポート設定を読み込み"""
+        try:
+            with open("config/config.json", 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            return config.get("web_server", {}).get("port", 8500)
+        except Exception:
+            return 8500
 
     # ========================================
     # シグナル接続 + 設定保存/読み込み
@@ -483,8 +712,18 @@ class SettingsCortexTab(QWidget):
                 "auto_context": self.auto_context_cb.isChecked(),
             }
 
+            # 既存データを読み込んでマージ（language等を保持）
+            existing = {}
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        existing = json.load(f)
+                except Exception:
+                    pass
+            existing.update(settings_data)
+
             with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(settings_data, f, indent=2, ensure_ascii=False)
+                json.dump(existing, f, indent=2, ensure_ascii=False)
 
             # v8.1.0: app_settings.json にも memory セクションを追加
             try:
@@ -509,13 +748,14 @@ class SettingsCortexTab(QWidget):
             sender = self.sender()
             if sender:
                 original_text = sender.text()
-                sender.setText("✅ 保存しました")
+                sender.setText(t('desktop.settings.saveSuccess'))
                 sender.setEnabled(False)
                 QTimer.singleShot(2000, lambda: (
                     sender.setText(original_text), sender.setEnabled(True)))
 
         except Exception as e:
-            QMessageBox.warning(self, "エラー", f"設定の保存に失敗しました:\n{str(e)}")
+            QMessageBox.warning(self, t('common.error'),
+                                t('desktop.settings.saveError', message=str(e)))
 
     def _load_settings(self):
         """保存済み設定を読み込み"""
@@ -579,6 +819,121 @@ class SettingsCortexTab(QWidget):
 
         except Exception as e:
             logger.warning(f"Settings load failed: {e}")
+
+    # ========================================
+    # v9.6.0: retranslateUi — 言語変更時に全テキスト更新
+    # ========================================
+
+    def retranslateUi(self):
+        """言語変更時に全UIテキストを再適用"""
+        # 言語ボタンスタイル更新
+        self._update_lang_button_styles(get_language())
+
+        # GroupBox titles
+        self.lang_group.setTitle(t('desktop.settings.language'))
+        self.model_group.setTitle(t('desktop.settings.claudeModel'))
+        self.cli_group.setTitle(t('desktop.settings.cliStatus'))
+        self.mcp_group.setTitle(t('desktop.settings.mcp'))
+        self.memory_group.setTitle(t('desktop.settings.memory'))
+        self.display_group.setTitle(t('desktop.settings.display'))
+        self.auto_group.setTitle(t('desktop.settings.automation'))
+        self.webui_group.setTitle(t('desktop.settings.webUI'))
+
+        # Model group
+        self.default_model_label.setText(t('desktop.settings.defaultModel'))
+        self.timeout_label.setText(t('desktop.settings.timeout'))
+        self.default_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
+        # Update model combo display names for current language
+        try:
+            from ..utils.constants import CLAUDE_MODELS
+            model_idx = self.default_model_combo.currentIndex()
+            self.default_model_combo.blockSignals(True)
+            for i, model_def in enumerate(CLAUDE_MODELS):
+                if i < self.default_model_combo.count():
+                    display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
+                    self.default_model_combo.setItemText(i, display)
+            if 0 <= model_idx < self.default_model_combo.count():
+                self.default_model_combo.setCurrentIndex(model_idx)
+            self.default_model_combo.blockSignals(False)
+        except ImportError:
+            pass
+        self.timeout_spin.setSuffix(t('desktop.settings.timeoutSuffix'))
+        self.timeout_spin.setToolTip(t('desktop.settings.timeoutTip'))
+
+        # CLI group
+        self.cli_label.setText(t('desktop.settings.cliLabel'))
+        self.cli_test_btn.setText(t('desktop.settings.cliTest'))
+        self.cli_test_btn.setToolTip(t('desktop.settings.cliTestTip'))
+        # Re-check CLI status to update status label in current language
+        self._check_cli_status()
+
+        # MCP group
+        self.mcp_filesystem_cb.setText(t('desktop.settings.mcpFilesystem'))
+        self.mcp_filesystem_cb.setToolTip(t('desktop.settings.mcpFilesystemTip'))
+        self.mcp_git_cb.setText(t('desktop.settings.mcpGit'))
+        self.mcp_git_cb.setToolTip(t('desktop.settings.mcpGitTip'))
+        self.mcp_brave_cb.setText(t('desktop.settings.mcpBrave'))
+        self.mcp_brave_cb.setToolTip(t('desktop.settings.mcpBraveTip'))
+        self.enable_all_btn.setText(t('desktop.settings.mcpEnableAll'))
+        self.enable_all_btn.setToolTip(t('desktop.settings.mcpEnableAllTip'))
+        self.disable_all_btn.setText(t('desktop.settings.mcpDisableAll'))
+        self.disable_all_btn.setToolTip(t('desktop.settings.mcpDisableAllTip'))
+
+        # Memory group
+        self.stats_title_label.setText(t('desktop.settings.memoryStats'))
+        self.memory_stats_label.setToolTip(t('desktop.settings.memoryStatsTip'))
+        self.rag_enabled_cb.setText(t('desktop.settings.ragEnabled'))
+        self.rag_enabled_cb.setToolTip(t('desktop.settings.ragEnabledTip'))
+        self.memory_auto_save_cb.setText(t('desktop.settings.memoryAutoSave'))
+        self.memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
+        self.threshold_label.setText(t('desktop.settings.saveThreshold'))
+        self.threshold_combo.setToolTip(t('desktop.settings.saveThresholdTip'))
+        # Update threshold combo items preserving selection
+        old_idx = self.threshold_combo.currentIndex()
+        self.threshold_combo.clear()
+        self.threshold_combo.addItems([
+            t('desktop.settings.thresholdLow'),
+            t('desktop.settings.thresholdMid'),
+            t('desktop.settings.thresholdHigh')
+        ])
+        self.threshold_combo.setCurrentIndex(old_idx)
+        self.risk_gate_toggle.setText(t('desktop.settings.riskGate'))
+        self.risk_gate_toggle.setToolTip(t('desktop.settings.riskGateTip'))
+        self.knowledge_enabled_cb.setText(t('desktop.settings.knowledgeEnabled'))
+        self.knowledge_path_label.setText(t('desktop.settings.knowledgePath'))
+        self.encyclopedia_enabled_cb.setText(t('desktop.settings.encyclopediaEnabled'))
+        self.refresh_stats_btn.setText(t('desktop.settings.refreshStats'))
+        self.refresh_stats_btn.setToolTip(t('desktop.settings.refreshStatsTip'))
+        self.cleanup_btn.setText(t('desktop.settings.cleanupMemory'))
+        self.cleanup_btn.setToolTip(t('desktop.settings.cleanupMemoryTip'))
+        # Refresh memory stats (re-fetch updates labels with current language)
+        self._refresh_memory_stats()
+
+        # Display group
+        self.dark_mode_cb.setText(t('desktop.settings.darkMode'))
+        self.dark_mode_cb.setToolTip(t('desktop.settings.darkModeTip'))
+        self.font_size_label.setText(t('desktop.settings.fontSize'))
+        self.font_size_spin.setToolTip(t('desktop.settings.fontSizeTip'))
+
+        # Auto group
+        self.auto_save_cb.setText(t('desktop.settings.autoSave'))
+        self.auto_context_cb.setText(t('desktop.settings.autoContext'))
+
+        # Web UI group
+        if not self.web_ui_toggle.isChecked():
+            self.web_ui_toggle.setText(t('desktop.settings.webStart'))
+            self.web_ui_status_label.setText(t('desktop.settings.webStopped'))
+        else:
+            self.web_ui_toggle.setText(t('desktop.settings.webStop'))
+            # Update the running status text with current port
+            port = self.web_port_spin.value() if hasattr(self, 'web_port_spin') else 8500
+            self.web_ui_status_label.setText(t('desktop.settings.webRunning', port=port))
+        self.web_auto_start_cb.setText(t('desktop.settings.webAutoStart'))
+        self.port_label.setText(t('desktop.settings.webPort'))
+
+        # Save button
+        self.save_settings_btn.setText(t('desktop.settings.saveButton'))
+        self.save_settings_btn.setToolTip(t('desktop.settings.saveButtonTip'))
 
     # ========================================
     # 互換性のためのプロパティ/メソッド

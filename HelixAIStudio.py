@@ -195,6 +195,10 @@ def main():
 
     try:
         from src.main_window import create_application, MainWindow
+        from src.utils.i18n import init_language
+
+        # v9.6.0: 言語設定を初期化（UIインスタンス化前）
+        init_language()
 
         app = create_application()
 
@@ -228,4 +232,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # HELIX_WEB_SERVER_ONLY=1 が設定されている場合、GUIを起動しない。
+    # launcher.py がサブプロセスとしてEXEを誤って再起動した場合の安全弁。
+    if os.environ.get("HELIX_WEB_SERVER_ONLY") == "1":
+        sys.exit(0)
     sys.exit(main())

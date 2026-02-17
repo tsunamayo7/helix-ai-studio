@@ -20,6 +20,7 @@ from ..utils.styles import (
     score_color, score_bar_style,
 )
 from ..bible.bible_schema import BibleInfo
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -57,18 +58,18 @@ class BibleStatusPanel(QWidget):
         frame_layout = QVBoxLayout(self.frame)
 
         # ヘッダー
-        header = QLabel("BIBLE Manager")
+        header = QLabel(t('desktop.widgets.biblePanel.header'))
         header.setStyleSheet(BIBLE_HEADER_STYLE)
         frame_layout.addWidget(header)
 
         # ステータス行
-        self.status_label = QLabel("BIBLE未検出")
+        self.status_label = QLabel(t('desktop.widgets.biblePanel.notFound'))
         self.status_label.setStyleSheet(BIBLE_STATUS_NOT_FOUND_STYLE)
         frame_layout.addWidget(self.status_label)
 
         # プロジェクト情報
         self.info_label = QLabel(
-            "ファイル添付またはパス指定で自動検索します"
+            t('desktop.widgets.biblePanel.infoLabel')
         )
         self.info_label.setStyleSheet("color: #888; font-size: 11px;")
         self.info_label.setWordWrap(True)
@@ -78,7 +79,7 @@ class BibleStatusPanel(QWidget):
         path_row = QHBoxLayout()
         self.path_input = QLineEdit()
         self.path_input.setPlaceholderText(
-            "BIBLEファイルまたはプロジェクトディレクトリのパスを入力..."
+            t('desktop.widgets.biblePanel.pathPlaceholder')
         )
         self.path_input.setStyleSheet(
             "QLineEdit {"
@@ -89,17 +90,16 @@ class BibleStatusPanel(QWidget):
             "QLineEdit:focus { border: 1px solid #00d4ff; }"
         )
         self.path_input.setToolTip(
-            "BIBLEファイルのパスまたはプロジェクトディレクトリを入力してEnter\n"
-            "カレント→子→親の3段階探索でBIBLEを自動検出します"
+            t('desktop.widgets.biblePanel.pathTooltip')
         )
         self.path_input.returnPressed.connect(self._on_path_submitted)
         path_row.addWidget(self.path_input)
 
-        self.btn_browse = QPushButton("検索")
+        self.btn_browse = QPushButton(t('desktop.widgets.biblePanel.searchBtn'))
         self.btn_browse.setStyleSheet(SECONDARY_BTN)
         self.btn_browse.setMaximumHeight(28)
         self.btn_browse.setMaximumWidth(60)
-        self.btn_browse.setToolTip("入力パスからBIBLEを検索します")
+        self.btn_browse.setToolTip(t('desktop.widgets.biblePanel.searchTooltip'))
         self.btn_browse.clicked.connect(self._on_path_submitted)
         path_row.addWidget(self.btn_browse)
 
@@ -108,7 +108,7 @@ class BibleStatusPanel(QWidget):
         # 完全性スコア
         self.score_bar = QProgressBar()
         self.score_bar.setRange(0, 100)
-        self.score_bar.setFormat("完全性: %p%")
+        self.score_bar.setFormat(t('desktop.widgets.biblePanel.completenessFormat'))
         self.score_bar.setMaximumHeight(18)
         self.score_bar.setVisible(False)
         frame_layout.addWidget(self.score_bar)
@@ -124,26 +124,26 @@ class BibleStatusPanel(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.setContentsMargins(0, 4, 0, 0)
 
-        self.btn_create = QPushButton("新規作成")
+        self.btn_create = QPushButton(t('desktop.widgets.biblePanel.createBtn'))
         self.btn_create.setStyleSheet(SECONDARY_BTN)
         self.btn_create.setMaximumHeight(28)
-        self.btn_create.setToolTip("新しいBIBLEファイルをテンプレートから作成します")
+        self.btn_create.setToolTip(t('desktop.widgets.biblePanel.createTooltip'))
         self.btn_create.clicked.connect(self.create_requested.emit)
         btn_layout.addWidget(self.btn_create)
 
-        self.btn_update = QPushButton("更新")
+        self.btn_update = QPushButton(t('desktop.widgets.biblePanel.updateBtn'))
         self.btn_update.setStyleSheet(SECONDARY_BTN)
         self.btn_update.setMaximumHeight(28)
         self.btn_update.setEnabled(False)
-        self.btn_update.setToolTip("BIBLEを検出または作成すると有効になります")
+        self.btn_update.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
         self.btn_update.clicked.connect(self.update_requested.emit)
         btn_layout.addWidget(self.btn_update)
 
-        self.btn_detail = QPushButton("詳細")
+        self.btn_detail = QPushButton(t('desktop.widgets.biblePanel.detailBtn'))
         self.btn_detail.setStyleSheet(SECONDARY_BTN)
         self.btn_detail.setMaximumHeight(28)
         self.btn_detail.setEnabled(False)
-        self.btn_detail.setToolTip("BIBLEを検出または作成すると有効になります")
+        self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
         self.btn_detail.clicked.connect(self.detail_requested.emit)
         btn_layout.addWidget(self.btn_detail)
 
@@ -151,27 +151,52 @@ class BibleStatusPanel(QWidget):
 
         layout.addWidget(self.frame)
 
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        # Header is re-set via stylesheet in _setup_ui; refresh label text
+        # Status label - re-apply based on current bible state
+        if self._bible is None:
+            self.status_label.setText(t('desktop.widgets.biblePanel.notFound'))
+            self.info_label.setText(t('desktop.widgets.biblePanel.infoLabel'))
+        else:
+            self.status_label.setText(t('desktop.widgets.biblePanel.foundStatus'))
+        self.path_input.setPlaceholderText(t('desktop.widgets.biblePanel.pathPlaceholder'))
+        self.path_input.setToolTip(t('desktop.widgets.biblePanel.pathTooltip'))
+        self.btn_browse.setText(t('desktop.widgets.biblePanel.searchBtn'))
+        self.btn_browse.setToolTip(t('desktop.widgets.biblePanel.searchTooltip'))
+        self.score_bar.setFormat(t('desktop.widgets.biblePanel.completenessFormat'))
+        self.btn_create.setText(t('desktop.widgets.biblePanel.createBtn'))
+        self.btn_create.setToolTip(t('desktop.widgets.biblePanel.createTooltip'))
+        self.btn_update.setText(t('desktop.widgets.biblePanel.updateBtn'))
+        self.btn_detail.setText(t('desktop.widgets.biblePanel.detailBtn'))
+        if self._bible is None:
+            self.btn_update.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
+            self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
+        else:
+            self.btn_update.setToolTip(t('desktop.widgets.biblePanel.updateTooltip'))
+            self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.detailTooltip'))
+
     def update_bible(self, bible: Optional[BibleInfo]):
         """BIBLE情報でパネルを更新"""
         self._bible = bible
 
         if bible is None:
-            self.status_label.setText("BIBLE未検出")
+            self.status_label.setText(t('desktop.widgets.biblePanel.notFound'))
             self.status_label.setStyleSheet(BIBLE_STATUS_NOT_FOUND_STYLE)
             self.info_label.setText(
-                "ファイル添付またはパス指定で自動検索します"
+                t('desktop.widgets.biblePanel.infoLabel')
             )
             self.info_label.setStyleSheet("color: #888; font-size: 11px;")
             self.score_bar.setVisible(False)
             self.missing_label.setVisible(False)
             self.btn_update.setEnabled(False)
-            self.btn_update.setToolTip("BIBLEを検出または作成すると有効になります")
+            self.btn_update.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
             self.btn_detail.setEnabled(False)
-            self.btn_detail.setToolTip("BIBLEを検出または作成すると有効になります")
+            self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.disabledTooltip'))
             return
 
         # 検出済み表示
-        self.status_label.setText("BIBLE検出済み")
+        self.status_label.setText(t('desktop.widgets.biblePanel.foundStatus'))
         self.status_label.setStyleSheet(BIBLE_STATUS_FOUND_STYLE)
 
         # v8.3.1: 検出パスをパス入力欄に表示
@@ -181,7 +206,7 @@ class BibleStatusPanel(QWidget):
         self.info_label.setText(
             f"{bible.project_name} v{bible.version}"
             + (f' "{bible.codename}"' if bible.codename else "")
-            + f"\n{bible.line_count}行 | {len(bible.sections)}セクション"
+            + f"\n{t('desktop.widgets.biblePanel.infoFormat', line_count=bible.line_count, sections=len(bible.sections))}"
         )
         self.info_label.setStyleSheet("color: #e0e0e0; font-size: 11px;")
 
@@ -196,16 +221,16 @@ class BibleStatusPanel(QWidget):
         missing = bible.missing_required_sections
         if missing:
             self.missing_label.setText(
-                f"不足セクション: {', '.join(s.value for s in missing)}"
+                t('desktop.widgets.biblePanel.missingSections', sections=', '.join(s.value for s in missing))
             )
             self.missing_label.setVisible(True)
         else:
             self.missing_label.setVisible(False)
 
         self.btn_update.setEnabled(True)
-        self.btn_update.setToolTip("BIBLEの内容を最新のコード変更に基づいて更新します")
+        self.btn_update.setToolTip(t('desktop.widgets.biblePanel.updateTooltip'))
         self.btn_detail.setEnabled(True)
-        self.btn_detail.setToolTip("BIBLEの全セクション詳細を表示します")
+        self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.detailTooltip'))
 
     def _on_path_submitted(self):
         """v8.3.1: パス入力確定時 — BibleDiscovery検索をトリガー"""

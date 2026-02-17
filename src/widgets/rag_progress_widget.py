@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtGui import QFont
 
 from ..utils.styles import COLORS, SECTION_CARD_STYLE, PROGRESS_BAR_STYLE
+from ..utils.i18n import t
 
 
 class RAGProgressWidget(QWidget):
@@ -49,9 +50,9 @@ class RAGProgressWidget(QWidget):
 
         # 時間情報
         time_row = QHBoxLayout()
-        self.elapsed_label = QLabel("経過: --:--")
+        self.elapsed_label = QLabel(t('desktop.widgets.ragProgress.elapsedDefault'))
         self.elapsed_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
-        self.remaining_label = QLabel("残り推定: --:--")
+        self.remaining_label = QLabel(t('desktop.widgets.ragProgress.remainingDefault'))
         self.remaining_label.setStyleSheet(f"color: {COLORS['accent_cyan']}; font-size: 11px;")
         time_row.addWidget(self.elapsed_label)
         time_row.addStretch()
@@ -59,7 +60,7 @@ class RAGProgressWidget(QWidget):
         progress_layout.addLayout(time_row)
 
         # 現在のステップ
-        self.step_label = QLabel("待機中...")
+        self.step_label = QLabel(t('desktop.widgets.ragProgress.waitingLabel'))
         self.step_label.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 12px; font-weight: bold;")
         progress_layout.addWidget(self.step_label)
 
@@ -67,7 +68,7 @@ class RAGProgressWidget(QWidget):
 
         # ステップ詳細ツリー
         self.step_tree = QTreeWidget()
-        self.step_tree.setHeaderLabels(["ステップ", "ステータス", "詳細"])
+        self.step_tree.setHeaderLabels(t('desktop.widgets.ragProgress.treeHeaders'))
         self.step_tree.setColumnCount(3)
         self.step_tree.setColumnWidth(0, 250)
         self.step_tree.setColumnWidth(1, 80)
@@ -103,6 +104,30 @@ class RAGProgressWidget(QWidget):
         # ステップ項目を初期化
         self._step_items = {}
 
+    def retranslateUi(self):
+        """言語切替時に全ウィジェットのテキストを更新"""
+        # Update time labels (only if showing defaults, not active data)
+        self.elapsed_label.setText(t('desktop.widgets.ragProgress.elapsedDefault'))
+        self.remaining_label.setText(t('desktop.widgets.ragProgress.remainingDefault'))
+
+        # Update step label if in waiting state
+        self.step_label.setText(t('desktop.widgets.ragProgress.waitingLabel'))
+
+        # Update tree headers
+        self.step_tree.setHeaderLabels(t('desktop.widgets.ragProgress.treeHeaders'))
+
+        # Update waiting status text in step items
+        for step_id, item in self._step_items.items():
+            current_status = item.text(1)
+            # Only update status text for items still in "waiting" state
+            # (Running/Completed items should keep their translated text from the signal)
+            if current_status in (
+                t('desktop.widgets.ragProgress.waitingLabel'),
+                # Also match Japanese/English defaults that may still be in the items
+                "待機中...", "Waiting...",
+            ):
+                item.setText(1, t('desktop.widgets.ragProgress.waitingLabel'))
+
     def setup_steps(self, steps: list):
         """ステップ一覧を設定
 
@@ -116,7 +141,7 @@ class RAGProgressWidget(QWidget):
         self._step_items.clear()
 
         # Step 0: プラン策定
-        item0 = QTreeWidgetItem(["Step 0: Claude プラン策定", "待機中", ""])
+        item0 = QTreeWidgetItem([t('desktop.widgets.ragProgress.step0Label'), t('desktop.widgets.ragProgress.waitingLabel'), ""])
         self.step_tree.addTopLevelItem(item0)
         self._step_items[0] = item0
 
@@ -134,10 +159,10 @@ class RAGProgressWidget(QWidget):
             model = plan_step.get("model", "")
             est = plan_step.get("estimated_minutes", 0)
 
-            detail = f"モデル: {model} / 推定: {est:.1f}分" if model else ""
+            detail = t('desktop.widgets.ragProgress.stepDetailFormat', model=model, est=f"{est:.1f}") if model else ""
             item = QTreeWidgetItem([
                 f"Step {step_id}: {name}",
-                "待機中",
+                t('desktop.widgets.ragProgress.waitingLabel'),
                 detail,
             ])
             self.step_tree.addTopLevelItem(item)
@@ -145,7 +170,7 @@ class RAGProgressWidget(QWidget):
 
         # Step 9: 検証 (TOTAL_SUBSTEPS + 1 = 9)
         verify_id = TOTAL_SUBSTEPS + 1
-        item_verify = QTreeWidgetItem([f"Step {verify_id}: Claude 品質検証", "待機中", ""])
+        item_verify = QTreeWidgetItem([t('desktop.widgets.ragProgress.stepVerifyLabel', id=verify_id), t('desktop.widgets.ragProgress.waitingLabel'), ""])
         self.step_tree.addTopLevelItem(item_verify)
         self._step_items[verify_id] = item_verify
 
@@ -154,7 +179,7 @@ class RAGProgressWidget(QWidget):
         """ステップ開始"""
         self.step_label.setText(f"{step_name}...")
         if step_id in self._step_items:
-            self._step_items[step_id].setText(1, "実行中")
+            self._step_items[step_id].setText(1, t('desktop.widgets.ragProgress.statusRunning'))
             self._step_items[step_id].setForeground(1,
                 self._step_items[step_id].treeWidget().palette().link().color()
                 if self._step_items[step_id].treeWidget() else Qt.GlobalColor.cyan)
@@ -182,7 +207,7 @@ class RAGProgressWidget(QWidget):
     def on_step_completed(self, step_id: int, result_summary: str):
         """ステップ完了"""
         if step_id in self._step_items:
-            self._step_items[step_id].setText(1, "完了")
+            self._step_items[step_id].setText(1, t('desktop.widgets.ragProgress.statusCompleted'))
             self._step_items[step_id].setText(2, result_summary)
 
     @pyqtSlot(int, int, str)
@@ -198,15 +223,22 @@ class RAGProgressWidget(QWidget):
         """時間更新"""
         elapsed_str = self._format_time(elapsed_min)
         remaining_str = self._format_time(remaining_min)
-        self.elapsed_label.setText(f"経過: {elapsed_str}")
-        self.remaining_label.setText(f"残り推定: {remaining_str}")
+        self.elapsed_label.setText(t('desktop.widgets.ragProgress.elapsedLabel', time=elapsed_str))
+        self.remaining_label.setText(t('desktop.widgets.ragProgress.remainingLabel', time=remaining_str))
+
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        self.elapsed_label.setText(t('desktop.widgets.ragProgress.elapsedDefault'))
+        self.remaining_label.setText(t('desktop.widgets.ragProgress.remainingDefault'))
+        self.step_label.setText(t('desktop.widgets.ragProgress.waitingLabel'))
+        self.step_tree.setHeaderLabels(t('desktop.widgets.ragProgress.treeHeaders'))
 
     def reset(self):
         """リセット"""
         self.progress_bar.setValue(0)
-        self.elapsed_label.setText("経過: --:--")
-        self.remaining_label.setText("残り推定: --:--")
-        self.step_label.setText("待機中...")
+        self.elapsed_label.setText(t('desktop.widgets.ragProgress.elapsedDefault'))
+        self.remaining_label.setText(t('desktop.widgets.ragProgress.remainingDefault'))
+        self.step_label.setText(t('desktop.widgets.ragProgress.waitingLabel'))
         self.step_tree.clear()
         self._step_items.clear()
 

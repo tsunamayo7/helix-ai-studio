@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QTabWidget, QWidget, QVBoxLayout,
     QStatusBar, QToolBar, QLabel, QApplication
 )
-from PyQt6.QtCore import Qt, QSize, QSettings, QByteArray
+from PyQt6.QtCore import Qt, QSize, QSettings, QByteArray, QTimer
 from PyQt6.QtGui import QFont, QIcon, QAction
 
 from .tabs.claude_tab import ClaudeTab
@@ -22,6 +22,7 @@ from .tabs.helix_orchestrator_tab import HelixOrchestratorTab
 # v8.5.0: 情報収集タブ追加
 from .tabs.information_collection_tab import InformationCollectionTab
 from .utils.constants import APP_NAME, APP_VERSION
+from .utils.i18n import t
 
 
 class MainWindow(QMainWindow):
@@ -64,6 +65,16 @@ class MainWindow(QMainWindow):
         # v5.0.0: ウィンドウサイズ復元
         self._restore_window_geometry()
 
+        # v9.3.0: Web UIサーバー自動起動
+        self._auto_start_web_server()
+
+        # v9.5.0: Web実行ロック監視タイマー（2秒間隔）
+        self._web_lock_timer = QTimer(self)
+        self._web_lock_timer.setInterval(2000)
+        self._web_lock_timer.timeout.connect(self._check_web_execution_lock)
+        self._web_lock_timer.start()
+        self._web_locked = False
+
     def _restore_window_geometry(self):
         """v5.0.0: 前回のウィンドウサイズ・位置を復元"""
         geometry = self.settings.value("geometry")
@@ -85,6 +96,28 @@ class MainWindow(QMainWindow):
             frame = self.frameGeometry()
             frame.moveCenter(center)
             self.move(frame.topLeft())
+
+    def _auto_start_web_server(self):
+        """v9.3.0: config.jsonのweb_server.auto_start=trueならサーバーを自動起動"""
+        try:
+            import json
+            with open("config/config.json", 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            if config.get("web_server", {}).get("auto_start", False):
+                from .web.launcher import start_server_background
+                port = config.get("web_server", {}).get("port", 8500)
+                self._web_server_thread = start_server_background(port=port)
+
+                # settings_cortex_tabのUIを更新
+                if hasattr(self, 'settings_tab'):
+                    tab = self.settings_tab
+                    if hasattr(tab, 'web_ui_toggle'):
+                        tab.web_ui_toggle.setChecked(True)
+                        tab.web_ui_toggle.setText(t('desktop.settings.webStop'))
+                        tab.web_ui_status_label.setText(t('desktop.settings.webRunning', port=port))
+                        tab._web_server_thread = self._web_server_thread
+        except Exception:
+            pass  # 設定ファイルなし・起動失敗は黙って無視
 
     def _init_ui(self):
         """UIを初期化"""
@@ -112,53 +145,23 @@ class MainWindow(QMainWindow):
 
         # 1. mixAI タブ (3Phase実行アーキテクチャ)
         self.llmmix_tab = HelixOrchestratorTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.llmmix_tab, "🔀 mixAI")
-        self.tab_widget.setTabToolTip(0,
-            "<b>mixAI - 3Phase実行アーキテクチャ</b><br><br>"
-            "Claude Code + ローカルLLMチームによる高精度オーケストレーション<br><br>"
-            "<b>3Phase:</b><br>"
-            "・Phase 1: Claude計画立案（回答+LLM指示生成）<br>"
-            "・Phase 2: ローカルLLM順次実行<br>"
-            "・Phase 3: Claude比較統合<br><br>"
-            "<b>Ctrl+Enter</b> でメッセージ送信"
-        )
+        self.tab_widget.addTab(self.llmmix_tab, t('desktop.mainWindow.mixAITab'))
+        self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
 
         # 2. soloAI タブ (Claude単体チャット)
         self.claude_tab = ClaudeTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.claude_tab, "🤖 soloAI")
-        self.tab_widget.setTabToolTip(1,
-            "<b>soloAI - Claude単体チャット＆設定</b><br><br>"
-            "Claude CLIとの直接対話、MCPサーバー管理を統合。<br><br>"
-            "<b>サブタブ:</b><br>"
-            "・チャット: AIとの対話<br>"
-            "・設定: CLI/Ollama設定、MCPサーバー管理<br><br>"
-            "<b>Ctrl+Enter</b> でメッセージ送信"
-        )
+        self.tab_widget.addTab(self.claude_tab, t('desktop.mainWindow.soloAITab'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
 
         # 3. 情報収集 タブ (v8.5.0: 自律RAG構築)
         self.info_tab = InformationCollectionTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.info_tab, "📚 情報収集")
-        self.tab_widget.setTabToolTip(2,
-            "<b>情報収集 - 自律RAG構築パイプライン</b><br><br>"
-            "ドキュメントを格納し、Claude + ローカルLLMで<br>"
-            "自動的にRAGを構築します。<br><br>"
-            "<b>3ステップ:</b><br>"
-            "・Step 1: Claude プラン策定<br>"
-            "・Step 2: ローカルLLM自律実行<br>"
-            "・Step 3: Claude 品質検証"
-        )
+        self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.infoTab'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.infoTip'))
 
         # 4. 一般設定 タブ (v6.0.0: APIキー設定削除)
         self.settings_tab = SettingsCortexTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.settings_tab, "⚙️ 一般設定")
-        self.tab_widget.setTabToolTip(3,
-            "<b>一般設定 - アプリ全体の設定</b><br><br>"
-            "表示設定、自動化オプションなど。<br><br>"
-            "<b>主要機能:</b><br>"
-            "・テーマ・フォント設定<br>"
-            "・自動保存設定<br>"
-            "・Knowledge/Encyclopedia"
-        )
+        self.tab_widget.addTab(self.settings_tab, t('desktop.mainWindow.settingsTab'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.settingsTip'))
 
         layout.addWidget(self.tab_widget)
 
@@ -196,7 +199,7 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
 
         # 左側: 一般メッセージ
-        self.status_label = QLabel("Ready")
+        self.status_label = QLabel(t('desktop.mainWindow.ready'))
         self.statusbar.addWidget(self.status_label)
 
         # 右側: バージョン情報
@@ -227,7 +230,7 @@ class MainWindow(QMainWindow):
 
     def _on_settings_changed(self):
         """設定変更時"""
-        self._update_status("⚙️ 設定を保存しました。(一部設定は再起動後に反映されます)")
+        self._update_status(t('desktop.mainWindow.settingsSaved'))
 
         # v3.9.0: Gemini関連削除
 
@@ -241,6 +244,73 @@ class MainWindow(QMainWindow):
         """
         self.workflowStateChanged.emit(self.workflow_state)
         self.session_manager.save_workflow_state()
+
+    # =========================================================================
+    # v9.5.0: Web実行ロック監視
+    # =========================================================================
+
+    def _check_web_execution_lock(self):
+        """Web実行ロックファイルを監視"""
+        import json
+        from pathlib import Path
+        lock_file = Path("data/web_execution_lock.json")
+        try:
+            if lock_file.exists():
+                data = json.loads(lock_file.read_text(encoding='utf-8'))
+                is_locked = data.get("locked", False)
+            else:
+                is_locked = False
+        except Exception:
+            is_locked = False
+            data = {}
+
+        if is_locked and not self._web_locked:
+            self._activate_web_lock(data)
+        elif not is_locked and self._web_locked:
+            self._deactivate_web_lock()
+
+    def _activate_web_lock(self, lock_data: dict):
+        """Webロック有効化 -- オーバーレイ表示"""
+        self._web_locked = True
+        tab = lock_data.get("tab", "Web")
+        client = lock_data.get("client_info", "")
+        preview = lock_data.get("prompt_preview", "")
+
+        for tab_widget in [self.llmmix_tab, self.claude_tab]:
+            if hasattr(tab_widget, 'web_lock_overlay'):
+                tab_widget.web_lock_overlay.show_lock(
+                    t('desktop.mainWindow.webLockMsg', tab=tab, client=client, preview=preview)
+                )
+        self.status_label.setText(t('desktop.mainWindow.webExecuting', tab=tab, preview=preview))
+
+    def _deactivate_web_lock(self):
+        """Webロック解除"""
+        self._web_locked = False
+        for tab_widget in [self.llmmix_tab, self.claude_tab]:
+            if hasattr(tab_widget, 'web_lock_overlay'):
+                tab_widget.web_lock_overlay.hide_lock()
+        self.status_label.setText(t('desktop.mainWindow.ready'))
+
+    def retranslateUi(self):
+        """v9.6.0: 言語切替時にUIテキストを更新"""
+        # タブ名
+        self.tab_widget.setTabText(0, t('desktop.mainWindow.mixAITab'))
+        self.tab_widget.setTabText(1, t('desktop.mainWindow.soloAITab'))
+        self.tab_widget.setTabText(2, t('desktop.mainWindow.infoTab'))
+        self.tab_widget.setTabText(3, t('desktop.mainWindow.settingsTab'))
+        # タブツールチップ
+        self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.infoTip'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.settingsTip'))
+        # ステータスバー
+        if not self._web_locked:
+            self.status_label.setText(t('desktop.mainWindow.ready'))
+
+        # 子タブにも通知
+        for tab in [self.llmmix_tab, self.claude_tab, self.info_tab, self.settings_tab]:
+            if hasattr(tab, 'retranslateUi'):
+                tab.retranslateUi()
 
     def _apply_stylesheet(self):
         """スタイルシートを適用 (Cyberpunk Minimalテーマ)"""

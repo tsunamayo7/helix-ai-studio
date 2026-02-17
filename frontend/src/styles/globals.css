@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* iOS Safari ビューポート修正 */
+html, body, #root {
+  height: 100dvh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+}
+
+/* フォールバック（dvh非対応ブラウザ） */
+@supports not (height: 100dvh) {
+  html, body, #root {
+    height: 100vh;
+  }
+}
+
+/* iOS Safari safe area対応 */
+.safe-area-inset-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* スクロールバースタイル */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+/* フォーカスアウトライン無効化（モバイル） */
+@media (max-width: 768px) {
+  textarea:focus, input:focus, button:focus {
+    outline: none;
+  }
+}

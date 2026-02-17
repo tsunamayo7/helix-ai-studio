@@ -31,6 +31,8 @@ from PyQt6.QtGui import (
     QRadialGradient, QLinearGradient, QTransform
 )
 
+from ..utils.i18n import t
+
 logger = logging.getLogger(__name__)
 
 
@@ -333,13 +335,13 @@ class PhaseDetailDialog(QDialog):
         layout.addWidget(meta_frame)
 
         # 出力テキスト
-        output_label = QLabel("📝 出力:")
+        output_label = QLabel(t('desktop.widgets.neuralViz.outputLabel'))
         output_label.setStyleSheet("color: #ffffff; font-weight: bold;")
         layout.addWidget(output_label)
 
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setText(self.phase_data.output or "(出力なし)")
+        self.output_text.setText(self.phase_data.output or t('desktop.widgets.neuralViz.noOutput'))
         self.output_text.setStyleSheet("""
             QTextEdit {
                 background-color: #1a1a1a;
@@ -354,7 +356,7 @@ class PhaseDetailDialog(QDialog):
 
         # エラー表示（あれば）
         if self.phase_data.error:
-            error_label = QLabel("❌ エラー:")
+            error_label = QLabel(t('desktop.widgets.neuralViz.errorLabel'))
             error_label.setStyleSheet("color: #ff4757; font-weight: bold;")
             layout.addWidget(error_label)
 
@@ -376,7 +378,7 @@ class PhaseDetailDialog(QDialog):
         # 閉じるボタン
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        close_btn = QPushButton("閉じる")
+        close_btn = QPushButton(t('desktop.widgets.neuralViz.closeBtn'))
         close_btn.clicked.connect(self.close)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
@@ -418,20 +420,23 @@ class NeuralFlowVisualizer(QWidget):
     phaseClicked = pyqtSignal(int)
     phaseStateChanged = pyqtSignal(int, str)
 
-    # Phase定義（v7.0.0: 3Phase）
-    PHASE_DEFINITIONS = [
-        PhaseData(1, "Claude計画", "計画立案 + ローカルLLM指示文生成"),
-        PhaseData(2, "ローカルLLM", "coding/research/reasoning 順次実行"),
-        PhaseData(3, "Claude統合", "比較検証 + 最終統合回答"),
-    ]
+    @staticmethod
+    def _get_phase_definitions() -> List[PhaseData]:
+        """Return phase definitions with current locale strings."""
+        return [
+            PhaseData(1, t('desktop.widgets.neuralViz.phase1Name'), t('desktop.widgets.neuralViz.phase1Desc')),
+            PhaseData(2, t('desktop.widgets.neuralViz.phase2Name'), t('desktop.widgets.neuralViz.phase2Desc')),
+            PhaseData(3, t('desktop.widgets.neuralViz.phase3Name'), t('desktop.widgets.neuralViz.phase3Desc')),
+        ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumHeight(200)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
+        defs = self._get_phase_definitions()
         self._phases: List[PhaseData] = [
-            PhaseData(p.phase_id, p.name, p.description) for p in self.PHASE_DEFINITIONS
+            PhaseData(p.phase_id, p.name, p.description) for p in defs
         ]
         self._nodes: Dict[int, PhaseNode] = {}
         self._connections: List[ConnectionLine] = []
@@ -594,6 +599,19 @@ class NeuralFlowVisualizer(QWidget):
         dialog = PhaseDetailDialog(phase_data, self)
         dialog.show()
 
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        defs = self._get_phase_definitions()
+        for d in defs:
+            if d.phase_id in self._nodes:
+                node = self._nodes[d.phase_id]
+                node.phase_data.name = d.name
+                node.phase_data.description = d.description
+                # Update the visible name label below the node
+                node.name_label.setPlainText(d.name)
+                name_rect = node.name_label.boundingRect()
+                node.name_label.setPos(-name_rect.width() / 2, node.radius + 5)
+
     def resizeEvent(self, event):
         """リサイズイベント"""
         super().resizeEvent(event)
@@ -646,7 +664,7 @@ class NeuralFlowCompactWidget(QWidget):
 
         self._phase_labels: Dict[int, QLabel] = {}
 
-        phase_names = ["P1:Claude計画", "P2:ローカルLLM", "P3:Claude統合"]
+        phase_names = [t('desktop.widgets.neuralViz.p1Compact'), t('desktop.widgets.neuralViz.p2Compact'), t('desktop.widgets.neuralViz.p3Compact')]
 
         for i, name in enumerate(phase_names, 1):
             # Phase indicator
@@ -694,6 +712,17 @@ class NeuralFlowCompactWidget(QWidget):
 
         self._phase_states[phase_id] = state
         self._phase_labels[phase_id].setStyleSheet(self._get_label_style(state))
+
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        phase_names = [
+            t('desktop.widgets.neuralViz.p1Compact'),
+            t('desktop.widgets.neuralViz.p2Compact'),
+            t('desktop.widgets.neuralViz.p3Compact'),
+        ]
+        for i, name in enumerate(phase_names, 1):
+            if i in self._phase_labels:
+                self._phase_labels[i].setText(f"● {name}")
 
     def reset_all(self):
         """全Phaseをリセット"""

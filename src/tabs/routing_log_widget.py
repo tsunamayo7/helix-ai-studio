@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont, QColor
 
 from ..routing.decision_logger import get_routing_decision_logger
+from ..utils.i18n import t
 
 
 class RoutingLogDetailDialog(QDialog):
@@ -22,7 +23,7 @@ class RoutingLogDetailDialog(QDialog):
     def __init__(self, log_entry: dict, parent=None):
         super().__init__(parent)
         self.log_entry = log_entry
-        self.setWindowTitle("ルーティング決定詳細")
+        self.setWindowTitle(t('desktop.routingLog.detailDialogTitle'))
         self.setMinimumSize(500, 400)
         self._init_ui()
 
@@ -46,27 +47,27 @@ class RoutingLogDetailDialog(QDialog):
 
     def _format_detail(self) -> str:
         """詳細を整形"""
-        lines = ["=== ルーティング決定詳細 ===\n"]
+        lines = [t('desktop.routingLog.detailHeader') + "\n"]
 
         fields = [
-            ("timestamp", "タイムスタンプ"),
-            ("session_id", "セッションID"),
-            ("phase", "フェーズ"),
-            ("task_type", "タスク種別"),
-            ("selected_backend", "選択Backend"),
-            ("user_forced_backend", "ユーザー指定"),
-            ("final_status", "最終ステータス"),
-            ("fallback_attempted", "フォールバック試行"),
-            ("preset_name", "Preset"),
-            ("prompt_pack", "Prompt Pack"),
-            ("local_available", "Local利用可能"),
-            ("duration_ms", "処理時間 (ms)"),
-            ("tokens_est", "トークン数 (推定)"),
-            ("cost_est", "コスト (USD)"),
-            ("error_type", "エラー種別"),
-            ("error_message", "エラーメッセージ"),
-            ("policy_blocked", "ポリシーブロック"),
-            ("policy_block_reason", "ブロック理由"),
+            ("timestamp", t('desktop.routingLog.fieldTimestamp')),
+            ("session_id", t('desktop.routingLog.fieldSessionId')),
+            ("phase", t('desktop.routingLog.fieldPhase')),
+            ("task_type", t('desktop.routingLog.fieldTaskType')),
+            ("selected_backend", t('desktop.routingLog.fieldSelectedBackend')),
+            ("user_forced_backend", t('desktop.routingLog.fieldUserForced')),
+            ("final_status", t('desktop.routingLog.fieldFinalStatus')),
+            ("fallback_attempted", t('desktop.routingLog.fieldFallbackAttempted')),
+            ("preset_name", t('desktop.routingLog.fieldPreset')),
+            ("prompt_pack", t('desktop.routingLog.fieldPromptPack')),
+            ("local_available", t('desktop.routingLog.fieldLocalAvailable')),
+            ("duration_ms", t('desktop.routingLog.fieldDurationMs')),
+            ("tokens_est", t('desktop.routingLog.fieldTokensEst')),
+            ("cost_est", t('desktop.routingLog.fieldCostEst')),
+            ("error_type", t('desktop.routingLog.fieldErrorType')),
+            ("error_message", t('desktop.routingLog.fieldErrorMessage')),
+            ("policy_blocked", t('desktop.routingLog.fieldPolicyBlocked')),
+            ("policy_block_reason", t('desktop.routingLog.fieldBlockReason')),
         ]
 
         for key, label in fields:
@@ -79,20 +80,20 @@ class RoutingLogDetailDialog(QDialog):
         # 理由コード
         reason_codes = self.log_entry.get("reason_codes", [])
         if reason_codes:
-            lines.append(f"\n理由コード:")
+            lines.append(f"\n{t('desktop.routingLog.reasonCodesLabel')}")
             for code in reason_codes:
                 lines.append(f"  - {code}")
 
         # フォールバックチェーン
         fallback_chain = self.log_entry.get("fallback_chain", [])
         if fallback_chain:
-            lines.append(f"\nフォールバックチェーン:")
+            lines.append(f"\n{t('desktop.routingLog.fallbackChainLabel')}")
             lines.append(f"  {' → '.join(fallback_chain)}")
 
         # 承認スナップショット
         approval_snapshot = self.log_entry.get("approval_snapshot", {})
         if approval_snapshot:
-            lines.append(f"\n承認スナップショット:")
+            lines.append(f"\n{t('desktop.routingLog.approvalSnapshotLabel')}")
             for scope, approved in approval_snapshot.items():
                 status = "✓" if approved else "✗"
                 lines.append(f"  {status} {scope}")
@@ -124,42 +125,39 @@ class RoutingLogWidget(QWidget):
 
         # ヘッダー
         header_layout = QHBoxLayout()
-        title_label = QLabel("ルーティング決定ログ")
+        title_label = QLabel(t('desktop.routingLog.title'))
         title_label.setFont(QFont("Yu Gothic UI", 12, QFont.Weight.Bold))
-        title_label.setToolTip(
-            "Backend選択の履歴を確認できます。\n"
-            "なぜそのBackendが選ばれたか、フォールバックの有無などを追跡できます。"
-        )
+        title_label.setToolTip(t('desktop.routingLog.titleTooltip'))
         header_layout.addWidget(title_label)
 
         header_layout.addStretch()
 
         # 更新ボタン
-        self.refresh_btn = QPushButton("🔄 更新")
+        self.refresh_btn = QPushButton(t('desktop.routingLog.refreshBtn'))
         self.refresh_btn.setMaximumWidth(100)
-        self.refresh_btn.setToolTip("ログを再読み込みします")
+        self.refresh_btn.setToolTip(t('desktop.routingLog.refreshTooltip'))
         self.refresh_btn.clicked.connect(self._load_logs)
         header_layout.addWidget(self.refresh_btn)
 
         layout.addLayout(header_layout)
 
         # フィルタセクション
-        filter_group = QGroupBox("フィルタ")
+        filter_group = QGroupBox(t('desktop.routingLog.filterGroup'))
         filter_layout = QHBoxLayout(filter_group)
 
         # Statusフィルタ
-        filter_layout.addWidget(QLabel("ステータス:"))
+        filter_layout.addWidget(QLabel(t('desktop.routingLog.statusLabel')))
         self.status_filter = QComboBox()
-        self.status_filter.addItems(["全て", "success", "error", "blocked"])
-        self.status_filter.setToolTip("成功/エラー/ブロックでフィルタします")
+        self.status_filter.addItems([t('desktop.routingLog.statusAll'), "success", "error", "blocked"])
+        self.status_filter.setToolTip(t('desktop.routingLog.statusFilterTooltip'))
         self.status_filter.currentTextChanged.connect(self._apply_filters)
         filter_layout.addWidget(self.status_filter)
 
         # Backendフィルタ
-        filter_layout.addWidget(QLabel("Backend:"))
+        filter_layout.addWidget(QLabel(t('desktop.routingLog.backendLabel')))
         self.backend_filter = QComboBox()
         self.backend_filter.addItems([
-            "全て",
+            t('desktop.routingLog.backendAll'),
             "claude-opus-4-5",
             "claude-sonnet-4-5",
             "claude-haiku-4-5",
@@ -167,15 +165,15 @@ class RoutingLogWidget(QWidget):
             "gemini-3-flash",
             "local"
         ])
-        self.backend_filter.setToolTip("Backendでフィルタします")
+        self.backend_filter.setToolTip(t('desktop.routingLog.backendFilterTooltip'))
         self.backend_filter.currentTextChanged.connect(self._apply_filters)
         filter_layout.addWidget(self.backend_filter)
 
         # セッションフィルタ
-        filter_layout.addWidget(QLabel("セッション:"))
+        filter_layout.addWidget(QLabel(t('desktop.routingLog.sessionLabel')))
         self.session_filter = QLineEdit()
-        self.session_filter.setPlaceholderText("セッションIDでフィルタ...")
-        self.session_filter.setToolTip("特定のセッションのログのみ表示します")
+        self.session_filter.setPlaceholderText(t('desktop.routingLog.sessionPlaceholder'))
+        self.session_filter.setToolTip(t('desktop.routingLog.sessionFilterTooltip'))
         self.session_filter.textChanged.connect(self._apply_filters)
         filter_layout.addWidget(self.session_filter)
 
@@ -184,14 +182,7 @@ class RoutingLogWidget(QWidget):
         # テーブル
         self.table = QTableWidget()
         self.table.setColumnCount(6)
-        self.table.setHorizontalHeaderLabels([
-            "タイムスタンプ",
-            "Backend",
-            "ステータス",
-            "タスク種別",
-            "フォールバック",
-            "理由"
-        ])
+        self.table.setHorizontalHeaderLabels(t('desktop.routingLog.tableHeaders'))
 
         # カラム幅調整
         header = self.table.horizontalHeader()
@@ -211,7 +202,7 @@ class RoutingLogWidget(QWidget):
 
         # ステータスバー
         status_layout = QHBoxLayout()
-        self.status_label = QLabel("ログ読み込み中...")
+        self.status_label = QLabel(t('desktop.routingLog.loadingStatus'))
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
 
@@ -220,9 +211,9 @@ class RoutingLogWidget(QWidget):
         self.stats_label.setStyleSheet("color: #888;")
         status_layout.addWidget(self.stats_label)
 
-        self.detail_btn = QPushButton("詳細を表示")
+        self.detail_btn = QPushButton(t('desktop.routingLog.detailBtn'))
         self.detail_btn.setEnabled(False)
-        self.detail_btn.setToolTip("選択したログの詳細を表示します")
+        self.detail_btn.setToolTip(t('desktop.routingLog.detailTooltip'))
         self.detail_btn.clicked.connect(self._show_detail)
         status_layout.addWidget(self.detail_btn)
 
@@ -237,10 +228,10 @@ class RoutingLogWidget(QWidget):
             self.current_logs = self.decision_logger.read_recent_decisions(limit)
             self._populate_table(self.current_logs)
             self._update_stats()
-            self.status_label.setText(f"ログ: {len(self.current_logs)}件")
+            self.status_label.setText(t('desktop.routingLog.logCount', count=len(self.current_logs)))
         except Exception as e:
-            self.status_label.setText(f"エラー: {e}")
-            QMessageBox.warning(self, "ログ読み込みエラー", f"ルーティングログの読み込みに失敗しました:\n{e}")
+            self.status_label.setText(t('desktop.routingLog.errorStatus', error=e))
+            QMessageBox.warning(self, t('desktop.routingLog.loadErrorTitle'), t('desktop.routingLog.loadErrorMsg', error=e))
 
     def _populate_table(self, logs: list):
         """テーブルにログを表示"""
@@ -317,11 +308,11 @@ class RoutingLogWidget(QWidget):
 
         for log in self.current_logs:
             # ステータスフィルタ
-            if status_filter != "全て" and log.get("final_status", "") != status_filter:
+            if status_filter != t('desktop.routingLog.statusAll') and log.get("final_status", "") != status_filter:
                 continue
 
             # Backendフィルタ
-            if backend_filter != "全て" and log.get("selected_backend", "") != backend_filter:
+            if backend_filter != t('desktop.routingLog.backendAll') and log.get("selected_backend", "") != backend_filter:
                 continue
 
             # セッションフィルタ
@@ -331,7 +322,7 @@ class RoutingLogWidget(QWidget):
             filtered_logs.append(log)
 
         self._populate_table(filtered_logs)
-        self.status_label.setText(f"ログ: {len(filtered_logs)}件 (フィルタ後)")
+        self.status_label.setText(t('desktop.routingLog.filteredLogCount', count=len(filtered_logs)))
 
     def _update_stats(self):
         """統計情報を更新"""
@@ -345,12 +336,12 @@ class RoutingLogWidget(QWidget):
         if total > 0:
             success_rate = (success / total) * 100
             self.stats_label.setText(
-                f"成功率: {success_rate:.1f}% | "
-                f"成功: {success} | エラー: {error} | ブロック: {blocked} | "
-                f"フォールバック: {fallback}"
+                t('desktop.routingLog.statsFormat',
+                  rate=f"{success_rate:.1f}", success=success,
+                  error=error, blocked=blocked, fallback=fallback)
             )
         else:
-            self.stats_label.setText("統計なし")
+            self.stats_label.setText(t('desktop.routingLog.noStats'))
 
     def _on_selection_changed(self):
         """選択変更時の処理"""

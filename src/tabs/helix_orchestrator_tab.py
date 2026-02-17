@@ -60,6 +60,7 @@ from ..widgets.bible_notification import BibleNotificationWidget
 from ..widgets.chat_widgets import PhaseIndicator, ExecutionIndicator, InterruptionBanner
 from ..bible.bible_discovery import BibleDiscovery
 from ..bible.bible_injector import BibleInjector
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,7 @@ class MixAIAttachmentWidget(QFrame):
         # ×ボタン (v5.2.0: 視認性大幅向上 - 常に赤背景で目立たせる)
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(20, 20)
-        remove_btn.setToolTip("添付を解除")
+        remove_btn.setToolTip(t('desktop.mixAI.removeAttachTip'))
         remove_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e53e3e;
@@ -327,13 +328,22 @@ class GPUUsageGraph(QWidget):
     """GPU使用量の動的グラフ表示ウィジェット（時間軸選択・シークバー対応）"""
 
     # 時間範囲定義（秒）
-    TIME_RANGES = {
-        "60秒": 60,
-        "5分": 300,
-        "15分": 900,
-        "30分": 1800,
-        "1時間": 3600,
-    }
+    TIME_RANGES = {}  # populated dynamically from i18n
+
+    @classmethod
+    def init_time_ranges(cls):
+        """v9.6.0: i18nから時間範囲ラベルを初期化"""
+        ranges = t('desktop.mixAI.gpuTimeRanges')
+        if isinstance(ranges, dict):
+            cls.TIME_RANGES = {
+                ranges.get('60s', '60s'): 60,
+                ranges.get('5m', '5m'): 300,
+                ranges.get('15m', '15m'): 900,
+                ranges.get('30m', '30m'): 1800,
+                ranges.get('1h', '1h'): 3600,
+            }
+        else:
+            cls.TIME_RANGES = {"60s": 60, "5min": 300, "15min": 900, "30min": 1800, "1h": 3600}
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -461,7 +471,7 @@ class GPUUsageGraph(QWidget):
 
         # X軸時間ラベル
         time_label_left = f"-{self._format_time(self.time_range + self.view_offset)}"
-        time_label_right = f"-{self._format_time(self.view_offset)}" if self.view_offset > 0 else "現在"
+        time_label_right = f"-{self._format_time(self.view_offset)}" if self.view_offset > 0 else t('desktop.mixAI.gpuNowLabel')
         painter.drawText(margin_left, margin_top + graph_height + 15, time_label_left)
         painter.drawText(margin_left + graph_width - 30, margin_top + graph_height + 15, time_label_right)
 
@@ -474,7 +484,7 @@ class GPUUsageGraph(QWidget):
         # データがない場合
         if not self.gpu_data:
             painter.setPen(QColor("#6b7280"))
-            painter.drawText(graph_rect, Qt.AlignmentFlag.AlignCenter, "GPU使用量のデータがありません\n実行開始で記録が開始されます")
+            painter.drawText(graph_rect, Qt.AlignmentFlag.AlignCenter, t('desktop.mixAI.gpuNoData'))
             return
 
         # 表示範囲を計算（シークバー対応）
@@ -551,11 +561,11 @@ class GPUUsageGraph(QWidget):
     def _format_time(self, seconds: float) -> str:
         """秒数を読みやすい形式にフォーマット"""
         if seconds < 60:
-            return f"{int(seconds)}秒"
+            return f"{int(seconds)}{t('desktop.mixAI.gpuSecond')}"
         elif seconds < 3600:
-            return f"{int(seconds / 60)}分"
+            return f"{int(seconds / 60)}{t('desktop.mixAI.gpuMinute')}"
         else:
-            return f"{int(seconds / 3600)}時間"
+            return f"{int(seconds / 3600)}{t('desktop.mixAI.gpuHour')}"
 
 
 class MixAIWorker(QThread):
@@ -583,7 +593,7 @@ class MixAIWorker(QThread):
         try:
             self.orchestrator = ToolOrchestrator(self.config)
             if not self.orchestrator.initialize():
-                self.error.emit("Ollamaへの接続に失敗しました。\n設定タブでOllama URLを確認してください。")
+                self.error.emit(t('desktop.mixAI.ollamaConnFailedFull'))
                 return
 
             # フェーズパイプライン実行
@@ -1090,6 +1100,10 @@ class HelixOrchestratorTab(QWidget):
         self._init_ui()
         self._restore_ui_from_config()
 
+        # v9.5.0: Web実行ロックオーバーレイ
+        from ..widgets.web_lock_overlay import WebLockOverlay
+        self.web_lock_overlay = WebLockOverlay(self)
+
     def _restore_ui_from_config(self):
         """v8.4.2: 保存済み設定値をUIウィジェットに反映"""
         if hasattr(self, 'max_retries_spin') and hasattr(self.config, 'max_phase2_retries'):
@@ -1175,13 +1189,197 @@ class HelixOrchestratorTab(QWidget):
 
         # チャットタブ
         chat_panel = self._create_chat_panel()
-        self.sub_tabs.addTab(chat_panel, "💬 チャット")
+        self.sub_tabs.addTab(chat_panel, t('desktop.mixAI.chatTab'))
 
         # 設定タブ
         settings_panel = self._create_settings_panel()
-        self.sub_tabs.addTab(settings_panel, "⚙️ 設定")
+        self.sub_tabs.addTab(settings_panel, t('desktop.mixAI.settingsTab'))
 
         layout.addWidget(self.sub_tabs)
+
+    def retranslateUi(self):
+        """Update all translatable text on all widgets (called on language switch)."""
+
+        # === Sub-tabs ===
+        self.sub_tabs.setTabText(0, t('desktop.mixAI.chatTab'))
+        self.sub_tabs.setTabText(1, t('desktop.mixAI.settingsTab'))
+
+        # === Chat panel ===
+        self.chat_title_label.setText(t('desktop.mixAI.title', version=APP_VERSION))
+        self.input_text.setPlaceholderText(t('desktop.mixAI.inputPlaceholder'))
+        self.execute_btn.setText(t('desktop.mixAI.executeBtn'))
+        self.execute_btn.setToolTip(t('desktop.mixAI.executeTip'))
+        self.cancel_btn.setText(t('desktop.mixAI.cancelBtn'))
+        self.clear_btn.setText(t('desktop.mixAI.clearBtn'))
+
+        # Engine combo (preserve selection)
+        self.engine_combo.setToolTip(t('desktop.mixAI.engineTip'))
+        engine_idx = self.engine_combo.currentIndex()
+        self._engine_options = [
+            ("claude-opus-4-6", t('desktop.mixAI.engineOpus46')),
+            ("claude-opus-4-5-20250929", t('desktop.mixAI.engineOpus45')),
+            ("claude-sonnet-4-5-20250929", t('desktop.mixAI.engineSonnet45')),
+        ]
+        self._add_ollama_engines()
+        self.engine_combo.blockSignals(True)
+        self.engine_combo.clear()
+        for engine_id, display_name in self._engine_options:
+            self.engine_combo.addItem(display_name, engine_id)
+        if 0 <= engine_idx < self.engine_combo.count():
+            self.engine_combo.setCurrentIndex(engine_idx)
+        self.engine_combo.blockSignals(False)
+
+        # Engine type indicator
+        current_engine_id = self.engine_combo.currentData()
+        if current_engine_id:
+            self._update_engine_indicator(current_engine_id)
+
+        # Chat panel buttons
+        self.mixai_attach_btn.setText(t('desktop.mixAI.attachBtn'))
+        self.mixai_attach_btn.setToolTip(t('desktop.mixAI.attachTip'))
+        self.mixai_history_btn.setText(t('desktop.mixAI.historyBtn'))
+        self.mixai_history_btn.setToolTip(t('desktop.mixAI.historyTip'))
+        self.mixai_snippet_btn.setText(t('desktop.mixAI.snippetBtn'))
+        self.mixai_snippet_btn.setToolTip(t('desktop.mixAI.snippetTip'))
+        self.mixai_snippet_add_btn.setText(t('desktop.mixAI.snippetAddBtn'))
+        self.mixai_snippet_add_btn.setToolTip(t('desktop.mixAI.snippetAddTip'))
+
+        # Neural flow tooltip
+        self.neural_flow.setToolTip(t('desktop.mixAI.neuralFlowTip'))
+
+        # Tool log group (state-dependent title)
+        if self.tool_log_group.isChecked():
+            self.tool_log_group.setTitle(t('desktop.mixAI.toolLogCollapse'))
+        else:
+            self.tool_log_group.setTitle(t('desktop.mixAI.toolLogExpand'))
+
+        # Tool log tree headers
+        self.tool_log_tree.setHeaderLabels(t('desktop.mixAI.toolLogHeaders'))
+
+        # Output placeholder
+        self.output_text.setPlaceholderText(t('desktop.mixAI.outputPlaceholder'))
+
+        # === Settings panel ===
+
+        # Claude settings group
+        self.claude_group.setTitle(t('desktop.mixAI.claudeSettings'))
+        self.claude_model_label.setText(t('desktop.mixAI.modelLabel'))
+        self.claude_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
+
+        # Claude model combo (preserve selection, update display names)
+        model_idx = self.claude_model_combo.currentIndex()
+        self.claude_model_combo.blockSignals(True)
+        for i, model_def in enumerate(CLAUDE_MODELS):
+            if i < self.claude_model_combo.count():
+                display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
+                desc = t(model_def["i18n_desc"]) if "i18n_desc" in model_def else model_def["description"]
+                self.claude_model_combo.setItemText(i, display)
+                self.claude_model_combo.setItemData(i, desc, Qt.ItemDataRole.ToolTipRole)
+        if 0 <= model_idx < self.claude_model_combo.count():
+            self.claude_model_combo.setCurrentIndex(model_idx)
+        self.claude_model_combo.blockSignals(False)
+
+        self.claude_auth_label.setText(t('desktop.mixAI.authLabel'))
+
+        # Auth mode combo (preserve index)
+        auth_idx = self.auth_mode_combo.currentIndex()
+        self.auth_mode_combo.blockSignals(True)
+        self.auth_mode_combo.clear()
+        self.auth_mode_combo.addItems([t('desktop.mixAI.authCli')])
+        if 0 <= auth_idx < self.auth_mode_combo.count():
+            self.auth_mode_combo.setCurrentIndex(auth_idx)
+        self.auth_mode_combo.blockSignals(False)
+
+        self.claude_thinking_label.setText(t('desktop.mixAI.thinkingLabel'))
+        self.thinking_combo.setToolTip(t('desktop.mixAI.thinkingTip'))
+
+        # Ollama group
+        self.ollama_group.setTitle(t('desktop.mixAI.ollamaGroup'))
+        self.ollama_url_label.setText(t('desktop.mixAI.ollamaUrl'))
+        self.ollama_test_btn.setText(t('desktop.mixAI.ollamaTest'))
+        self.ollama_test_btn.setToolTip(t('desktop.mixAI.ollamaTestTip'))
+        self.ollama_status_label.setText(t('desktop.mixAI.ollamaStatus'))
+
+        # Resident models group
+        self.always_load_group.setTitle(t('desktop.mixAI.residentGroup'))
+        self.control_ai_label.setText(t('desktop.mixAI.controlAi'))
+        self.total_vram_label.setText(t('desktop.mixAI.totalVramLabel'))
+
+        # 3Phase group
+        self.phase_group.setTitle(t('desktop.mixAI.phaseGroup'))
+        self.phase_desc_label.setText(t('desktop.mixAI.phaseDesc'))
+        self.engine_note_label.setText(t('desktop.mixAI.engineNote'))
+        self.category_label.setText(t('desktop.mixAI.categoryLabel'))
+        self.retry_label.setText(t('desktop.mixAI.retryLabel'))
+        self.max_retries_label.setText(t('desktop.mixAI.maxRetries'))
+        self.max_retries_spin.setToolTip(t('desktop.mixAI.maxRetriesTip'))
+
+        # BIBLE group
+        self.bible_group.setTitle(t('desktop.mixAI.bibleGroup'))
+        self.bible_group.setToolTip(t('desktop.mixAI.bibleTip'))
+
+        # VRAM group
+        self.vram_group.setTitle(t('desktop.mixAI.vramGroup'))
+        self.vram_group.setToolTip(t('desktop.mixAI.vramTip'))
+        self.vram_desc_label.setText(t('desktop.mixAI.vramDesc'))
+        self.open_simulator_btn.setText(t('desktop.mixAI.vramOpenBtn'))
+
+        # GPU group
+        self.gpu_group.setTitle(t('desktop.mixAI.gpuGroup'))
+        self.gpu_group.setToolTip(t('desktop.mixAI.gpuGroupTip'))
+        self.gpu_time_range_label.setText(t('desktop.mixAI.gpuTimeRange'))
+        self.gpu_show_past_label.setText(t('desktop.mixAI.gpuShowPast'))
+        self.gpu_info_label.setText(t('desktop.mixAI.gpuInfo'))
+
+        # GPU time range combo (preserve selection)
+        GPUUsageGraph.init_time_ranges()
+        gpu_tr_idx = self.gpu_time_range_combo.currentIndex()
+        self.gpu_time_range_combo.blockSignals(True)
+        self.gpu_time_range_combo.clear()
+        self.gpu_time_range_combo.addItems(list(GPUUsageGraph.TIME_RANGES.keys()))
+        if 0 <= gpu_tr_idx < self.gpu_time_range_combo.count():
+            self.gpu_time_range_combo.setCurrentIndex(gpu_tr_idx)
+        self.gpu_time_range_combo.blockSignals(False)
+
+        self.gpu_seekbar_label.setText(t('desktop.mixAI.gpuNow'))
+        self.refresh_gpu_btn.setText(t('desktop.mixAI.gpuRefreshBtn'))
+        self.refresh_gpu_btn.setToolTip(t('desktop.mixAI.gpuRefreshTip'))
+
+        # GPU record button (state-dependent)
+        if self._gpu_recording:
+            self.gpu_record_btn.setText(t('desktop.mixAI.gpuRecordStop'))
+        else:
+            self.gpu_record_btn.setText(t('desktop.mixAI.gpuRecordStart'))
+
+        self.clear_graph_btn.setText(t('desktop.mixAI.clearBtn2'))
+        self.goto_now_btn.setText(t('desktop.mixAI.gpuGotoNow'))
+        self.goto_now_btn.setToolTip(t('desktop.mixAI.gpuGotoNowTip'))
+        self.gpu_desc_label.setText(t('desktop.mixAI.gpuAutoDesc'))
+
+        # RAG threshold combo (hidden, preserve index)
+        rag_idx = self.rag_threshold_combo.currentIndex()
+        self.rag_threshold_combo.blockSignals(True)
+        self.rag_threshold_combo.clear()
+        self.rag_threshold_combo.addItems([
+            t('desktop.mixAI.filterLowPlus'),
+            t('desktop.mixAI.filterMedPlus'),
+            t('desktop.mixAI.filterHighOnly'),
+        ])
+        if 0 <= rag_idx < self.rag_threshold_combo.count():
+            self.rag_threshold_combo.setCurrentIndex(rag_idx)
+        self.rag_threshold_combo.blockSignals(False)
+
+        # Save button
+        self.save_btn.setText(t('desktop.mixAI.saveBtn'))
+        self.save_btn.setToolTip(t('desktop.mixAI.saveTip'))
+
+        # Child widget retranslation
+        if hasattr(self, 'neural_flow') and hasattr(self.neural_flow, 'retranslateUi'):
+            self.neural_flow.retranslateUi()
+        if hasattr(self, 'phase_indicator') and hasattr(self.phase_indicator, 'retranslateUi'):
+            self.phase_indicator.retranslateUi()
+        if hasattr(self, 'bible_panel') and hasattr(self.bible_panel, 'retranslateUi'):
+            self.bible_panel.retranslateUi()
 
     def _create_chat_panel(self) -> QWidget:
         """チャットパネルを作成 (v4.0 新UI)"""
@@ -1190,9 +1388,9 @@ class HelixOrchestratorTab(QWidget):
 
         # ヘッダー
         header_layout = QHBoxLayout()
-        title = QLabel(f"🚀 mixAI v{APP_VERSION} - 3Phase統合オーケストレーション")
-        title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        header_layout.addWidget(title)
+        self.chat_title_label = QLabel(t('desktop.mixAI.title', version=APP_VERSION))
+        self.chat_title_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        header_layout.addWidget(self.chat_title_label)
 
         # バージョンバッジ
         version_badge = QLabel(f"v{APP_VERSION}")
@@ -1225,7 +1423,7 @@ class HelixOrchestratorTab(QWidget):
 
         # v5.1: 強化チャット入力（上下キー対応、ドロップ対応）
         self.input_text = MixAIEnhancedInput()
-        self.input_text.setPlaceholderText("メッセージを入力...")
+        self.input_text.setPlaceholderText(t('desktop.mixAI.inputPlaceholder'))
         self.input_text.setMaximumHeight(120)
         self.input_text.file_dropped.connect(self.attachment_bar.add_files)
         input_layout.addWidget(self.input_text)
@@ -1233,45 +1431,73 @@ class HelixOrchestratorTab(QWidget):
         # ボタン行
         btn_layout = QHBoxLayout()
 
-        self.execute_btn = QPushButton("▶ 実行")
+        self.execute_btn = QPushButton(t('desktop.mixAI.executeBtn'))
         self.execute_btn.setStyleSheet(PRIMARY_BTN)
-        self.execute_btn.setToolTip("3Phase実行パイプラインを開始します\n(Phase 1: Claude計画 → Phase 2: ローカルLLM → Phase 3: Claude統合)")
+        self.execute_btn.setToolTip(t('desktop.mixAI.executeTip'))
         self.execute_btn.clicked.connect(self._on_execute)
         btn_layout.addWidget(self.execute_btn)
 
-        self.cancel_btn = QPushButton("⏹ キャンセル")
+        self.cancel_btn = QPushButton(t('desktop.mixAI.cancelBtn'))
         self.cancel_btn.setStyleSheet(DANGER_BTN)
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self._on_cancel)
         btn_layout.addWidget(self.cancel_btn)
 
+        # v9.3.0: P1/P3エンジン選択（チャットパネル内に配置）
+        btn_layout.addWidget(QLabel("  "))  # スペーサー
+        engine_label_chat = QLabel("P1/P3:")
+        engine_label_chat.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        btn_layout.addWidget(engine_label_chat)
+
+        self.engine_combo = NoScrollComboBox()
+        self.engine_combo.setToolTip(t('desktop.mixAI.engineTip'))
+        self.engine_combo.setMinimumWidth(200)
+        self._engine_options = [
+            ("claude-opus-4-6", t('desktop.mixAI.engineOpus46')),
+            ("claude-opus-4-5-20250929", t('desktop.mixAI.engineOpus45')),
+            ("claude-sonnet-4-5-20250929", t('desktop.mixAI.engineSonnet45')),
+        ]
+        self._add_ollama_engines()
+        for engine_id, display_name in self._engine_options:
+            self.engine_combo.addItem(display_name, engine_id)
+        current_engine = self._load_engine_setting()
+        idx = self.engine_combo.findData(current_engine)
+        if idx >= 0:
+            self.engine_combo.setCurrentIndex(idx)
+        self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
+        btn_layout.addWidget(self.engine_combo)
+
+        self.engine_type_label = QLabel()
+        self._update_engine_indicator(current_engine)
+        btn_layout.addWidget(self.engine_type_label)
+
         # v5.1: soloAIと同様のボタン群を追加
         btn_layout.addWidget(QLabel("  "))  # スペーサー
 
         # ファイル添付ボタン
-        self.mixai_attach_btn = QPushButton("📎 ファイルを添付")
+        self.mixai_attach_btn = QPushButton(t('desktop.mixAI.attachBtn'))
         self.mixai_attach_btn.setStyleSheet(SECONDARY_BTN)
-        self.mixai_attach_btn.setToolTip("Claude CLIに渡すファイルを添付します\nコード、ドキュメント、画像などを指定できます")
+        self.mixai_attach_btn.setToolTip(t('desktop.mixAI.attachTip'))
         self.mixai_attach_btn.clicked.connect(self._on_attach_file)
         btn_layout.addWidget(self.mixai_attach_btn)
 
         # 履歴から引用ボタン
-        self.mixai_history_btn = QPushButton("📜 履歴から引用")
+        self.mixai_history_btn = QPushButton(t('desktop.mixAI.historyBtn'))
         self.mixai_history_btn.setStyleSheet(SECONDARY_BTN)
-        self.mixai_history_btn.setToolTip("過去のmixAI会話履歴を検索し、引用として挿入します。")
+        self.mixai_history_btn.setToolTip(t('desktop.mixAI.historyTip'))
         self.mixai_history_btn.clicked.connect(self._on_cite_history)
         btn_layout.addWidget(self.mixai_history_btn)
 
         # スニペットボタン
-        self.mixai_snippet_btn = QPushButton("📋 スニペット ▼")
+        self.mixai_snippet_btn = QPushButton(t('desktop.mixAI.snippetBtn'))
         self.mixai_snippet_btn.setStyleSheet(SECONDARY_BTN)
-        self.mixai_snippet_btn.setToolTip("保存済みのテキストスニペットを挿入します。")
+        self.mixai_snippet_btn.setToolTip(t('desktop.mixAI.snippetTip'))
         self.mixai_snippet_btn.clicked.connect(self._on_snippet_menu)
         btn_layout.addWidget(self.mixai_snippet_btn)
 
         # 追加ボタン (v5.1.1: 右クリックで編集・削除メニュー)
-        self.mixai_snippet_add_btn = QPushButton("➕ 追加")
-        self.mixai_snippet_add_btn.setToolTip("クリックで追加、右クリックで編集・削除メニュー")
+        self.mixai_snippet_add_btn = QPushButton(t('desktop.mixAI.snippetAddBtn'))
+        self.mixai_snippet_add_btn.setToolTip(t('desktop.mixAI.snippetAddTip'))
         self.mixai_snippet_add_btn.setMaximumWidth(60)
         self.mixai_snippet_add_btn.clicked.connect(self._on_snippet_add)
         self.mixai_snippet_add_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -1281,9 +1507,9 @@ class HelixOrchestratorTab(QWidget):
         btn_layout.addStretch()
 
         # クリアボタン
-        clear_btn = QPushButton("🗑️ クリア")
-        clear_btn.clicked.connect(self._on_clear)
-        btn_layout.addWidget(clear_btn)
+        self.clear_btn = QPushButton(t('desktop.mixAI.clearBtn'))
+        self.clear_btn.clicked.connect(self._on_clear)
+        btn_layout.addWidget(self.clear_btn)
 
         input_layout.addLayout(btn_layout)
         splitter.addWidget(input_widget)
@@ -1299,7 +1525,7 @@ class HelixOrchestratorTab(QWidget):
 
         # v7.0.0: Neural Flow Compact Widget - 3Phase可視化
         self.neural_flow = NeuralFlowCompactWidget()
-        self.neural_flow.setToolTip("3Phase実行パイプラインの進捗をリアルタイムで表示します")
+        self.neural_flow.setToolTip(t('desktop.mixAI.neuralFlowTip'))
         self.neural_flow.setStyleSheet("""
             NeuralFlowCompactWidget {
                 background-color: #1a1a1a;
@@ -1323,7 +1549,7 @@ class HelixOrchestratorTab(QWidget):
         output_layout.addWidget(self.progress_bar)
 
         # ツール実行ログ（折りたたみ可能）
-        self.tool_log_group = QGroupBox("▶ ツール実行ログ (クリックで展開)")
+        self.tool_log_group = QGroupBox(t('desktop.mixAI.toolLogExpand'))
         self.tool_log_group.setCheckable(True)
         self.tool_log_group.setChecked(False)
         self.tool_log_group.toggled.connect(self._on_tool_log_toggled)
@@ -1344,7 +1570,7 @@ class HelixOrchestratorTab(QWidget):
 
         tool_log_layout = QVBoxLayout()
         self.tool_log_tree = QTreeWidget()
-        self.tool_log_tree.setHeaderLabels(["ツール", "モデル", "ステータス", "実行時間", "出力"])
+        self.tool_log_tree.setHeaderLabels(t('desktop.mixAI.toolLogHeaders'))
         self.tool_log_tree.setColumnWidth(0, 100)
         self.tool_log_tree.setColumnWidth(1, 180)  # モデル名用に広め
         self.tool_log_tree.setColumnWidth(2, 70)
@@ -1362,7 +1588,7 @@ class HelixOrchestratorTab(QWidget):
         # 出力テキストエリア
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
-        self.output_text.setPlaceholderText("実行結果がここに表示されます...")
+        self.output_text.setPlaceholderText(t('desktop.mixAI.outputPlaceholder'))
         self.output_text.setStyleSheet(OUTPUT_AREA_STYLE + SCROLLBAR_STYLE)
         output_layout.addWidget(self.output_text)
 
@@ -1387,16 +1613,18 @@ class HelixOrchestratorTab(QWidget):
         scroll_layout = QVBoxLayout(scroll_content)
 
         # === Claude設定 ===
-        claude_group = QGroupBox("📌 Claude設定")
+        self.claude_group = QGroupBox(t('desktop.mixAI.claudeSettings'))
         claude_layout = QFormLayout()
 
-        # モデル選択 (v7.1.0: CLAUDE_MODELSから動的生成)
+        # モデル選択 (v7.1.0: CLAUDE_MODELSから動的生成, v9.6.1: i18n対応)
         self.claude_model_combo = NoScrollComboBox()
-        self.claude_model_combo.setToolTip("mixAI実行時に使用するClaudeモデルを選択します")
+        self.claude_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
         default_idx = 0
         for i, model_def in enumerate(CLAUDE_MODELS):
-            self.claude_model_combo.addItem(model_def["display_name"], userData=model_def["id"])
-            self.claude_model_combo.setItemData(i, model_def["description"], Qt.ItemDataRole.ToolTipRole)
+            display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
+            desc = t(model_def["i18n_desc"]) if "i18n_desc" in model_def else model_def["description"]
+            self.claude_model_combo.addItem(display, userData=model_def["id"])
+            self.claude_model_combo.setItemData(i, desc, Qt.ItemDataRole.ToolTipRole)
             if model_def["is_default"]:
                 default_idx = i
         # 保存済みmodel_idから復元、なければデフォルト
@@ -1409,53 +1637,58 @@ class HelixOrchestratorTab(QWidget):
                 break
         if not restored:
             self.claude_model_combo.setCurrentIndex(default_idx)
-        claude_layout.addRow("モデル:", self.claude_model_combo)
+        self.claude_model_label = QLabel(t('desktop.mixAI.modelLabel'))
+        claude_layout.addRow(self.claude_model_label, self.claude_model_combo)
 
         # v6.0.0: 認証方式はCLI専用（API廃止）
         self.auth_mode_combo = NoScrollComboBox()
-        self.auth_mode_combo.addItems(["CLI (Claude Max専用)"])
+        self.auth_mode_combo.addItems([t('desktop.mixAI.authCli')])
         self.auth_mode_combo.setCurrentIndex(0)
         self.auth_mode_combo.setEnabled(False)  # 変更不可
-        claude_layout.addRow("認証方式:", self.auth_mode_combo)
+        self.claude_auth_label = QLabel(t('desktop.mixAI.authLabel'))
+        claude_layout.addRow(self.claude_auth_label, self.auth_mode_combo)
 
         # 思考モード
         self.thinking_combo = NoScrollComboBox()
         self.thinking_combo.addItems(["OFF", "Standard", "Deep"])
-        self.thinking_combo.setToolTip("Claudeの推論プロセスの深さ\nOFF: 通常 / Standard: 基本推論 / Deep: 詳細推論")
+        self.thinking_combo.setToolTip(t('desktop.mixAI.thinkingTip'))
         self._set_combo_value(self.thinking_combo, self.config.thinking_mode)
-        claude_layout.addRow("思考モード:", self.thinking_combo)
+        self.claude_thinking_label = QLabel(t('desktop.mixAI.thinkingLabel'))
+        claude_layout.addRow(self.claude_thinking_label, self.thinking_combo)
 
-        claude_group.setLayout(claude_layout)
-        scroll_layout.addWidget(claude_group)
+        self.claude_group.setLayout(claude_layout)
+        scroll_layout.addWidget(self.claude_group)
 
         # === Ollama接続設定 ===
-        ollama_group = QGroupBox("🖥️ Ollama接続")
+        self.ollama_group = QGroupBox(t('desktop.mixAI.ollamaGroup'))
         ollama_layout = QVBoxLayout()
 
         url_layout = QHBoxLayout()
-        url_layout.addWidget(QLabel("ホストURL:"))
+        self.ollama_url_label = QLabel(t('desktop.mixAI.ollamaUrl'))
+        url_layout.addWidget(self.ollama_url_label)
         self.ollama_url_edit = QLineEdit(self.config.ollama_url)
         url_layout.addWidget(self.ollama_url_edit)
-        test_btn = QPushButton("接続テスト")
-        test_btn.setToolTip("Ollamaサーバーへの接続を確認します")
-        test_btn.clicked.connect(self._test_ollama_connection)
-        url_layout.addWidget(test_btn)
+        self.ollama_test_btn = QPushButton(t('desktop.mixAI.ollamaTest'))
+        self.ollama_test_btn.setToolTip(t('desktop.mixAI.ollamaTestTip'))
+        self.ollama_test_btn.clicked.connect(self._test_ollama_connection)
+        url_layout.addWidget(self.ollama_test_btn)
         ollama_layout.addLayout(url_layout)
 
-        self.ollama_status_label = QLabel("ステータス: 未確認")
+        self.ollama_status_label = QLabel(t('desktop.mixAI.ollamaStatus'))
         self.ollama_status_label.setStyleSheet("color: #9ca3af;")
         ollama_layout.addWidget(self.ollama_status_label)
 
-        ollama_group.setLayout(ollama_layout)
-        scroll_layout.addWidget(ollama_group)
+        self.ollama_group.setLayout(ollama_layout)
+        scroll_layout.addWidget(self.ollama_group)
 
         # === v7.0.0: 常駐モデル（GPU割り当て） ===
-        always_load_group = QGroupBox("🔧 常駐モデル")
+        self.always_load_group = QGroupBox(t('desktop.mixAI.residentGroup'))
         always_load_layout = QVBoxLayout()
 
         # 制御AI (ministral-3:8b)
         image_row = QHBoxLayout()
-        image_row.addWidget(QLabel("制御AI:"))
+        self.control_ai_label = QLabel(t('desktop.mixAI.controlAi'))
+        image_row.addWidget(self.control_ai_label)
         self.image_model_combo = NoScrollComboBox()
         self.image_model_combo.setEditable(True)
         self.image_model_combo.addItems([
@@ -1493,29 +1726,31 @@ class HelixOrchestratorTab(QWidget):
         embedding_row.addStretch()
         always_load_layout.addLayout(embedding_row)
 
-        total_label = QLabel("合計: ~8.5GB (常時ロード) / 5070 Ti: 8.5GB")
-        total_label.setStyleSheet("color: #9ca3af; font-size: 10px; margin-top: 5px;")
-        always_load_layout.addWidget(total_label)
+        self.total_vram_label = QLabel(t('desktop.mixAI.totalVramLabel'))
+        self.total_vram_label.setStyleSheet("color: #9ca3af; font-size: 10px; margin-top: 5px;")
+        always_load_layout.addWidget(self.total_vram_label)
 
-        always_load_group.setLayout(always_load_layout)
-        scroll_layout.addWidget(always_load_group)
+        self.always_load_group.setLayout(always_load_layout)
+        scroll_layout.addWidget(self.always_load_group)
 
         # === v7.0.0: 3Phase実行設定 ===
-        phase_group = QGroupBox("🔄 3Phase実行設定")
+        self.phase_group = QGroupBox(t('desktop.mixAI.phaseGroup'))
         phase_layout = QVBoxLayout()
 
-        phase_desc = QLabel(
-            "3Phase: Phase 1(Claude計画立案) → Phase 2(ローカルLLM順次実行) → "
-            "Phase 3(Claude比較統合)"
-        )
-        phase_desc.setStyleSheet("color: #9ca3af; font-size: 10px;")
-        phase_desc.setWordWrap(True)
-        phase_layout.addWidget(phase_desc)
+        self.phase_desc_label = QLabel(t('desktop.mixAI.phaseDesc'))
+        self.phase_desc_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+        self.phase_desc_label.setWordWrap(True)
+        phase_layout.addWidget(self.phase_desc_label)
+
+        # v9.3.0: P1/P3エンジン選択 → チャットタブの実行ボタン横に移動
+        self.engine_note_label = QLabel(t('desktop.mixAI.engineNote'))
+        self.engine_note_label.setStyleSheet("color: #6b7280; font-size: 10px; margin-top: 4px;")
+        phase_layout.addWidget(self.engine_note_label)
 
         # カテゴリ別担当モデル
-        cat_label = QLabel("■ カテゴリ別担当モデル（Phase 2で順次実行）")
-        cat_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
-        phase_layout.addWidget(cat_label)
+        self.category_label = QLabel(t('desktop.mixAI.categoryLabel'))
+        self.category_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        phase_layout.addWidget(self.category_label)
 
         # coding: コード生成・修正・レビュー
         coding_row = QHBoxLayout()
@@ -1605,27 +1840,28 @@ class HelixOrchestratorTab(QWidget):
         phase_layout.addLayout(vision_row)
 
         # 品質検証設定（ローカルLLM再実行）
-        retry_label = QLabel("■ 品質検証設定（ローカルLLM再実行）")
-        retry_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
-        phase_layout.addWidget(retry_label)
+        self.retry_label = QLabel(t('desktop.mixAI.retryLabel'))
+        self.retry_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        phase_layout.addWidget(self.retry_label)
 
         retry_row = QHBoxLayout()
-        retry_row.addWidget(QLabel("最大再実行回数:"))
+        self.max_retries_label = QLabel(t('desktop.mixAI.maxRetries'))
+        retry_row.addWidget(self.max_retries_label)
         self.max_retries_spin = QSpinBox()
         self.max_retries_spin.setStyleSheet(SPINBOX_STYLE)
         self.max_retries_spin.setRange(0, 3)
         self.max_retries_spin.setValue(2)
-        self.max_retries_spin.setToolTip("Phase 3で品質不足時にPhase 2を再実行する最大回数（0で再実行なし）")
+        self.max_retries_spin.setToolTip(t('desktop.mixAI.maxRetriesTip'))
         retry_row.addWidget(self.max_retries_spin)
         retry_row.addStretch()
         phase_layout.addLayout(retry_row)
 
-        phase_group.setLayout(phase_layout)
-        scroll_layout.addWidget(phase_group)
+        self.phase_group.setLayout(phase_layout)
+        scroll_layout.addWidget(self.phase_group)
 
         # === v8.0.0: BIBLE Manager ===
-        bible_group = QGroupBox("BIBLE Manager")
-        bible_group.setToolTip("プロジェクトBIBLEの自動検出・解析・注入状態を表示します")
+        self.bible_group = QGroupBox(t('desktop.mixAI.bibleGroup'))
+        self.bible_group.setToolTip(t('desktop.mixAI.bibleTip'))
         bible_layout = QVBoxLayout()
         self.bible_panel = BibleStatusPanel()
         self.bible_panel.create_requested.connect(self._on_bible_create)
@@ -1633,8 +1869,8 @@ class HelixOrchestratorTab(QWidget):
         self.bible_panel.detail_requested.connect(self._on_bible_detail)
         self.bible_panel.path_submitted.connect(self._on_bible_path_submitted)
         bible_layout.addWidget(self.bible_panel)
-        bible_group.setLayout(bible_layout)
-        scroll_layout.addWidget(bible_group)
+        self.bible_group.setLayout(bible_layout)
+        scroll_layout.addWidget(self.bible_group)
 
         # v8.3.1: 起動時BIBLE自動検出（カレントディレクトリから3段階探索）
         self._auto_discover_bible_on_startup()
@@ -1643,33 +1879,30 @@ class HelixOrchestratorTab(QWidget):
         self.mcp_status_label = QLabel("")  # 互換性用ダミー
 
         # === VRAM Budget Simulator ===
-        vram_group = QGroupBox("🖥️ VRAM Budget Simulator")
-        vram_group.setToolTip("各GPUのVRAM使用量をシミュレーションするツールです")
+        self.vram_group = QGroupBox(t('desktop.mixAI.vramGroup'))
+        self.vram_group.setToolTip(t('desktop.mixAI.vramTip'))
         vram_layout = QVBoxLayout()
 
-        vram_desc = QLabel(
-            "モデルを選択してGPUに配置し、VRAM使用量をシミュレーション。\n"
-            "ドラッグ&ドロップでGPU間のモデル移動が可能です。"
-        )
-        vram_desc.setStyleSheet("color: #9ca3af; font-size: 10px;")
-        vram_desc.setWordWrap(True)
-        vram_layout.addWidget(vram_desc)
+        self.vram_desc_label = QLabel(t('desktop.mixAI.vramDesc'))
+        self.vram_desc_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+        self.vram_desc_label.setWordWrap(True)
+        vram_layout.addWidget(self.vram_desc_label)
 
         # VRAM Compact Widget
         self.vram_compact = VRAMCompactWidget()
         vram_layout.addWidget(self.vram_compact)
 
         # VRAM Simulatorへのリンクボタン
-        open_simulator_btn = QPushButton("📊 詳細シミュレーターを開く")
-        open_simulator_btn.clicked.connect(self._open_vram_simulator)
-        vram_layout.addWidget(open_simulator_btn)
+        self.open_simulator_btn = QPushButton(t('desktop.mixAI.vramOpenBtn'))
+        self.open_simulator_btn.clicked.connect(self._open_vram_simulator)
+        vram_layout.addWidget(self.open_simulator_btn)
 
-        vram_group.setLayout(vram_layout)
-        scroll_layout.addWidget(vram_group)
+        self.vram_group.setLayout(vram_layout)
+        scroll_layout.addWidget(self.vram_group)
 
         # === GPUモニター ===
-        gpu_group = QGroupBox("📊 GPUモニター")
-        gpu_group.setToolTip("GPU使用率とVRAM消費をリアルタイムモニタリング\nLLM実行時に自動で記録を開始します")
+        self.gpu_group = QGroupBox(t('desktop.mixAI.gpuGroup'))
+        self.gpu_group.setToolTip(t('desktop.mixAI.gpuGroupTip'))
         gpu_layout = QVBoxLayout()
 
         # GPU使用量グラフ
@@ -1678,17 +1911,20 @@ class HelixOrchestratorTab(QWidget):
 
         # 時間軸選択行
         time_control_layout = QHBoxLayout()
-        time_control_layout.addWidget(QLabel("時間範囲:"))
+        self.gpu_time_range_label = QLabel(t('desktop.mixAI.gpuTimeRange'))
+        time_control_layout.addWidget(self.gpu_time_range_label)
         self.gpu_time_range_combo = NoScrollComboBox()
+        GPUUsageGraph.init_time_ranges()  # v9.6.0: i18nから時間範囲ラベルを初期化
         self.gpu_time_range_combo.addItems(list(GPUUsageGraph.TIME_RANGES.keys()))
-        self.gpu_time_range_combo.setCurrentText("60秒")
+        self.gpu_time_range_combo.setCurrentIndex(0)  # v9.6.0: i18n対応（先頭=60秒/60sec）
         self.gpu_time_range_combo.currentTextChanged.connect(self._on_gpu_time_range_changed)
         time_control_layout.addWidget(self.gpu_time_range_combo)
 
         time_control_layout.addWidget(QLabel("  "))
 
         # シークバー（過去のデータ参照用）
-        time_control_layout.addWidget(QLabel("過去を表示:"))
+        self.gpu_show_past_label = QLabel(t('desktop.mixAI.gpuShowPast'))
+        time_control_layout.addWidget(self.gpu_show_past_label)
         self.gpu_seekbar = QSlider(Qt.Orientation.Horizontal)
         self.gpu_seekbar.setMinimum(0)
         self.gpu_seekbar.setMaximum(0)  # データがない時は0
@@ -1699,7 +1935,7 @@ class HelixOrchestratorTab(QWidget):
         self.gpu_seekbar.setMinimumWidth(150)
         time_control_layout.addWidget(self.gpu_seekbar)
 
-        self.gpu_seekbar_label = QLabel("現在")
+        self.gpu_seekbar_label = QLabel(t('desktop.mixAI.gpuNow'))
         self.gpu_seekbar_label.setMinimumWidth(50)
         time_control_layout.addWidget(self.gpu_seekbar_label)
 
@@ -1707,7 +1943,7 @@ class HelixOrchestratorTab(QWidget):
         gpu_layout.addLayout(time_control_layout)
 
         # GPU情報テキスト
-        self.gpu_info_label = QLabel("GPU情報を取得中...")
+        self.gpu_info_label = QLabel(t('desktop.mixAI.gpuInfo'))
         self.gpu_info_label.setStyleSheet("color: #9ca3af;")
         gpu_layout.addWidget(self.gpu_info_label)
 
@@ -1715,37 +1951,37 @@ class HelixOrchestratorTab(QWidget):
         gpu_btn_layout = QHBoxLayout()
 
         # 更新ボタン
-        refresh_gpu_btn = QPushButton("🔄 GPU情報更新")
-        refresh_gpu_btn.setToolTip("Ollamaにインストール済みのモデル一覧を取得します")
-        refresh_gpu_btn.clicked.connect(self._refresh_gpu_info)
-        gpu_btn_layout.addWidget(refresh_gpu_btn)
+        self.refresh_gpu_btn = QPushButton(t('desktop.mixAI.gpuRefreshBtn'))
+        self.refresh_gpu_btn.setToolTip(t('desktop.mixAI.gpuRefreshTip'))
+        self.refresh_gpu_btn.clicked.connect(self._refresh_gpu_info)
+        gpu_btn_layout.addWidget(self.refresh_gpu_btn)
 
         # 記録開始/停止ボタン
-        self.gpu_record_btn = QPushButton("▶ 記録開始")
+        self.gpu_record_btn = QPushButton(t('desktop.mixAI.gpuRecordStart'))
         self.gpu_record_btn.clicked.connect(self._toggle_gpu_recording)
         gpu_btn_layout.addWidget(self.gpu_record_btn)
 
         # グラフクリアボタン
-        clear_graph_btn = QPushButton("🗑️ クリア")
-        clear_graph_btn.clicked.connect(self._clear_gpu_graph)
-        gpu_btn_layout.addWidget(clear_graph_btn)
+        self.clear_graph_btn = QPushButton(t('desktop.mixAI.clearBtn2'))
+        self.clear_graph_btn.clicked.connect(self._clear_gpu_graph)
+        gpu_btn_layout.addWidget(self.clear_graph_btn)
 
         # 現在に戻るボタン
-        goto_now_btn = QPushButton("⏩ 現在")
-        goto_now_btn.clicked.connect(self._on_gpu_goto_now)
-        goto_now_btn.setToolTip("シークバーを現在に戻す")
-        gpu_btn_layout.addWidget(goto_now_btn)
+        self.goto_now_btn = QPushButton(t('desktop.mixAI.gpuGotoNow'))
+        self.goto_now_btn.clicked.connect(self._on_gpu_goto_now)
+        self.goto_now_btn.setToolTip(t('desktop.mixAI.gpuGotoNowTip'))
+        gpu_btn_layout.addWidget(self.goto_now_btn)
 
         gpu_btn_layout.addStretch()
         gpu_layout.addLayout(gpu_btn_layout)
 
         # 説明ラベル
-        gpu_desc = QLabel("💡 LLM実行時に自動で5秒後にGPU使用量を記録します / スライダーで過去のデータを参照できます")
-        gpu_desc.setStyleSheet("color: #6b7280; font-size: 9px;")
-        gpu_layout.addWidget(gpu_desc)
+        self.gpu_desc_label = QLabel(t('desktop.mixAI.gpuAutoDesc'))
+        self.gpu_desc_label.setStyleSheet("color: #6b7280; font-size: 9px;")
+        gpu_layout.addWidget(self.gpu_desc_label)
 
-        gpu_group.setLayout(gpu_layout)
-        scroll_layout.addWidget(gpu_group)
+        self.gpu_group.setLayout(gpu_layout)
+        scroll_layout.addWidget(self.gpu_group)
 
         # GPU記録用タイマー
         self._gpu_recording = False
@@ -1761,17 +1997,17 @@ class HelixOrchestratorTab(QWidget):
         self.rag_auto_save_check.setChecked(True)
         self.rag_auto_save_check.setVisible(False)
         self.rag_threshold_combo = NoScrollComboBox()
-        self.rag_threshold_combo.addItems(["低優先度以上", "中優先度以上", "高優先度のみ"])
+        self.rag_threshold_combo.addItems([t('desktop.mixAI.filterLowPlus'), t('desktop.mixAI.filterMedPlus'), t('desktop.mixAI.filterHighOnly')])
         self.rag_threshold_combo.setCurrentIndex(1)
         self.rag_threshold_combo.setVisible(False)
 
         # === 保存ボタン (v8.4.2: soloAI/一般設定と統一 — 右寄せ小型) ===
         save_btn_layout = QHBoxLayout()
         save_btn_layout.addStretch()
-        save_btn = QPushButton("💾 設定を保存")
-        save_btn.setToolTip("mixAIタブの全設定をconfig/config.jsonに保存します")
-        save_btn.clicked.connect(self._on_save_settings)
-        save_btn_layout.addWidget(save_btn)
+        self.save_btn = QPushButton(t('desktop.mixAI.saveBtn'))
+        self.save_btn.setToolTip(t('desktop.mixAI.saveTip'))
+        self.save_btn.clicked.connect(self._on_save_settings)
+        save_btn_layout.addWidget(self.save_btn)
         scroll_layout.addLayout(save_btn_layout)
 
         scroll_layout.addStretch()
@@ -1800,9 +2036,9 @@ class HelixOrchestratorTab(QWidget):
         """ツールログの展開/折りたたみ"""
         self.tool_log_tree.setVisible(checked)
         if checked:
-            self.tool_log_group.setTitle("▼ ツール実行ログ (クリックで折りたたみ)")
+            self.tool_log_group.setTitle(t('desktop.mixAI.toolLogCollapse'))
         else:
-            self.tool_log_group.setTitle("▶ ツール実行ログ (クリックで展開)")
+            self.tool_log_group.setTitle(t('desktop.mixAI.toolLogExpand'))
 
     def _on_execute(self):
         """実行開始"""
@@ -1811,15 +2047,14 @@ class HelixOrchestratorTab(QWidget):
             rag_lock = getattr(self.main_window, '_rag_lock', None)
             if rag_lock and rag_lock.is_locked:
                 QMessageBox.information(
-                    self, "RAG構築中",
-                    "情報収集タブでRAG構築が進行中です。\n"
-                    "完了するまでmixAIは使用できません。"
+                    self, t('desktop.mixAI.ragBuildingTitle'),
+                    t('desktop.mixAI.ragBuildingMsg')
                 )
                 return
 
         prompt = self.input_text.toPlainText().strip()
         if not prompt:
-            QMessageBox.warning(self, "入力エラー", "タスクを入力してください。")
+            QMessageBox.warning(self, t('desktop.mixAI.inputError'), t('desktop.mixAI.inputRequired'))
             return
 
         # UI更新
@@ -1851,13 +2086,17 @@ class HelixOrchestratorTab(QWidget):
         model_assignments = self._get_model_assignments()
         # v7.1.0: claude_model_id を優先使用
         claude_model_id = getattr(self.config, 'claude_model_id', None) or getattr(self.config, 'claude_model', DEFAULT_CLAUDE_MODEL_ID)
+        # v9.3.0: エンジン切替
+        engine_id = self.engine_combo.currentData() if hasattr(self, 'engine_combo') else claude_model_id
         orchestrator_config = {
             "claude_model": claude_model_id,
             "claude_model_id": claude_model_id,
+            "orchestrator_engine": engine_id,
             "timeout": self._get_claude_timeout_sec(),
             "auto_knowledge": True,
             "project_dir": os.getcwd(),
             "max_phase2_retries": self.max_retries_spin.value() if hasattr(self, 'max_retries_spin') else 2,
+            "local_agent_tools": self._load_local_agent_tools_config(),
         }
         attached_files = []
         if image_path:
@@ -1900,7 +2139,7 @@ class HelixOrchestratorTab(QWidget):
 
         # v7.1.0: 選択モデル名をステータスに表示
         model_display = self.claude_model_combo.currentText() if hasattr(self, 'claude_model_combo') else claude_model_id
-        self.statusChanged.emit(f"mixAI v7.1: 3Phase処理中... ({model_display})")
+        self.statusChanged.emit(t('desktop.mixAI.processing3Phase', model=model_display))
 
     def _extract_image_path(self, prompt: str) -> Optional[str]:
         """プロンプトから画像パスを抽出 (v4.4)"""
@@ -1960,6 +2199,90 @@ class HelixOrchestratorTab(QWidget):
             assignments["vision"] = self.vision_model_combo.currentText()
         return assignments
 
+    # ═══ v9.3.0: P1/P3エンジン切替 ═══
+
+    def _add_ollama_engines(self):
+        """Ollamaからエージェント対応モデルを追加"""
+        agent_capable = [
+            "devstral-2:123b",
+            "gpt-oss:120b",
+            "command-a:latest",
+        ]
+        try:
+            import httpx
+            resp = httpx.get("http://localhost:11434/api/tags", timeout=5)
+            if resp.status_code == 200:
+                models = resp.json().get("models", [])
+                installed = {m["name"] for m in models}
+                for model_name in agent_capable:
+                    if model_name in installed:
+                        size = next((m.get("size", 0) for m in models
+                                     if m["name"] == model_name), 0)
+                        size_str = f" {size / (1024**3):.0f}GB" if size else ""
+                        self._engine_options.append(
+                            (model_name, f"{model_name} {t('desktop.mixAI.localSuffix', size=size_str)}")
+                        )
+        except Exception:
+            pass  # Ollama未起動時はClaude選択肢のみ
+
+    def _on_engine_changed(self, index):
+        """エンジン変更時の処理"""
+        engine_id = self.engine_combo.currentData()
+        if engine_id:
+            self._save_engine_setting(engine_id)
+            self._update_engine_indicator(engine_id)
+
+    def _update_engine_indicator(self, engine_id: str):
+        """エンジン種別ラベルを更新"""
+        if engine_id.startswith("claude-"):
+            self.engine_type_label.setText(t('desktop.mixAI.engineApi'))
+            self.engine_type_label.setStyleSheet(
+                "color: #06b6d4; font-size: 11px; padding: 2px 6px; "
+                "background-color: rgba(6, 182, 212, 0.15); border-radius: 4px;")
+        else:
+            self.engine_type_label.setText(t('desktop.mixAI.engineLocal'))
+            self.engine_type_label.setStyleSheet(
+                "color: #10b981; font-size: 11px; padding: 2px 6px; "
+                "background-color: rgba(16, 185, 129, 0.15); border-radius: 4px;")
+
+    def _load_engine_setting(self) -> str:
+        """config.jsonからエンジン設定を読み込み"""
+        try:
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return config.get("orchestrator_engine", "claude-opus-4-6")
+        except Exception:
+            pass
+        return "claude-opus-4-6"
+
+    def _save_engine_setting(self, engine_id: str):
+        """config.jsonにエンジン設定を保存"""
+        try:
+            config_path = Path("config/config.json")
+            config = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            config["orchestrator_engine"] = engine_id
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Engine setting save failed: {e}")
+
+    def _load_local_agent_tools_config(self) -> dict:
+        """config.jsonからlocal_agent_tools設定を読み込み"""
+        try:
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return config.get("local_agent_tools", {})
+        except Exception:
+            pass
+        return {}
+
     def _on_phase_changed(self, phase_num: int, description: str):
         """v7.0.0: Phase変更シグナルハンドラ"""
         percentage = {1: 10, 2: 40, 3: 70}.get(phase_num, 50)
@@ -1973,16 +2296,16 @@ class HelixOrchestratorTab(QWidget):
         # ツール実行ログにPhase開始を記録
         phase_item = QTreeWidgetItem(self.tool_log_tree)
         phase_item.setText(0, description)
-        phase_item.setText(1, "実行中")
+        phase_item.setText(1, t('desktop.mixAI.phaseRunning'))
         phase_item.setText(2, "")
 
     def _on_local_llm_started(self, category: str, model: str):
         """v7.0.0: ローカルLLM実行開始"""
-        self.statusChanged.emit(f"Phase 2: {category} ({model}) 実行中...")
+        self.statusChanged.emit(t('desktop.mixAI.phase2Running', category=category, model=model))
 
     def _on_local_llm_finished(self, category: str, success: bool, elapsed: float):
         """v7.0.0: ローカルLLM実行完了"""
-        status = "完了" if success else "失敗"
+        status = t('desktop.mixAI.llmDone') if success else t('desktop.mixAI.llmFailed')
         item = QTreeWidgetItem(self.tool_log_tree)
         item.setText(0, f"  Phase 2: {category}")
         item.setText(1, status)
@@ -1992,13 +2315,13 @@ class HelixOrchestratorTab(QWidget):
         """v7.0.0: Phase 2進捗"""
         pct = 40 + int((completed / max(total, 1)) * 30)
         self.progress_bar.setValue(pct)
-        self.progress_bar.setFormat(f"{pct}% - Phase 2: {completed}/{total} 完了")
+        self.progress_bar.setFormat(t('desktop.mixAI.phase2Progress', pct=pct, completed=completed, total=total))
 
     def _on_cancel(self):
         """キャンセル"""
         if self.worker:
             self.worker.cancel()
-            self.statusChanged.emit("処理をキャンセルしました")
+            self.statusChanged.emit(t('desktop.mixAI.cancelled'))
 
     def _on_clear(self):
         """クリア"""
@@ -2022,8 +2345,8 @@ class HelixOrchestratorTab(QWidget):
     def _on_attach_file(self):
         """ファイル添付ボタンクリック"""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "ファイルを選択", "",
-            "全ファイル (*);;Python (*.py);;テキスト (*.txt *.md);;画像 (*.png *.jpg *.jpeg *.gif *.webp)"
+            self, t('desktop.mixAI.fileSelectTitle'), "",
+            t('desktop.mixAI.fileFilter')
         )
         if files:
             self.attachment_bar.add_files(files)
@@ -2075,10 +2398,8 @@ class HelixOrchestratorTab(QWidget):
             else:
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.information(
-                    self, "BIBLE検索",
-                    f"指定パスからBIBLEファイルが見つかりませんでした:\n{path}\n\n"
-                    "3段階探索（カレント→子→親）を実行しましたが、"
-                    "BIBLEファイルが存在しません。"
+                    self, t('desktop.mixAI.bibleSearchTitle'),
+                    t('desktop.mixAI.bibleSearchNotFound', path=path)
                 )
                 logger.info(f"[BIBLE] No BIBLE found at manual path: {path}")
         except Exception as e:
@@ -2125,12 +2446,12 @@ class HelixOrchestratorTab(QWidget):
                     self.bible_panel.update_bible(bibles[0])
                 logger.info(f"[BIBLE] Created new BIBLE at {bible_path}")
                 QMessageBox.information(
-                    self, "BIBLE作成完了",
-                    f"BIBLE.md を作成しました:\n{bible_path}"
+                    self, t('desktop.mixAI.bibleCreateDone'),
+                    t('desktop.mixAI.bibleCreateMsg', path=str(bible_path))
                 )
         except Exception as e:
             logger.error(f"[BIBLE] Create error: {e}")
-            QMessageBox.warning(self, "エラー", f"BIBLE作成に失敗しました: {e}")
+            QMessageBox.warning(self, t('common.error'), f"BIBLE create failed: {e}")
 
     def _on_bible_update(self):
         """BIBLE更新"""
@@ -2157,7 +2478,7 @@ class HelixOrchestratorTab(QWidget):
                     logger.info(f"[BIBLE] Updated: {action.value} - {reason}")
             else:
                 QMessageBox.information(
-                    self, "BIBLE", "現在更新が必要な項目はありません。"
+                    self, "BIBLE", t('desktop.mixAI.bibleNoUpdate')
                 )
         except Exception as e:
             logger.error(f"[BIBLE] Update error: {e}")
@@ -2169,25 +2490,25 @@ class HelixOrchestratorTab(QWidget):
             return
         missing = bible.missing_required_sections
         missing_str = (
-            "\n不足セクション: " + ", ".join(s.value for s in missing)
-            if missing else "\n全必須セクションあり"
+            t('desktop.mixAI.bibleMissingSections', sections=", ".join(s.value for s in missing))
+            if missing else t('desktop.mixAI.bibleAllSections')
         )
         sections_str = "\n".join(
-            f"  - {s.title} ({s.type.value}, 充実度{s.completeness:.0%})"
+            t('desktop.mixAI.bibleSectionItem', title=s.title, type=s.type.value, completeness=f"{s.completeness:.0%}")
             for s in bible.sections
         )
         detail = (
-            f"プロジェクト: {bible.project_name}\n"
-            f"バージョン: {bible.version}\n"
-            f"コードネーム: {bible.codename or '(なし)'}\n"
-            f"ファイル: {bible.file_path}\n"
-            f"行数: {bible.line_count}\n"
-            f"セクション数: {len(bible.sections)}\n"
-            f"完全性スコア: {bible.completeness_score:.0%}"
+            f"{t('desktop.mixAI.bibleProjectLabel', name=bible.project_name)}\n"
+            f"{t('desktop.mixAI.bibleVersionLabel', version=bible.version)}\n"
+            f"{t('desktop.mixAI.bibleCodenameLabel', codename=bible.codename or t('desktop.mixAI.bibleCodenameNone'))}\n"
+            f"{t('desktop.mixAI.bibleFileLabel', path=bible.file_path)}\n"
+            f"{t('desktop.mixAI.bibleLineCount', count=bible.line_count)}\n"
+            f"{t('desktop.mixAI.bibleSectionCount', count=len(bible.sections))}\n"
+            f"{t('desktop.mixAI.bibleCompletenessScore', score=f'{bible.completeness_score:.0%}')}"
             f"{missing_str}\n\n"
-            f"セクション一覧:\n{sections_str}"
+            f"{t('desktop.mixAI.bibleSectionListTitle')}\n{sections_str}"
         )
-        QMessageBox.information(self, "BIBLE詳細", detail)
+        QMessageBox.information(self, t('desktop.mixAI.bibleDetailTitle'), detail)
 
     def _on_bible_action_proposed(self, action, reason):
         """Post-Phase: BIBLE自律管理アクション提案"""
@@ -2196,8 +2517,8 @@ class HelixOrchestratorTab(QWidget):
             if action == BibleAction.NONE:
                 return
             reply = QMessageBox.question(
-                self, "BIBLE更新提案",
-                f"{reason}\n\nこの操作を実行しますか？",
+                self, t('desktop.mixAI.bibleUpdateProposal'),
+                t('desktop.mixAI.bibleUpdateConfirm', reason=reason),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.Yes:
@@ -2232,7 +2553,7 @@ class HelixOrchestratorTab(QWidget):
                     else:
                         self.input_text.setPlainText(citation)
         except ImportError:
-            QMessageBox.information(self, "機能未実装", "履歴引用機能は準備中です。")
+            QMessageBox.information(self, t('desktop.mixAI.historyNotReady'), t('desktop.mixAI.historyNotReadyMsg'))
 
     def _get_snippet_manager(self):
         """スニペットマネージャーを取得 (v5.1.1: soloAIと共通化)"""
@@ -2269,7 +2590,7 @@ class HelixOrchestratorTab(QWidget):
             menu = QMenu(self)
 
             if not snippets:
-                no_snippet_action = menu.addAction("スニペットがありません")
+                no_snippet_action = menu.addAction(t('desktop.mixAI.noSnippets'))
                 no_snippet_action.setEnabled(False)
             else:
                 # カテゴリでグループ化
@@ -2281,7 +2602,7 @@ class HelixOrchestratorTab(QWidget):
                     cat_menu = menu.addMenu(f"📁 {category}")
                     cat_snippets = snippet_manager.get_by_category(category)
                     for snippet in cat_snippets:
-                        action = cat_menu.addAction(snippet.get("name", "無題"))
+                        action = cat_menu.addAction(snippet.get("name", t('desktop.mixAI.untitled')))
                         action.setData(snippet)
                         action.triggered.connect(lambda checked, s=snippet: self._insert_snippet(s))
 
@@ -2290,12 +2611,12 @@ class HelixOrchestratorTab(QWidget):
                     if categories:
                         menu.addSeparator()
                     for snippet in uncategorized:
-                        action = menu.addAction(f"📋 {snippet.get('name', '無題')}")
+                        action = menu.addAction(f"📋 {snippet.get('name', t('desktop.mixAI.untitled'))}")
                         action.setData(snippet)
                         action.triggered.connect(lambda checked, s=snippet: self._insert_snippet(s))
 
             menu.addSeparator()
-            open_folder_action = menu.addAction("📂 ユニペットフォルダを開く")
+            open_folder_action = menu.addAction(t('desktop.mixAI.openSnippetFolder'))
             open_folder_action.triggered.connect(lambda: snippet_manager.open_unipet_folder())
 
             # ボタンの下に表示
@@ -2304,12 +2625,12 @@ class HelixOrchestratorTab(QWidget):
 
         except Exception as e:
             logger.error(f"[MixAI._on_snippet_menu] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, "エラー", f"スニペットメニュー表示中にエラー:\n{e}")
+            QMessageBox.warning(self, t('common.error'), t('desktop.mixAI.snippetMenuError', error=e))
 
     def _insert_snippet(self, snippet: dict):
         """スニペットを入力欄に挿入 (v5.1.1)"""
         content = snippet.get("content", "")
-        name = snippet.get("name", "無題")
+        name = snippet.get("name", t('desktop.mixAI.untitled'))
 
         current_text = self.input_text.toPlainText()
         if current_text:
@@ -2318,7 +2639,7 @@ class HelixOrchestratorTab(QWidget):
             new_text = content
 
         self.input_text.setPlainText(new_text)
-        self.statusChanged.emit(f"📋 スニペット「{name}」を挿入しました")
+        self.statusChanged.emit(t('desktop.mixAI.snippetInserted', name=name))
         logger.info(f"[MixAI] Snippet inserted: {name}")
 
     def _on_snippet_add(self):
@@ -2327,29 +2648,29 @@ class HelixOrchestratorTab(QWidget):
 
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle("スニペット追加")
+            dialog.setWindowTitle(t('desktop.mixAI.snippetAddTitle'))
             dialog.setMinimumWidth(400)
             layout = QVBoxLayout(dialog)
 
             # 名前入力
-            name_label = QLabel("スニペット名:")
+            name_label = QLabel(t('desktop.mixAI.snippetNameLabel'))
             layout.addWidget(name_label)
             name_input = QLineEdit()
-            name_input.setPlaceholderText("例: コードレビュー依頼")
+            name_input.setPlaceholderText(t('desktop.mixAI.snippetNamePlaceholder'))
             layout.addWidget(name_input)
 
             # カテゴリ入力
-            cat_label = QLabel("カテゴリ (任意):")
+            cat_label = QLabel(t('desktop.mixAI.snippetCategoryLabel'))
             layout.addWidget(cat_label)
             cat_input = QLineEdit()
-            cat_input.setPlaceholderText("例: 開発依頼")
+            cat_input.setPlaceholderText(t('desktop.mixAI.snippetCategoryPlaceholder'))
             layout.addWidget(cat_input)
 
             # 内容入力
-            content_label = QLabel("内容:")
+            content_label = QLabel(t('desktop.mixAI.snippetContentLabel'))
             layout.addWidget(content_label)
             content_input = QTextEdit()
-            content_input.setPlaceholderText("スニペットの内容を入力...")
+            content_input.setPlaceholderText(t('desktop.mixAI.snippetContentPlaceholder'))
             content_input.setMinimumHeight(150)
             layout.addWidget(content_input)
 
@@ -2364,19 +2685,19 @@ class HelixOrchestratorTab(QWidget):
                 content = content_input.toPlainText().strip()
 
                 if not name or not content:
-                    QMessageBox.warning(self, "入力エラー", "名前と内容は必須です。")
+                    QMessageBox.warning(self, t('desktop.mixAI.snippetInputError'), t('desktop.mixAI.snippetInputRequired'))
                     return
 
                 category = cat_input.text().strip()
                 snippet_manager = self._get_snippet_manager()
                 snippet_manager.add(name=name, content=content, category=category)
 
-                self.statusChanged.emit(f"📋 スニペット「{name}」を追加しました")
+                self.statusChanged.emit(t('desktop.mixAI.snippetAdded', name=name))
                 logger.info(f"[MixAI] Snippet added: {name}")
 
         except Exception as e:
             logger.error(f"[MixAI._on_snippet_add] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, "エラー", f"スニペット追加中にエラー:\n{e}")
+            QMessageBox.warning(self, t('common.error'), t('desktop.mixAI.snippetAddError', error=e))
 
     def _on_snippet_context_menu(self, pos):
         """スニペット右クリックメニュー（編集・削除）(v5.2.0: ユニペット削除対応)"""
@@ -2392,25 +2713,25 @@ class HelixOrchestratorTab(QWidget):
             menu = QMenu(self)
 
             # 編集メニュー
-            edit_menu = menu.addMenu("✏️ 編集")
+            edit_menu = menu.addMenu(t('desktop.mixAI.snippetEditMenu'))
             for snippet in snippets:
-                action = edit_menu.addAction(snippet.get("name", "無題"))
+                action = edit_menu.addAction(snippet.get("name", t('desktop.mixAI.untitled')))
                 action.triggered.connect(lambda checked, s=snippet: self._edit_snippet(s))
 
             # 削除メニュー (v5.2.0: ユニペットも削除可能に)
-            delete_menu = menu.addMenu("🗑️ 削除")
+            delete_menu = menu.addMenu(t('desktop.mixAI.snippetDeleteMenu'))
             for snippet in snippets:
                 source = snippet.get("source", "json")
                 if source == "unipet":
-                    action = delete_menu.addAction(f"🗂️ {snippet.get('name', '無題')} (ファイル削除)")
+                    action = delete_menu.addAction(f"🗂️ {snippet.get('name', t('desktop.mixAI.untitled'))} ({t('desktop.mixAI.snippetFileDelete')})")
                     action.triggered.connect(lambda checked, s=snippet: self._delete_snippet(s))
                 else:
-                    action = delete_menu.addAction(snippet.get("name", "無題"))
+                    action = delete_menu.addAction(snippet.get("name", t('desktop.mixAI.untitled')))
                     action.triggered.connect(lambda checked, s=snippet: self._delete_snippet(s))
 
             menu.addSeparator()
-            reload_action = menu.addAction("🔄 再読み込み")
-            reload_action.triggered.connect(lambda: (self._get_snippet_manager().reload(), self.statusChanged.emit("📋 スニペットを再読み込みしました")))
+            reload_action = menu.addAction(t('desktop.mixAI.snippetReload'))
+            reload_action.triggered.connect(lambda: (self._get_snippet_manager().reload(), self.statusChanged.emit(t('desktop.mixAI.snippetReloaded'))))
 
             menu.exec(self.mixai_snippet_add_btn.mapToGlobal(pos))
 
@@ -2423,24 +2744,24 @@ class HelixOrchestratorTab(QWidget):
 
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle(f"スニペット編集: {snippet.get('name', '無題')}")
+            dialog.setWindowTitle(t('desktop.mixAI.snippetEditTitle', name=snippet.get('name', t('desktop.mixAI.untitled'))))
             dialog.setMinimumWidth(400)
             layout = QVBoxLayout(dialog)
 
             # 名前入力
-            name_label = QLabel("スニペット名:")
+            name_label = QLabel(t('desktop.mixAI.snippetNameLabel'))
             layout.addWidget(name_label)
             name_input = QLineEdit(snippet.get("name", ""))
             layout.addWidget(name_input)
 
             # カテゴリ入力
-            cat_label = QLabel("カテゴリ:")
+            cat_label = QLabel(t('desktop.mixAI.snippetCategoryLabel'))
             layout.addWidget(cat_label)
             cat_input = QLineEdit(snippet.get("category", ""))
             layout.addWidget(cat_input)
 
             # 内容入力
-            content_label = QLabel("内容:")
+            content_label = QLabel(t('desktop.mixAI.snippetContentLabel'))
             layout.addWidget(content_label)
             content_input = QTextEdit()
             content_input.setPlainText(snippet.get("content", ""))
@@ -2461,28 +2782,28 @@ class HelixOrchestratorTab(QWidget):
                     content=content_input.toPlainText().strip(),
                     category=cat_input.text().strip()
                 )
-                self.statusChanged.emit(f"📋 スニペット「{name_input.text()}」を更新しました")
+                self.statusChanged.emit(t('desktop.mixAI.snippetUpdated', name=name_input.text()))
                 logger.info(f"[MixAI] Snippet updated: {name_input.text()}")
 
         except Exception as e:
             logger.error(f"[MixAI._edit_snippet] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, "エラー", f"スニペット編集中にエラー:\n{e}")
+            QMessageBox.warning(self, t('common.error'), t('desktop.mixAI.snippetEditError', error=e))
 
     def _delete_snippet(self, snippet: dict):
         """スニペット削除 (v5.2.0: ユニペットファイル削除対応)"""
-        name = snippet.get("name", "無題")
+        name = snippet.get("name", t('desktop.mixAI.untitled'))
         is_unipet = snippet.get("source") == "unipet"
 
         # ユニペットの場合は警告を追加
         if is_unipet:
             file_path = snippet.get("file_path", "")
-            msg = f"ユニペット「{name}」を削除しますか？\n\nファイルも削除されます:\n{file_path}"
+            msg = t('desktop.mixAI.snippetDeleteUnipet', name=name, path=file_path)
         else:
-            msg = f"スニペット「{name}」を削除しますか？"
+            msg = t('desktop.mixAI.snippetDeleteConfirm', name=name)
 
         reply = QMessageBox.question(
             self,
-            "スニペット削除",
+            t('desktop.mixAI.snippetDeleteTitle'),
             msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -2492,13 +2813,13 @@ class HelixOrchestratorTab(QWidget):
                 snippet_manager = self._get_snippet_manager()
                 # ユニペットの場合はdelete_file=Trueを渡す
                 if snippet_manager.delete(snippet.get("id"), delete_file=is_unipet):
-                    self.statusChanged.emit(f"🗑️ スニペット「{name}」を削除しました")
+                    self.statusChanged.emit(t('desktop.mixAI.snippetDeleted', name=name))
                     logger.info(f"[MixAI] Snippet deleted: {name}")
                 else:
-                    QMessageBox.warning(self, "削除失敗", f"スニペット「{name}」の削除に失敗しました。")
+                    QMessageBox.warning(self, t('desktop.mixAI.snippetDeleteFailed'), t('desktop.mixAI.snippetDeleteFailedMsg', name=name))
             except Exception as e:
                 logger.error(f"[MixAI._delete_snippet] Error: {e}", exc_info=True)
-                QMessageBox.warning(self, "エラー", f"スニペット削除中にエラー:\n{e}")
+                QMessageBox.warning(self, t('common.error'), t('desktop.mixAI.snippetDeleteError', error=e))
 
     def _on_progress(self, message: str, percentage: int):
         """進捗更新"""
@@ -2583,7 +2904,7 @@ class HelixOrchestratorTab(QWidget):
 
         # 結果を表示（Markdown→HTMLレンダリング）
         self.output_text.setHtml(markdown_to_html(result))
-        self.statusChanged.emit("mixAI v8.0: 完了")
+        self.statusChanged.emit(t('desktop.mixAI.completed'))
         self.worker = None
 
         # v5.0.0: 会話履歴にAI応答を追加
@@ -2611,8 +2932,8 @@ class HelixOrchestratorTab(QWidget):
                     self.neural_flow.set_phase_state(phase_id, PhaseState.FAILED)
                     break
 
-        self.output_text.setPlainText(f"❌ エラー:\n\n{error}")
-        self.statusChanged.emit(f"エラー: {error[:50]}...")
+        self.output_text.setPlainText(t('desktop.mixAI.errorPrefix', error=error))
+        self.statusChanged.emit(t('desktop.mixAI.errorStatus', error=error[:50]))
         self.worker = None
 
     # =========================================================================
@@ -2645,10 +2966,10 @@ class HelixOrchestratorTab(QWidget):
 
     def _on_knowledge_saved(self, knowledge: dict):
         """v5.0.0: ナレッジ保存完了"""
-        topic = knowledge.get("topic", "不明")
+        topic = knowledge.get("topic", t('desktop.mixAI.knowledgeUnknown'))
         models_used = knowledge.get("ondemand_models_used", [])
-        model_info = f" (検証: {', '.join(models_used)})" if models_used else ""
-        self.statusChanged.emit(f"💾 ナレッジ保存: {topic}{model_info}")
+        model_info = t('desktop.mixAI.knowledgeVerify', models=', '.join(models_used)) if models_used else ""
+        self.statusChanged.emit(t('desktop.mixAI.knowledgeSaved', topic=topic, model_info=model_info))
         logger.info(f"[mixAI v5.0] ナレッジ保存完了: {topic}")
         self._knowledge_worker = None
 
@@ -2692,8 +3013,8 @@ class HelixOrchestratorTab(QWidget):
         """設定保存"""
         self._update_config_from_ui()
         self._save_config()
-        QMessageBox.information(self, "保存完了", "設定を保存しました。")
-        self.statusChanged.emit("設定を保存しました")
+        QMessageBox.information(self, t('desktop.mixAI.saveCompleteTitle'), t('desktop.mixAI.saveCompleteMsg'))
+        self.statusChanged.emit(t('desktop.mixAI.savedStatus'))
 
     def _test_ollama_connection(self):
         """Ollama接続テスト（モデル別ステータス確認）"""
@@ -2757,22 +3078,22 @@ class HelixOrchestratorTab(QWidget):
                     vram_info = loaded_models.get(name, {}).get("size_vram", 0)
                     vram_mb = vram_info // (1024 * 1024) if vram_info else 0
                     icon = "🟢"
-                    status = "ロード中"
+                    status = t('desktop.mixAI.ollamaLoaded')
                     vram_text = f"{vram_mb:,}MB" if vram_mb else "-"
                 elif is_installed:
                     icon = "🟡"
-                    status = "待機中"
+                    status = t('desktop.mixAI.ollamaStandby')
                     vram_text = "-"
                 else:
                     icon = "🔴"
-                    status = "未DL"
+                    status = t('desktop.mixAI.ollamaNotDL')
                     vram_text = "-"
 
-                type_label = "常時" if model_type == "resident" else "OD"
+                type_label = t('desktop.mixAI.ollamaResident') if model_type == "resident" else t('desktop.mixAI.ollamaOD')
                 status_lines.append(f"{icon} {name:<26} {status:<8} {vram_text:<10} [{type_label}]")
 
             # 結果を表示
-            header = f"✅ 接続成功 ({latency:.2f}秒)\n\nモデルステータス:\n"
+            header = t('desktop.mixAI.ollamaConnected', latency=f"{latency:.2f}")
             self.ollama_status_label.setText(header + "\n".join(status_lines))
             self.ollama_status_label.setStyleSheet("color: #22c55e;")
 
@@ -2780,10 +3101,10 @@ class HelixOrchestratorTab(QWidget):
             self._update_model_combos(response)
 
         except ImportError:
-            self.ollama_status_label.setText("❌ ollamaライブラリがインストールされていません")
+            self.ollama_status_label.setText(t('desktop.mixAI.ollamaNoLibrary'))
             self.ollama_status_label.setStyleSheet("color: #ef4444;")
         except Exception as e:
-            self.ollama_status_label.setText(f"❌ 接続失敗: {str(e)[:50]}")
+            self.ollama_status_label.setText(t('desktop.mixAI.ollamaConnFailed', error=str(e)[:50]))
             self.ollama_status_label.setStyleSheet("color: #ef4444;")
 
     def _check_claude_cli_mcp(self):
@@ -2794,7 +3115,7 @@ class HelixOrchestratorTab(QWidget):
             claude_cmd = find_claude_command()
 
             if not claude_cmd:
-                self.mcp_status_label.setText("  ❌ Claude CLIが見つかりません")
+                self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpClaudeNotFound')}")
                 self.mcp_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
                 return
 
@@ -2806,27 +3127,27 @@ class HelixOrchestratorTab(QWidget):
 
             if result.returncode == 0 and result.stdout.strip():
                 lines = result.stdout.strip().split("\n")
-                status_text = f"  ✅ Claude CLI: {claude_cmd}\n  MCPサーバー ({len(lines)}件):\n"
+                status_text = f"  {t('desktop.mixAI.mcpStatus', cmd=claude_cmd, count=len(lines))}"
                 for line in lines:
                     status_text += f"    {line}\n"
                 self.mcp_status_label.setText(status_text.rstrip())
                 self.mcp_status_label.setStyleSheet("color: #22c55e; font-size: 10px;")
             elif result.returncode == 0:
                 self.mcp_status_label.setText(
-                    f"  ✅ Claude CLI: {claude_cmd}\n  MCPサーバー: 未設定"
+                    f"  {t('desktop.mixAI.mcpNotConfigured', cmd=claude_cmd)}"
                 )
                 self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
             else:
                 self.mcp_status_label.setText(
-                    f"  ⚠️ Claude CLI: {claude_cmd}\n  MCP確認失敗: {result.stderr[:100]}"
+                    f"  {t('desktop.mixAI.mcpCheckFailed', cmd=claude_cmd, error=result.stderr[:100])}"
                 )
                 self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
 
         except subprocess.TimeoutExpired:
-            self.mcp_status_label.setText("  ⚠️ Claude CLI応答タイムアウト")
+            self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpTimeout')}")
             self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
         except Exception as e:
-            self.mcp_status_label.setText(f"  ❌ エラー: {str(e)[:80]}")
+            self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpError', error=str(e)[:80])}")
             self.mcp_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
 
     def _get_configured_models(self) -> List[Dict[str, Any]]:
@@ -2876,7 +3197,7 @@ class HelixOrchestratorTab(QWidget):
     def _start_gpu_recording(self):
         """GPU記録を開始"""
         self._gpu_recording = True
-        self.gpu_record_btn.setText("⏹ 記録停止")
+        self.gpu_record_btn.setText(t('desktop.mixAI.gpuRecordStop'))
         self.gpu_record_btn.setStyleSheet("""
             QPushButton {
                 background-color: #ef4444;
@@ -2888,48 +3209,48 @@ class HelixOrchestratorTab(QWidget):
             QPushButton:hover { background-color: #dc2626; }
         """)
         self._gpu_timer.start(1000)  # 1秒間隔で記録
-        self.statusChanged.emit("GPU記録を開始しました")
+        self.statusChanged.emit(t('desktop.mixAI.gpuRecordStarted'))
 
     def _stop_gpu_recording(self):
         """GPU記録を停止"""
         self._gpu_recording = False
         self._gpu_timer.stop()
-        self.gpu_record_btn.setText("▶ 記録開始")
+        self.gpu_record_btn.setText(t('desktop.mixAI.gpuRecordStart'))
         self.gpu_record_btn.setStyleSheet("")
-        self.statusChanged.emit("GPU記録を停止しました")
+        self.statusChanged.emit(t('desktop.mixAI.gpuRecordStopped'))
 
     def _clear_gpu_graph(self):
         """GPUグラフをクリア"""
         self.gpu_graph.clear_data()
         self.gpu_seekbar.setMaximum(0)
         self.gpu_seekbar.setValue(0)
-        self.gpu_seekbar_label.setText("現在")
-        self.statusChanged.emit("GPUグラフをクリアしました")
+        self.gpu_seekbar_label.setText(t('desktop.mixAI.gpuNow'))
+        self.statusChanged.emit(t('desktop.mixAI.gpuGraphCleared'))
 
     def _on_gpu_time_range_changed(self, text: str):
         """時間範囲が変更された"""
         seconds = GPUUsageGraph.TIME_RANGES.get(text, 60)
         self.gpu_graph.set_time_range(seconds)
         self._update_gpu_seekbar_range()
-        self.statusChanged.emit(f"GPU時間範囲を{text}に変更しました")
+        self.statusChanged.emit(t('desktop.mixAI.gpuTimeChanged', range=text))
 
     def _on_gpu_seekbar_changed(self, value: int):
         """シークバーの値が変更された"""
         self.gpu_graph.set_view_offset(value)
         if value == 0:
-            self.gpu_seekbar_label.setText("現在")
+            self.gpu_seekbar_label.setText(t('desktop.mixAI.gpuNow'))
         elif value < 60:
-            self.gpu_seekbar_label.setText(f"-{value}秒")
+            self.gpu_seekbar_label.setText(t('desktop.mixAI.seekbarSecond', val=value))
         elif value < 3600:
-            self.gpu_seekbar_label.setText(f"-{value // 60}分")
+            self.gpu_seekbar_label.setText(t('desktop.mixAI.seekbarMinute', val=value // 60))
         else:
-            self.gpu_seekbar_label.setText(f"-{value // 3600}時間")
+            self.gpu_seekbar_label.setText(t('desktop.mixAI.seekbarHour', val=value // 3600))
 
     def _on_gpu_goto_now(self):
         """現在に戻る"""
         self.gpu_seekbar.setValue(0)
         self.gpu_graph.set_view_offset(0)
-        self.gpu_seekbar_label.setText("現在")
+        self.gpu_seekbar_label.setText(t('desktop.mixAI.gpuNow'))
 
     def _update_gpu_seekbar_range(self):
         """シークバーの範囲を更新"""
@@ -3047,8 +3368,8 @@ class HelixOrchestratorTab(QWidget):
         # オーバーフロー警告
         simulator.overflowDetected.connect(
             lambda gpu_idx, overflow: QMessageBox.warning(
-                dialog, "VRAM警告",
-                f"GPU {gpu_idx} で VRAM が {overflow:.1f} GB オーバーしています。"
+                dialog, t('desktop.mixAI.vramWarningTitle'),
+                t('desktop.mixAI.vramWarningMsg', gpu=gpu_idx, overflow=f"{overflow:.1f}")
             ) if overflow > 0 else None
         )
 
@@ -3081,7 +3402,7 @@ class HelixOrchestratorTab(QWidget):
                         break
 
             if nvidia_smi is None:
-                self.gpu_info_label.setText("nvidia-smiが見つかりません\n(NVIDIAドライバが必要です)")
+                self.gpu_info_label.setText(t('desktop.mixAI.gpuNoNvidiaSmi'))
                 self.gpu_info_label.setStyleSheet("color: #9ca3af;")
                 return
 
@@ -3095,7 +3416,7 @@ class HelixOrchestratorTab(QWidget):
             )
 
             if result.returncode != 0:
-                self.gpu_info_label.setText(f"nvidia-smiエラー: {result.stderr.strip()[:50]}")
+                self.gpu_info_label.setText(t('desktop.mixAI.gpuNvidiaSmiError', error=result.stderr.strip()[:50]))
                 self.gpu_info_label.setStyleSheet("color: #f59e0b;")
                 return
 
@@ -3124,22 +3445,22 @@ class HelixOrchestratorTab(QWidget):
 
                         info_text += f"GPU {idx}: {name}\n"
                         info_text += f"  VRAM: [{bar}] {used_mb:,}/{total_mb:,} MB ({usage_pct:.1f}%)\n"
-                        info_text += f"  GPU使用率: {util_pct}%\n"
+                        info_text += f"  {t('desktop.mixAI.gpuUsageLabel', pct=util_pct)}\n"
                     except ValueError:
                         continue
 
             if total_vram_total > 0:
-                info_text += f"\n合計VRAM: {total_vram_used:,}/{total_vram_total:,} MB"
+                info_text += t('desktop.mixAI.gpuTotalVram', used=f"{total_vram_used:,}", total=f"{total_vram_total:,}")
 
-            self.gpu_info_label.setText(info_text.strip() or "GPU情報を取得できませんでした")
+            self.gpu_info_label.setText(info_text.strip() or t('desktop.mixAI.gpuNoInfo'))
             self.gpu_info_label.setStyleSheet("color: #22c55e;")
 
         except subprocess.TimeoutExpired:
-            self.gpu_info_label.setText("nvidia-smi タイムアウト (10秒)")
+            self.gpu_info_label.setText(t('desktop.mixAI.gpuTimeout'))
             self.gpu_info_label.setStyleSheet("color: #f59e0b;")
         except FileNotFoundError:
-            self.gpu_info_label.setText("nvidia-smiが見つかりません\n(NVIDIAドライバが必要です)")
+            self.gpu_info_label.setText(t('desktop.mixAI.gpuNoNvidiaSmi'))
             self.gpu_info_label.setStyleSheet("color: #9ca3af;")
         except Exception as e:
-            self.gpu_info_label.setText(f"GPU情報取得エラー: {str(e)[:40]}")
+            self.gpu_info_label.setText(t('desktop.mixAI.gpuInfoError', error=str(e)[:40]))
             self.gpu_info_label.setStyleSheet("color: #ef4444;")

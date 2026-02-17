@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ..utils.styles import COLORS, PROGRESS_BAR_STYLE, SECONDARY_BTN
+from ..utils.i18n import t
 
 
 class RAGLockOverlay(QWidget):
@@ -50,7 +51,7 @@ class RAGLockOverlay(QWidget):
         card_layout.setSpacing(16)
 
         # ロックアイコン
-        lock_icon = QLabel("RAG構築更新中")
+        lock_icon = QLabel(t('desktop.widgets.ragLock.iconMsg'))
         lock_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lock_icon.setStyleSheet(f"""
             color: {COLORS['accent_cyan']};
@@ -61,8 +62,7 @@ class RAGLockOverlay(QWidget):
 
         # メッセージ
         self.message_label = QLabel(
-            "情報収集タブでRAG構築が進行中です。\n"
-            "完了するまでこの機能は使用できません。"
+            t('desktop.widgets.ragLock.lockMsg')
         )
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.message_label.setWordWrap(True)
@@ -83,13 +83,13 @@ class RAGLockOverlay(QWidget):
         card_layout.addWidget(self.progress_bar)
 
         # 残り時間
-        self.remaining_label = QLabel("残り推定: --:--")
+        self.remaining_label = QLabel(t('desktop.widgets.ragLock.remainingTime', time="--:--"))
         self.remaining_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.remaining_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
         card_layout.addWidget(self.remaining_label)
 
         # 情報収集タブへ移動ボタン
-        nav_btn = QPushButton("情報収集タブへ移動")
+        nav_btn = QPushButton(t('desktop.widgets.ragLock.navBtn'))
         nav_btn.setStyleSheet(SECONDARY_BTN)
         nav_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         nav_btn.clicked.connect(self.navigate_to_rag.emit)
@@ -101,7 +101,7 @@ class RAGLockOverlay(QWidget):
         """ロック表示"""
         self.progress_bar.setValue(progress)
         if remaining_text:
-            self.remaining_label.setText(f"残り推定: {remaining_text}")
+            self.remaining_label.setText(t('desktop.widgets.ragLock.remainingTime', time=remaining_text))
         self.show()
         self.raise_()
 
@@ -113,7 +113,7 @@ class RAGLockOverlay(QWidget):
         """進捗更新"""
         self.progress_bar.setValue(progress)
         if remaining_text:
-            self.remaining_label.setText(f"残り推定: {remaining_text}")
+            self.remaining_label.setText(t('desktop.widgets.ragLock.remainingTime', time=remaining_text))
 
     def resizeEvent(self, event):
         """親ウィジェットにフィット"""

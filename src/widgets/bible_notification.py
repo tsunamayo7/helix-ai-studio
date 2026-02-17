@@ -13,6 +13,7 @@ from PyQt6.QtCore import pyqtSignal
 
 from ..utils.styles import BIBLE_NOTIFICATION_STYLE
 from ..bible.bible_schema import BibleInfo
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class BibleNotificationWidget(QFrame):
         layout.addWidget(self.info_label, stretch=1)
 
         # コンテキストに追加ボタン
-        self.btn_add = QPushButton("コンテキストに追加")
+        self.btn_add = QPushButton(t('desktop.widgets.bibleNotification.addToContext'))
         self.btn_add.setStyleSheet("""
             QPushButton {
                 background: rgba(0, 212, 255, 0.15);
@@ -89,7 +90,7 @@ class BibleNotificationWidget(QFrame):
         self._bible = bible
         codename_str = f' "{bible.codename}"' if bible.codename else ""
         self.info_label.setText(
-            f"BIBLE検出: {bible.project_name} v{bible.version}{codename_str}"
+            t('desktop.widgets.bibleNotification.detected', project=bible.project_name, version=bible.version, codename=codename_str)
         )
         self.setVisible(True)
         logger.info(

@@ -19,6 +19,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent, QTextCursor
 
+from ..utils.i18n import t
+
 
 class EnhancedChatInput(QTextEdit):
     """
@@ -38,7 +40,7 @@ class EnhancedChatInput(QTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAcceptDrops(True)
-        self.setPlaceholderText("メッセージを入力... (Enter: 送信, Shift+Enter: 改行)")
+        self.setPlaceholderText(t('desktop.widgets.chatInput.placeholder'))
         self.setMaximumHeight(150)
         self.setMinimumHeight(40)
 
@@ -285,7 +287,7 @@ class ChatInputArea(QWidget):
         # ファイル添付ボタン
         self.attach_btn = QPushButton("📎")
         self.attach_btn.setFixedSize(36, 36)
-        self.attach_btn.setToolTip("ファイルを添付")
+        self.attach_btn.setToolTip(t('desktop.widgets.chatInput.attachTooltip'))
         self.attach_btn.setStyleSheet("""
             QPushButton {
                 background-color: #3d3d3d;
@@ -303,7 +305,7 @@ class ChatInputArea(QWidget):
         self.text_input.file_dropped.connect(self.attachment_bar.add_files)
 
         # 送信ボタン
-        self.send_btn = QPushButton("送信")
+        self.send_btn = QPushButton(t('desktop.widgets.chatInput.sendBtn'))
         self.send_btn.setFixedSize(60, 36)
         self.send_btn.setStyleSheet("""
             QPushButton {
@@ -326,8 +328,8 @@ class ChatInputArea(QWidget):
     def _on_attach_clicked(self):
         """添付ボタンクリック"""
         files, _ = QFileDialog.getOpenFileNames(
-            self, "ファイルを選択", "",
-            "全ファイル (*);;Python (*.py);;テキスト (*.txt *.md);;画像 (*.png *.jpg *.jpeg *.gif)"
+            self, t('desktop.widgets.chatInput.selectFileTitle'), "",
+            t('desktop.widgets.chatInput.fileFilter')
         )
         if files:
             self.attachment_bar.add_files(files)

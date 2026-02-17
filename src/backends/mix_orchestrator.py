@@ -1,5 +1,5 @@
 """
-mixAI 3Phase統合オーケストレーター v7.1.0
+mixAI 3Phase統合オーケストレーター v9.3.0
 
 新3Phase実行パイプライン:
   Phase 1: Claude CLI計画立案（--cwdオプション付き、ツール使用指示を明記）
@@ -7,10 +7,9 @@ mixAI 3Phase統合オーケストレーター v7.1.0
   Phase 3: Claude CLI比較統合（2回目呼び出し、Phase 1+Phase 2全結果を渡す）
 
 v7.0.0: 旧5Phase→新3Phaseへの全面書き換え
-  - --cwdオプション追加でClaudeが自発的にツール使用
-  - ファイル埋め込み方式を廃止（Claudeが自分でReadツールを使用）
-  - Phase 2は順次実行（RTX PRO 6000で1モデルずつ）
-  - 品質不足時の再実行ループ（最大2回、Phase 2を再実行）
+v9.3.0: P1/P3エンジン切替（Claude CLI / ローカルLLMエージェント分岐）
+  - orchestrator_engine が claude- で始まる → Claude CLI
+  - それ以外 → ローカルLLMエージェント（local_agent.py）
 """
 
 import subprocess
@@ -22,7 +21,41 @@ from ..utils.subprocess_utils import run_hidden
 import logging
 from datetime import datetime
 from pathlib import Path
-from PyQt6.QtCore import QThread, pyqtSignal
+
+# PyQt6はGUIプロセスでのみ必要。Webサーバープロセスから
+# backends/__init__.py 経由でimportされた場合にPyQt6の連鎖importを
+# 防ぐため、利用可能な場合のみimportする。
+try:
+    from PyQt6.QtCore import QThread, pyqtSignal
+except ImportError:
+    import threading
+
+    class QThread:
+        """QThreadのスタブ（Webサーバープロセス用）"""
+        def __init__(self, *args, **kwargs):
+            self._thread = None
+        def start(self):
+            self._thread = threading.Thread(target=self.run, daemon=True)
+            self._thread.start()
+        def run(self):
+            pass
+        def isRunning(self):
+            return self._thread is not None and self._thread.is_alive()
+
+    class pyqtSignal:
+        """pyqtSignalのスタブ（クラス属性として使用可能）"""
+        def __init__(self, *args, **kwargs):
+            pass
+        def __set_name__(self, owner, name):
+            self._name = name
+        def __get__(self, obj, objtype=None):
+            return self
+        def emit(self, *args, **kwargs):
+            pass
+        def connect(self, *args, **kwargs):
+            pass
+        def disconnect(self, *args, **kwargs):
+            pass
 
 from .sequential_executor import (
     SequentialExecutor,
@@ -31,6 +64,7 @@ from .sequential_executor import (
     filter_chain_of_thought,
 )
 from ..utils.constants import DEFAULT_CLAUDE_MODEL_ID
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +149,7 @@ class MixAIOrchestrator(QThread):
             self._execute_pipeline()
         except Exception as e:
             logger.exception("オーケストレーターエラー")
-            self.error_occurred.emit(f"オーケストレーターエラー: {str(e)}")
+            self.error_occurred.emit(t('desktop.backends.orchestratorError', error=str(e)))
 
     def _execute_pipeline(self):
         """3Phase パイプラインの実行"""
@@ -126,7 +160,7 @@ class MixAIOrchestrator(QThread):
         # ══════════════════════════════════════
         # Phase 1: Claude計画立案（CLI呼び出し 1/2）
         # ══════════════════════════════════════
-        self.phase_changed.emit(1, "Phase 1: Claude計画立案中...")
+        self.phase_changed.emit(1, t('desktop.backends.phase1Planning'))
         phase1_start = time.time()
 
         phase1_result = self._execute_phase1()
@@ -157,7 +191,7 @@ class MixAIOrchestrator(QThread):
         # ══════════════════════════════════════
         # Phase 2: ローカルLLM順次実行（Claude呼出なし）
         # ══════════════════════════════════════
-        self.phase_changed.emit(2, "Phase 2: ローカルLLM順次実行中...")
+        self.phase_changed.emit(2, t('desktop.backends.phase2Running'))
         phase2_start = time.time()
 
         tasks = self._build_phase2_tasks(llm_instructions)
@@ -208,7 +242,7 @@ class MixAIOrchestrator(QThread):
         # ══════════════════════════════════════
         # Phase 3: Claude比較統合（CLI呼び出し 2/2）
         # ══════════════════════════════════════
-        self.phase_changed.emit(3, "Phase 3: Claude比較統合中...")
+        self.phase_changed.emit(3, t('desktop.backends.phase3Integrating'))
         phase3_start = time.time()
 
         final_output = self._execute_phase3(claude_answer, self._phase2_results)
@@ -231,7 +265,7 @@ class MixAIOrchestrator(QThread):
                 if not retry_tasks:
                     break
 
-                self.phase_changed.emit(2, f"Phase 2: 再実行中 ({retry_count + 1}/{max_retries})...")
+                self.phase_changed.emit(2, t('desktop.backends.phase2Retry', current=retry_count + 1, max=max_retries))
 
                 for task_spec in retry_tasks:
                     if self._cancelled:
@@ -270,7 +304,7 @@ class MixAIOrchestrator(QThread):
                     self.local_llm_finished.emit(result.category, result.success, result.elapsed)
 
                 # 再度Phase 3を実行
-                self.phase_changed.emit(3, f"Phase 3: 再統合中 ({retry_count + 1}/{max_retries})...")
+                self.phase_changed.emit(3, t('desktop.backends.phase3Retry', current=retry_count + 1, max=max_retries))
                 final_output = self._execute_phase3(claude_answer, self._phase2_results)
 
                 retry_result = self._check_phase3_retry(final_output)
@@ -338,7 +372,17 @@ class MixAIOrchestrator(QThread):
     # ═══════════════════════════════════════════════════════════════
 
     def _execute_phase1(self) -> dict:
-        """Phase 1: Claude CLI計画立案を実行"""
+        """Phase 1: エンジンに応じた計画立案（v9.3.0: エンジン分岐対応）"""
+        engine = self.config.get("orchestrator_engine",
+                                 self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
+
+        if engine.startswith("claude-"):
+            return self._execute_phase1_claude(engine)
+        else:
+            return self._execute_phase1_local(engine)
+
+    def _execute_phase1_claude(self, model_id: str) -> dict:
+        """Phase 1: Claude CLI版（従来の実装）"""
         system_prompt = self._build_phase1_system_prompt()
 
         # v8.0.0: BIBLEコンテキスト注入
@@ -368,9 +412,46 @@ class MixAIOrchestrator(QThread):
             files_info = "\n".join(f"- {f}" for f in self.attached_files)
             full_prompt += f"\n\n## 添付ファイル（Readツールで内容を確認してください）:\n{files_info}"
 
-        model_id = self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID)
         raw_output = self._run_claude_cli(full_prompt, model_id=model_id)
         return self._parse_phase1_output(raw_output)
+
+    def _execute_phase1_local(self, model_name: str) -> dict:
+        """Phase 1: ローカルLLMエージェント版（v9.3.0）"""
+        from .local_agent import LocalAgentRunner
+
+        agent = LocalAgentRunner(
+            model_name=model_name,
+            project_dir=self.config.get("project_dir", ""),
+            tools_config=self.config.get("local_agent_tools", {}),
+            timeout=self.config.get("timeout", 1800),
+        )
+
+        system_prompt = self._build_phase1_system_prompt()
+
+        # ストリーミング出力をUIに転送
+        agent.on_streaming = lambda text: self.streaming_output.emit(text)
+        agent.on_tool_call = lambda tool, args: self.streaming_output.emit(
+            t('desktop.backends.toolExecution', tool=tool, args=json.dumps(args, ensure_ascii=False)[:100])
+        )
+
+        # BIBLEコンテキスト注入
+        bible_block = ""
+        if self._bible_context:
+            try:
+                from ..bible.bible_injector import BibleInjector
+                bible_ctx = BibleInjector.build_context(self._bible_context, mode="phase1")
+                bible_block = f"<project_context>\n{bible_ctx}\n</project_context>\n\n"
+            except Exception as e:
+                logger.warning(f"BIBLE context injection failed: {e}")
+
+        user_prompt = f"{bible_block}## ユーザーの要求:\n{self.user_prompt}"
+
+        if self.attached_files:
+            files_info = "\n".join(f"- {f}" for f in self.attached_files)
+            user_prompt += f"\n\n## 添付ファイル:\n{files_info}"
+
+        result = agent.run(system_prompt, user_prompt)
+        return self._parse_phase1_output(result)
 
     def _build_phase1_system_prompt(self) -> str:
         """v8.4.0: Phase 1用システムプロンプト — 2段階構造化（設計分析→指示書生成）"""
@@ -585,7 +666,18 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         return criteria
 
     def _execute_phase3(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> dict:
-        """Phase 3: Claude CLI比較統合を実行"""
+        """Phase 3: エンジンに応じた比較統合（v9.3.0: エンジン分岐対応）"""
+        engine = self.config.get("orchestrator_engine",
+                                 self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
+
+        if engine.startswith("claude-"):
+            return self._execute_phase3_claude(phase1_answer, phase2_results, engine)
+        else:
+            return self._execute_phase3_local(phase1_answer, phase2_results, engine)
+
+    def _execute_phase3_claude(self, phase1_answer: str,
+                                phase2_results: list[SequentialResult], model_id: str) -> dict:
+        """Phase 3: Claude CLI版（従来の実装）"""
         system_prompt = self._build_phase3_system_prompt(phase1_answer, phase2_results)
 
         # v8.0.0: BIBLEコンテキスト注入（Phase 3用）
@@ -611,9 +703,31 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 
         full_prompt = f"{system_prompt}{bible_block}{memory_block}\n\n統合を実行してください。"
 
-        model_id = self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID)
         raw_output = self._run_claude_cli(full_prompt, model_id=model_id)
         return self._parse_phase3_output(raw_output)
+
+    def _execute_phase3_local(self, phase1_answer: str,
+                               phase2_results: list[SequentialResult], model_name: str) -> dict:
+        """Phase 3: ローカルLLMエージェント版（v9.3.0）"""
+        from .local_agent import LocalAgentRunner
+
+        agent = LocalAgentRunner(
+            model_name=model_name,
+            project_dir=self.config.get("project_dir", ""),
+            tools_config=self.config.get("local_agent_tools", {}),
+            timeout=self.config.get("timeout", 1800),
+        )
+
+        agent.on_streaming = lambda text: self.streaming_output.emit(text)
+        agent.on_tool_call = lambda tool, args: self.streaming_output.emit(
+            t('desktop.backends.toolExecution', tool=tool, args=json.dumps(args, ensure_ascii=False)[:100])
+        )
+
+        system_prompt = self._build_phase3_system_prompt(phase1_answer, phase2_results)
+        user_prompt = "上記の情報を統合し、最終回答をJSON形式で出力してください。"
+
+        result = agent.run(system_prompt, user_prompt)
+        return self._parse_phase3_output(result)
 
     def _build_phase3_system_prompt(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> str:
         """v8.4.0: Phase 3用システムプロンプト — Acceptance Criteria評価 + 統合"""

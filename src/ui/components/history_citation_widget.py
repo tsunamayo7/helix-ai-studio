@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ...data.chat_history_manager import get_chat_history_manager, ChatEntry
+from ...utils.i18n import t
 
 import logging
 
@@ -54,26 +55,26 @@ class HistoryCitationWidget(QWidget):
         filter_layout.setContentsMargins(4, 4, 4, 4)
 
         # AIソースフィルター
-        filter_layout.addWidget(QLabel("AI:"))
+        filter_layout.addWidget(QLabel(t('desktop.historyCitation.aiLabel')))
         self.ai_filter = QComboBox()
-        self.ai_filter.addItems(["すべて", "Claude", "Gemini", "Trinity", "Ollama"])
+        self.ai_filter.addItems([t('desktop.historyCitation.aiAll'), "Claude", "Gemini", "Trinity", "Ollama"])
         self.ai_filter.setMaximumWidth(100)
         filter_layout.addWidget(self.ai_filter)
 
         # 期間フィルター
-        filter_layout.addWidget(QLabel("期間:"))
+        filter_layout.addWidget(QLabel(t('desktop.historyCitation.periodLabel')))
         self.period_filter = QComboBox()
-        self.period_filter.addItems(["すべて", "今日", "1週間", "1ヶ月"])
+        self.period_filter.addItems([t('desktop.historyCitation.periodAll'), t('desktop.historyCitation.periodToday'), t('desktop.historyCitation.periodWeek'), t('desktop.historyCitation.periodMonth')])
         self.period_filter.setMaximumWidth(100)
         filter_layout.addWidget(self.period_filter)
 
         # 検索キーワード
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("検索キーワード...")
+        self.search_input.setPlaceholderText(t('desktop.historyCitation.searchPlaceholder'))
         filter_layout.addWidget(self.search_input)
 
         # 検索ボタン
-        self.search_btn = QPushButton("🔍 検索")
+        self.search_btn = QPushButton(t('desktop.historyCitation.searchBtn'))
         self.search_btn.setMaximumWidth(80)
         filter_layout.addWidget(self.search_btn)
 
@@ -90,11 +91,11 @@ class HistoryCitationWidget(QWidget):
         splitter.addWidget(self.result_list)
 
         # プレビュー
-        preview_frame = QGroupBox("プレビュー")
+        preview_frame = QGroupBox(t('desktop.historyCitation.previewGroup'))
         preview_layout = QVBoxLayout(preview_frame)
         self.preview_text = QTextEdit()
         self.preview_text.setReadOnly(True)
-        self.preview_text.setPlaceholderText("履歴を選択するとここにプレビューが表示されます")
+        self.preview_text.setPlaceholderText(t('desktop.historyCitation.previewPlaceholder'))
         self.preview_text.setMaximumHeight(150)
         preview_layout.addWidget(self.preview_text)
         splitter.addWidget(preview_frame)
@@ -105,7 +106,7 @@ class HistoryCitationWidget(QWidget):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.insert_btn = QPushButton("📋 引用を挿入")
+        self.insert_btn = QPushButton(t('desktop.historyCitation.insertBtn'))
         self.insert_btn.setEnabled(False)
         self.insert_btn.setMinimumWidth(120)
         btn_layout.addWidget(self.insert_btn)
@@ -143,11 +144,11 @@ class HistoryCitationWidget(QWidget):
 
         # フィルター条件を取得
         ai_source = self.ai_filter.currentText()
-        if ai_source == "すべて":
+        if ai_source == t('desktop.historyCitation.aiAll'):
             ai_source = None
 
         period_text = self.period_filter.currentText()
-        period_map = {"すべて": None, "今日": "today", "1週間": "week", "1ヶ月": "month"}
+        period_map = {t('desktop.historyCitation.periodAll'): None, t('desktop.historyCitation.periodToday'): "today", t('desktop.historyCitation.periodWeek'): "week", t('desktop.historyCitation.periodMonth'): "month"}
         period = period_map.get(period_text)
 
         query = self.search_input.text().strip()
@@ -166,11 +167,11 @@ class HistoryCitationWidget(QWidget):
                 item.setData(Qt.ItemDataRole.UserRole, entry.id)
                 self.result_list.addItem(item)
 
-            self.stats_label.setText(f"検索結果: {len(entries)} 件")
+            self.stats_label.setText(t('desktop.historyCitation.searchResultCount', count=len(entries)))
 
         except Exception as e:
             logger.error(f"[HistoryCitationWidget] Search error: {e}")
-            self.stats_label.setText(f"検索エラー: {e}")
+            self.stats_label.setText(t('desktop.historyCitation.searchError', error=e))
 
     def _on_item_selected(self, current, previous):
         """アイテム選択時"""
@@ -188,9 +189,9 @@ class HistoryCitationWidget(QWidget):
 
             # プレビュー表示
             preview = (
-                f"<div style='color: #a0c8ff;'><b>📝 プロンプト:</b></div>"
+                f"<div style='color: #a0c8ff;'><b>{t('desktop.historyCitation.promptLabel')}</b></div>"
                 f"<div style='margin-left: 10px;'>{entry.prompt}</div><br>"
-                f"<div style='color: #dcdcdc;'><b>🤖 応答 ({entry.ai_source}):</b></div>"
+                f"<div style='color: #dcdcdc;'><b>{t('desktop.historyCitation.responseLabel', source=entry.ai_source)}</b></div>"
                 f"<div style='margin-left: 10px;'>{entry.response[:500]}{'...' if len(entry.response) > 500 else ''}</div>"
             )
             self.preview_text.setHtml(preview)
@@ -221,7 +222,7 @@ class HistoryCitationDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("チャット履歴から引用")
+        self.setWindowTitle(t('desktop.historyCitation.dialogTitle'))
         self.setMinimumSize(600, 500)
 
         self._citation_text = None
@@ -232,10 +233,7 @@ class HistoryCitationDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # 説明
-        desc_label = QLabel(
-            "過去のチャット履歴を検索し、選択した内容をプロンプトに引用できます。\n"
-            "検索してアイテムを選択し、「引用を挿入」を押してください。"
-        )
+        desc_label = QLabel(t('desktop.historyCitation.dialogDesc'))
         desc_label.setWordWrap(True)
         desc_label.setStyleSheet("color: #888; margin-bottom: 8px;")
         layout.addWidget(desc_label)

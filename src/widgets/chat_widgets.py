@@ -22,6 +22,7 @@ from ..utils.styles import (
     phase_node_style, PHASE_ARROW_STYLE,
     PHASE_DOT_INACTIVE, PHASE_TEXT_INACTIVE,
 )
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +37,9 @@ class PhaseIndicator(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.phases = [
-            ("P1", "Claude計画", "#00d4ff"),
-            ("P2", "ローカルLLM", "#00ff88"),
-            ("P3", "Claude統合", "#ff9800"),
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
+            ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
         ]
         self.current_phase = -1  # -1=未実行
         self._nodes = []
@@ -127,6 +128,16 @@ class PhaseIndicator(QWidget):
             self._dots[i].setStyleSheet(PHASE_DOT_INACTIVE)
             self._texts[i].setStyleSheet(PHASE_TEXT_INACTIVE)
 
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        self.phases = [
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
+            ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
+        ]
+        for i, (label, desc, _color) in enumerate(self.phases):
+            self._texts[i].setText(f"{label}: {desc}")
+
 
 # =============================================================================
 # 改善J: SoloAIStatusBar — soloAI実行状態のシンプルな表示
@@ -159,14 +170,14 @@ class SoloAIStatusBar(QWidget):
         layout.addWidget(self.status_dot)
 
         # ステータステキスト
-        self.status_label = QLabel("待機中")
+        self.status_label = QLabel(t('desktop.widgets.chatWidgets.statusWaiting'))
         self.status_label.setStyleSheet("color: #888; font-size: 12px;")
         layout.addWidget(self.status_label)
 
         layout.addStretch()
 
         # 新規セッションボタン
-        self.btn_new_session = QPushButton("新規セッション")
+        self.btn_new_session = QPushButton(t('desktop.widgets.chatWidgets.newSession'))
         self.btn_new_session.setStyleSheet(SECONDARY_BTN + "QPushButton { padding: 4px 12px; font-size: 11px; }")
         self.btn_new_session.setMaximumHeight(28)
         self.btn_new_session.clicked.connect(self.new_session_clicked.emit)
@@ -179,11 +190,11 @@ class SoloAIStatusBar(QWidget):
         status: "waiting" / "running" / "completed" / "error" / "interrupted"
         """
         status_map = {
-            "waiting": ("#888", "待機中"),
-            "running": ("#00d4ff", "Claude CLI 実行中..."),
-            "completed": ("#00ff88", "完了"),
-            "error": ("#ff4444", "エラー"),
-            "interrupted": ("#ff8800", "中断"),
+            "waiting": ("#888", t('desktop.widgets.chatWidgets.statusMap.idle')),
+            "running": ("#00d4ff", t('desktop.widgets.chatWidgets.statusMap.running')),
+            "completed": ("#00ff88", t('desktop.widgets.chatWidgets.statusMap.completed')),
+            "error": ("#ff4444", t('desktop.widgets.chatWidgets.statusMap.error')),
+            "interrupted": ("#ff8800", t('desktop.widgets.chatWidgets.statusMap.cancelled')),
         }
         c, text = status_map.get(status, ("#888", status))
         if color:
@@ -191,6 +202,11 @@ class SoloAIStatusBar(QWidget):
         self.status_dot.setStyleSheet(f"color: {c}; font-size: 10px;")
         self.status_label.setStyleSheet(f"color: {c}; font-size: 12px;")
         self.status_label.setText(text)
+
+    def retranslateUi(self):
+        """Update all translatable text (called on language switch)."""
+        self.status_label.setText(t('desktop.widgets.chatWidgets.statusWaiting'))
+        self.btn_new_session.setText(t('desktop.widgets.chatWidgets.newSession'))
 
 
 # =============================================================================
@@ -200,7 +216,9 @@ class SoloAIStatusBar(QWidget):
 class ExecutionIndicator(QFrame):
     """チャットエリア内の実行中インジケーター"""
 
-    def __init__(self, task_description: str = "Claude CLI 実行中...", parent=None):
+    def __init__(self, task_description: str = "", parent=None):
+        if not task_description:
+            task_description = t('desktop.widgets.chatWidgets.cliRunning')
         super().__init__(parent)
         self.setStyleSheet("""
             QFrame {
@@ -287,7 +305,7 @@ class InterruptionBanner(QFrame):
         layout.setSpacing(6)
 
         # 中断ヘッダー
-        header = QLabel("処理が中断されました")
+        header = QLabel(t('desktop.widgets.chatWidgets.interruptedHeader'))
         header.setStyleSheet("color: #ff8800; font-weight: bold; font-size: 13px;")
         layout.addWidget(header)
 
@@ -301,21 +319,21 @@ class InterruptionBanner(QFrame):
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
 
-        btn_continue = QPushButton("続行")
+        btn_continue = QPushButton(t('desktop.widgets.chatWidgets.continueBtn'))
         btn_continue.setStyleSheet(PRIMARY_BTN + "QPushButton { padding: 5px 16px; font-size: 12px; }")
-        btn_continue.setToolTip("中断箇所から処理を再開します")
+        btn_continue.setToolTip(t('desktop.widgets.chatWidgets.continueBtnTip'))
         btn_continue.clicked.connect(self.continue_clicked.emit)
         btn_layout.addWidget(btn_continue)
 
-        btn_retry = QPushButton("再実行")
+        btn_retry = QPushButton(t('desktop.widgets.chatWidgets.retryBtn'))
         btn_retry.setStyleSheet(SECONDARY_BTN + "QPushButton { padding: 5px 16px; font-size: 12px; }")
-        btn_retry.setToolTip("最初から処理をやり直します")
+        btn_retry.setToolTip(t('desktop.widgets.chatWidgets.retryBtnTip'))
         btn_retry.clicked.connect(self.retry_clicked.emit)
         btn_layout.addWidget(btn_retry)
 
-        btn_cancel = QPushButton("キャンセル")
+        btn_cancel = QPushButton(t('desktop.widgets.chatWidgets.cancelBtn'))
         btn_cancel.setStyleSheet(DANGER_BTN + "QPushButton { padding: 5px 16px; font-size: 12px; }")
-        btn_cancel.setToolTip("処理を中止してチャットに戻ります")
+        btn_cancel.setToolTip(t('desktop.widgets.chatWidgets.cancelBtnTip'))
         btn_cancel.clicked.connect(self.cancel_clicked.emit)
         btn_layout.addWidget(btn_cancel)
 

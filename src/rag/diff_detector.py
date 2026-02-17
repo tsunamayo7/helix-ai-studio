@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import List, Dict
 
 from ..utils.constants import SUPPORTED_DOC_EXTENSIONS
+from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,14 @@ class DiffResult:
     def summary(self) -> str:
         parts = []
         if self.new_files:
-            parts.append(f"新規: {len(self.new_files)}件")
+            parts.append(t('desktop.infoTab.diffSummaryNew', count=len(self.new_files)))
         if self.modified_files:
-            parts.append(f"変更: {len(self.modified_files)}件")
+            parts.append(t('desktop.infoTab.diffSummaryModified', count=len(self.modified_files)))
         if self.deleted_files:
-            parts.append(f"削除: {len(self.deleted_files)}件")
+            parts.append(t('desktop.infoTab.diffSummaryDeleted', count=len(self.deleted_files)))
         if self.unchanged_files:
-            parts.append(f"未変更: {len(self.unchanged_files)}件")
-        return ", ".join(parts) if parts else "変更なし"
+            parts.append(t('desktop.infoTab.diffSummaryUnchanged', count=len(self.unchanged_files)))
+        return ", ".join(parts) if parts else t('desktop.infoTab.diffSummaryNoChanges')
 
 
 class DiffDetector:

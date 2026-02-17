@@ -5,6 +5,61 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [9.5.0] - 2026-02-16
+
+### Added - "Cross-Device Sync"
+- **[Feature A] Web実行ロック**: Web UIからAI実行中にWindowsデスクトップ側にオーバーレイを表示し入力をブロック。ファイルベースのロック(`data/web_execution_lock.json`)をQTimerで2秒間隔ポーリング
+- **`src/widgets/web_lock_overlay.py`** (new): 半透明ダーク背景のPyQt6オーバーレイウィジェット（`show_lock()`/`hide_lock()`）
+- **`src/web/file_transfer.py`** (new): アップロードバリデーション（ホワイトリスト/ブラックリスト拡張子、10MBサイズ制限）
+- **[Feature B] モバイルファイル添付**: `POST /api/files/upload`（ストリーミング64KB書き込み）、`GET /api/files/uploads`、`DELETE /api/files/uploads/{filename}`
+- **[Feature C] デバイス間ファイル転送**: `GET /api/files/download`（パストラバーサル防止付き）、`POST /api/files/copy-to-project`（タイムスタンプ除去+コピー）
+- **[Feature D] ログアウト後チャット閲覧**: `GET /api/chats/public-list`（認証不要、タイトル+50文字プレビュー）、`PreLoginView`コンポーネント
+- **InputBar AttachMenu**: 「この端末からアップロード」+「サーバーのファイルを参照」の2段メニュー
+- **FileManagerView TransferSection**: アップロード一覧、プロジェクトコピー、ダウンロードボタン
+
+### Changed
+- `server.py`: `_set_execution_lock()`/`_release_execution_lock()` 追加、soloAI/mixAI ハンドラにtry/finally
+- `api_routes.py`: 6つの新エンドポイント追加（lock, upload, uploads, download, copy-to-project, public-list）
+- `main_window.py`: QTimerによるWeb実行ロック監視（`_check_web_execution_lock`, `_activate_web_lock`, `_deactivate_web_lock`）
+- `helix_orchestrator_tab.py`, `claude_tab.py`: `WebLockOverlay` 設置
+- `App.jsx`: `PreLoginView` + `showLogin` 状態による認証フロー
+- Updated version to 9.5.0 "Cross-Device Sync" in `constants.py`
+
+## [9.4.0] - 2026-02-16
+
+### Added - "Unified Timeout"
+- **Timeout config helper**: New `_get_claude_timeout_sec()` in `server.py` reads timeout from config files with priority chain: `general_settings.json` > `config.json` > `app_settings.json` > default 90min
+- **Web UI timeout editing**: `SettingsView.jsx` now has an editable dropdown (10/30/60/90/120/180 min) for Claude timeout, saved to `general_settings.json` via `PUT /api/settings`
+- **`SettingsUpdate.claude_timeout_minutes`**: New field in the settings API model for timeout updates
+- **`src/web/launcher.py`** (new): Lightweight subprocess-based web server launcher that avoids importing fastapi/PyQt6. Uses `_find_python()` to locate real python.exe in PyInstaller environments
+- **`scripts/start_web_server.py`** (new): Standalone uvicorn launch script using string import path
+- **Three-layer defense against double-window**: (1) `_find_python()` finds real python.exe, (2) `HELIX_WEB_SERVER_ONLY` env var guard in `HelixAIStudio.py`, (3) `CREATE_NO_WINDOW` + `DEVNULL` stdio
+
+### Fixed
+- **[P0] Double Helix window on server start**: PyInstaller's `sys.executable` pointed to `HelixAIStudio.exe`, causing `subprocess.Popen` to relaunch the entire app. Fixed with `_find_python()` + env var guard
+- **[P0] Desktop/Web timeout discrepancy**: Desktop used 90min (from `general_settings.json`), Web hardcoded 600s (10min). All hardcoded 600s values replaced with `_get_claude_timeout_sec()`
+- **[P1] PyQt6 import chain leak**: `server.py → backends/__init__.py → mix_orchestrator.py → PyQt6` chain caused QApplication creation in web server subprocess. Fixed with try/except stub in `mix_orchestrator.py` + `importlib.util` direct loading in `server.py`
+- **[P1] Tailscale IP timeout**: Separated Tailscale IP lookup into independent try block with 10s timeout and full path search (`C:\Program Files\Tailscale\tailscale.exe` fallback)
+- **[P2] `_load_merged_settings()` missing general_settings.json**: GET `/api/settings` now reads from `general_settings.json` (highest priority for timeout)
+
+### Changed
+- `server.py` soloAI/mixAI handlers: `data.get("timeout", 600)` → `data.get("timeout") or _get_claude_timeout_sec()`
+- `server.py` `_run_claude_cli_async()`: default `timeout=600` → `timeout=0` with config resolution
+- `api_routes.py` `SoloExecuteRequest.timeout`: default `600` → `0`
+- `api_routes.py` `SettingsResponse.claude_timeout_minutes`: default `30` → `90`
+- `settings_cortex_tab.py`: import from `..web.launcher` instead of `..web.server`
+- `main_window.py`: import from `.web.launcher` instead of `.web.server`
+- `mix_orchestrator.py`: PyQt6 import wrapped in try/except with threading-based stubs
+- Updated version to 9.4.0 "Unified Timeout" in `constants.py`
+
+## [9.3.0] - 2026-02-16
+
+### Added - "Switchable Engine"
+- **P1/P3 engine switching**: Dropdown in mixAI tab to switch between Claude CLI and local LLM (Ollama Agent) for Phase 1/3 execution
+- **`src/backends/local_agent.py`** (new): LocalAgentRunner with 5 tools (read_file, list_dir, search_files, write_file, create_file), max 15 agent loops, path traversal prevention
+- **Server auto-start**: Toggle button, auto-start checkbox, and port number in settings tab. `main_window.py` auto-starts on boot if `web_server.auto_start=true`
+- **`config.json` extensions**: `orchestrator_engine`, `local_agent_tools`, `web_server` sections
+
 ## [8.4.2] - 2026-02-11
 
 ### Fixed
@@ -163,4 +218,4 @@ Since v8.0.0, versions follow this pattern:
 
 ---
 
-For full architectural details, see `BIBLE_Helix AI Studio_8.4.2.md`.
+For full architectural details, see `BIBLE_Helix_AI_Studio_9.5.0.md`.

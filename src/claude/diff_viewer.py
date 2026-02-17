@@ -10,6 +10,7 @@ from PyQt6.QtGui import QFont, QTextCharFormat, QColor, QSyntaxHighlighter
 
 from ..utils.diff_risk import DiffRiskReport, analyze_diff
 from ..security.risk_gate import RiskGate, ApprovalScope
+from ..utils.i18n import t
 
 
 class DiffSyntaxHighlighter(QSyntaxHighlighter):
@@ -79,7 +80,7 @@ class DiffViewerDialog(QDialog):
         # 危険度解析
         self.risk_report = analyze_diff(diff_text, project_root)
 
-        self.setWindowTitle("Diff プレビュー - 危険度評価")
+        self.setWindowTitle(t('desktop.diffViewer.windowTitle'))
         self.setMinimumSize(900, 700)
         self._init_ui()
 
@@ -102,7 +103,7 @@ class DiffViewerDialog(QDialog):
 
     def _create_risk_summary_section(self) -> QGroupBox:
         """危険度サマリセクションを作成"""
-        group = QGroupBox("危険度サマリ")
+        group = QGroupBox(t('desktop.diffViewer.riskSummaryGroup'))
         layout = QVBoxLayout(group)
 
         # リスクレベル表示
@@ -110,25 +111,24 @@ class DiffViewerDialog(QDialog):
         risk_level_label.setFont(QFont("Yu Gothic UI", 12, QFont.Weight.Bold))
 
         if self.risk_report.risk_level == "HIGH":
-            risk_level_label.setText(f"⚠️ リスクレベル: HIGH (スコア: {self.risk_report.risk_score}/100)")
+            risk_level_label.setText(t('desktop.diffViewer.riskLevelHigh', score=self.risk_report.risk_score))
             risk_level_label.setStyleSheet("color: #ef4444; background-color: #fee2e2; padding: 8px; border-radius: 4px;")
         elif self.risk_report.risk_level == "MEDIUM":
-            risk_level_label.setText(f"⚠️ リスクレベル: MEDIUM (スコア: {self.risk_report.risk_score}/100)")
+            risk_level_label.setText(t('desktop.diffViewer.riskLevelMedium', score=self.risk_report.risk_score))
             risk_level_label.setStyleSheet("color: #f59e0b; background-color: #fef3c7; padding: 8px; border-radius: 4px;")
         else:
-            risk_level_label.setText(f"✓ リスクレベル: LOW (スコア: {self.risk_report.risk_score}/100)")
+            risk_level_label.setText(t('desktop.diffViewer.riskLevelLow', score=self.risk_report.risk_score))
             risk_level_label.setStyleSheet("color: #22c55e; background-color: #dcfce7; padding: 8px; border-radius: 4px;")
 
         layout.addWidget(risk_level_label)
 
         # 統計情報
-        stats_text = (
-            f"変更ファイル数: {self.risk_report.files_changed} | "
-            f"追加: +{self.risk_report.lines_added}行 | "
-            f"削除: -{self.risk_report.lines_deleted}行"
-        )
+        stats_text = t('desktop.diffViewer.statsFormat',
+                       files=self.risk_report.files_changed,
+                       added=self.risk_report.lines_added,
+                       deleted=self.risk_report.lines_deleted)
         if self.risk_report.files_deleted:
-            stats_text += f" | ファイル削除: {len(self.risk_report.deleted_files)}件"
+            stats_text += t('desktop.diffViewer.filesDeletedSuffix', count=len(self.risk_report.deleted_files))
 
         stats_label = QLabel(stats_text)
         stats_label.setFont(QFont("Yu Gothic UI", 10))
@@ -136,7 +136,7 @@ class DiffViewerDialog(QDialog):
 
         # リスク要因
         if self.risk_report.reasons:
-            reasons_label = QLabel("【リスク要因】")
+            reasons_label = QLabel(t('desktop.diffViewer.riskFactorsLabel'))
             reasons_label.setFont(QFont("Yu Gothic UI", 10, QFont.Weight.Bold))
             layout.addWidget(reasons_label)
 
@@ -148,15 +148,15 @@ class DiffViewerDialog(QDialog):
 
         # センシティブファイル警告
         if self.risk_report.touches_sensitive:
-            sensitive_label = QLabel("⚠️ センシティブなファイルへの変更が含まれています")
+            sensitive_label = QLabel(t('desktop.diffViewer.sensitiveWarning'))
             sensitive_label.setStyleSheet("color: #dc2626; font-weight: bold;")
             layout.addWidget(sensitive_label)
 
             if self.risk_report.sensitive_files:
                 files_text = ", ".join(self.risk_report.sensitive_files[:3])
                 if len(self.risk_report.sensitive_files) > 3:
-                    files_text += f" 他{len(self.risk_report.sensitive_files) - 3}件"
-                files_label = QLabel(f"対象: {files_text}")
+                    files_text += t('desktop.diffViewer.sensitiveFilesMore', count=len(self.risk_report.sensitive_files) - 3)
+                files_label = QLabel(t('desktop.diffViewer.sensitiveTarget', files=files_text))
                 files_label.setFont(QFont("Yu Gothic UI", 9))
                 files_label.setWordWrap(True)
                 layout.addWidget(files_label)
@@ -165,7 +165,7 @@ class DiffViewerDialog(QDialog):
 
     def _create_diff_preview_section(self) -> QGroupBox:
         """Diffプレビューセクションを作成"""
-        group = QGroupBox("差分プレビュー")
+        group = QGroupBox(t('desktop.diffViewer.diffPreviewGroup'))
         layout = QVBoxLayout(group)
 
         self.diff_view = QTextEdit()
@@ -186,12 +186,12 @@ class DiffViewerDialog(QDialog):
         layout.addStretch()
 
         # キャンセルボタン
-        cancel_btn = QPushButton("キャンセル")
+        cancel_btn = QPushButton(t('desktop.diffViewer.cancelBtn'))
         cancel_btn.clicked.connect(self.reject)
         layout.addWidget(cancel_btn)
 
         # 適用ボタン
-        self.apply_btn = QPushButton("適用する")
+        self.apply_btn = QPushButton(t('desktop.diffViewer.applyBtn'))
         self.apply_btn.setDefault(True)
         self.apply_btn.clicked.connect(self._on_apply)
 
@@ -200,7 +200,7 @@ class DiffViewerDialog(QDialog):
             self.apply_btn.setStyleSheet(
                 "background-color: #dc2626; color: white; font-weight: bold; padding: 8px 16px;"
             )
-            self.apply_btn.setText("⚠️ 適用する（HIGH RISK）")
+            self.apply_btn.setText(t('desktop.diffViewer.applyBtnHighRisk'))
 
         layout.addWidget(self.apply_btn)
 
@@ -215,21 +215,19 @@ class DiffViewerDialog(QDialog):
             # 承認不足の場合、エラーダイアログを表示
             QMessageBox.critical(
                 self,
-                "承認不足",
-                f"この操作には承認が必要です。\n\n{message}\n\n"
-                "S3 Risk Gateで必要な承認を行ってから再度お試しください。"
+                t('desktop.diffViewer.approvalRequiredTitle'),
+                t('desktop.diffViewer.approvalRequiredMsg', message=message)
             )
             return
 
         # HIGH判定の場合、再確認
         if self.risk_report.risk_level == "HIGH":
+            reasons_str = "\n".join(f"• {r}" for r in self.risk_report.reasons[:3])
             reply = QMessageBox.warning(
                 self,
-                "高リスク操作の確認",
-                f"この操作は高リスクと判定されました。\n\n"
-                f"リスクスコア: {self.risk_report.risk_score}/100\n\n"
-                f"主な要因:\n" + "\n".join(f"• {r}" for r in self.risk_report.reasons[:3]) + "\n\n"
-                f"本当に適用しますか？",
+                t('desktop.diffViewer.highRiskConfirmTitle'),
+                t('desktop.diffViewer.highRiskConfirmMsg',
+                  score=self.risk_report.risk_score, reasons=reasons_str),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )

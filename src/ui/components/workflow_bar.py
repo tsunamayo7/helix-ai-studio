@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ...utils.constants import WorkflowPhase
+from ...utils.i18n import t
 
 
 class WorkflowBar(QFrame):
@@ -56,7 +57,7 @@ class WorkflowBar(QFrame):
         top_layout = QHBoxLayout()
 
         # 工程名ラベル
-        self.phase_label = QLabel("S0: 依頼受領 (Intake)")
+        self.phase_label = QLabel(t('desktop.workflowBar.defaultPhase'))
         self.phase_label.setFont(QFont("Yu Gothic UI", 11, QFont.Weight.Bold))
         self.phase_label.setStyleSheet("color: #0078d4;")
         top_layout.addWidget(self.phase_label)
@@ -77,7 +78,7 @@ class WorkflowBar(QFrame):
         middle_layout = QHBoxLayout()
 
         # 工程の説明
-        self.phase_desc_label = QLabel("ユーザーからの依頼を受領し、要件を整理します。")
+        self.phase_desc_label = QLabel(t('desktop.workflowBar.defaultDesc'))
         self.phase_desc_label.setStyleSheet("color: #b0b0b0; font-size: 9pt;")
         middle_layout.addWidget(self.phase_desc_label)
 
@@ -86,7 +87,7 @@ class WorkflowBar(QFrame):
         # 成果物フラグのミニ表示
         self.flags_label = QLabel("")
         self.flags_label.setStyleSheet("color: #d0d0d0; font-size: 9pt;")
-        self.flags_label.setToolTip("成果物フラグの状態")
+        self.flags_label.setToolTip(t('desktop.workflowBar.flagsTooltip'))
         middle_layout.addWidget(self.flags_label)
 
         layout.addLayout(middle_layout)
@@ -97,14 +98,14 @@ class WorkflowBar(QFrame):
 
             # Prevボタン
             self.prev_btn = QPushButton("◀ Prev")
-            self.prev_btn.setToolTip("前の工程に戻ります（1段階のみ）")
+            self.prev_btn.setToolTip(t('desktop.workflowBar.prevTooltip'))
             self.prev_btn.setMaximumWidth(100)
             self.prev_btn.clicked.connect(self.prevClicked.emit)
             bottom_layout.addWidget(self.prev_btn)
 
             # Nextボタン
             self.next_btn = QPushButton("Next ▶")
-            self.next_btn.setToolTip("次の工程に進みます（条件を満たしている場合のみ）")
+            self.next_btn.setToolTip(t('desktop.workflowBar.nextTooltip'))
             self.next_btn.setMaximumWidth(100)
             self.next_btn.clicked.connect(self.nextClicked.emit)
             bottom_layout.addWidget(self.next_btn)
@@ -112,11 +113,8 @@ class WorkflowBar(QFrame):
             bottom_layout.addSpacing(20)
 
             # S3承認チェックボックス（S3のみ表示）
-            self.risk_approval_checkbox = QCheckBox("🔐 危険操作を承認する (Risk Gate)")
-            self.risk_approval_checkbox.setToolTip(
-                "この工程で実施する危険な操作（書き込み、削除等）を承認します。\n"
-                "承認しないと次の工程に進めません。"
-            )
+            self.risk_approval_checkbox = QCheckBox(t('desktop.workflowBar.riskApprovalLabel'))
+            self.risk_approval_checkbox.setToolTip(t('desktop.workflowBar.riskApprovalTooltip'))
             self.risk_approval_checkbox.setVisible(False)
             self.risk_approval_checkbox.stateChanged.connect(self._on_risk_approval_changed)
             bottom_layout.addWidget(self.risk_approval_checkbox)
@@ -124,8 +122,8 @@ class WorkflowBar(QFrame):
             bottom_layout.addStretch()
 
             # リセットボタン
-            self.reset_workflow_btn = QPushButton("🔄 工程リセット")
-            self.reset_workflow_btn.setToolTip("工程をS0（依頼受領）にリセットします。")
+            self.reset_workflow_btn = QPushButton(t('desktop.workflowBar.resetBtn'))
+            self.reset_workflow_btn.setToolTip(t('desktop.workflowBar.resetTooltip'))
             self.reset_workflow_btn.setMaximumWidth(120)
             self.reset_workflow_btn.clicked.connect(self.resetClicked.emit)
             bottom_layout.addWidget(self.reset_workflow_btn)
@@ -166,9 +164,9 @@ class WorkflowBar(QFrame):
             can_next, next_msg = workflow_state.can_transition_next()
             self.next_btn.setEnabled(can_next)
             if not can_next:
-                self.next_btn.setToolTip(f"次の工程に進めません: {next_msg}")
+                self.next_btn.setToolTip(t('desktop.workflowBar.nextDisabledTooltip', msg=next_msg))
             else:
-                self.next_btn.setToolTip("次の工程に進みます（条件を満たしている場合のみ）")
+                self.next_btn.setToolTip(t('desktop.workflowBar.nextTooltip'))
 
             # S3承認チェックボックスの表示/非表示
             if workflow_state.current_phase == WorkflowPhase.S3_RISK_GATE:
