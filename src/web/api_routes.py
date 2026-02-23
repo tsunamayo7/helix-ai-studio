@@ -748,7 +748,7 @@ async def list_chats(tab: str = None, payload: dict = Depends(verify_jwt)):
 
 
 @router.post("/api/chats")
-async def create_chat(tab: str = "soloAI", context_mode: str = "session",
+async def create_chat(tab: str = "cloudAI", context_mode: str = "session",
                       payload: dict = Depends(verify_jwt)):
     """新規チャット作成"""
     chat = chat_store.create_chat(tab=tab, context_mode=context_mode)
@@ -948,7 +948,7 @@ async def public_chat_list(limit: int = 10):
             public_chats.append({
                 "id": chat["id"],
                 "title": chat.get("title", "無題"),
-                "tab": chat.get("tab", "soloAI"),
+                "tab": chat.get("tab", "cloudAI"),
                 "created_at": chat.get("created_at", ""),
                 "updated_at": chat.get("updated_at", ""),
                 "message_count": chat.get("message_count", 0),

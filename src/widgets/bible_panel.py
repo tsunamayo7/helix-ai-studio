@@ -175,6 +175,13 @@ class BibleStatusPanel(QWidget):
         else:
             self.btn_update.setToolTip(t('desktop.widgets.biblePanel.updateTooltip'))
             self.btn_detail.setToolTip(t('desktop.widgets.biblePanel.detailTooltip'))
+            # Re-translate missing sections label
+            missing = self._bible.missing_required_sections
+            if missing:
+                self.missing_label.setText(
+                    t('desktop.widgets.biblePanel.missingSections',
+                      sections=', '.join(s.value for s in missing))
+                )
 
     def update_bible(self, bible: Optional[BibleInfo]):
         """BIBLE情報でパネルを更新"""

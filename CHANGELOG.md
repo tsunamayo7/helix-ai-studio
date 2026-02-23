@@ -5,6 +5,53 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.0.0] - 2026-02-23 "Smart History"
+
+### Added
+- History tab (📜) with JSONL search, date grouping, tab filter, message copy & quote
+- Continue Send button with `--resume` flag and auto session ID capture
+- BIBLE cross-tab toggle (📖) on cloudAI/mixAI/localAI with context injection
+- MCP server checkboxes distributed to cloudAI and localAI settings tabs
+- Cloud model selector in cloudAI chat header (cloud_models.json)
+- Advanced Settings button (opens ~/.claude/settings.json)
+- Chat logger (JSONL append-only), Model config (model_config.py)
+- Section save buttons, NoScroll widgets module, RAG auto-enhancement checkboxes
+
+### Changed
+- Version: 10.1.0 → 11.0.0
+- 6-tab layout: mixAI / cloudAI / localAI / History / RAG / Settings
+- RAG tab renamed from "情報収集" to "🧠 RAG", subtab "実行" → "チャット"
+- cloudAI header: [Model ▼] [Advanced] [New] layout
+- effort_level hidden in config.json (UI combo removed)
+- P1/P3 engine: cloud-only (Ollama models removed)
+
+### Removed
+- PhaseIndicator, NeuralFlowCompactWidget, GPUUsageGraph (class + 12 methods)
+- GPU Monitor section, VRAM Simulator (vram_simulator.py deleted)
+- OpenAI compat backend (openai_compat_backend.py deleted), custom_server.json
+- BIBLE Manager UI panel, Search mode combo, MCP from Settings tab
+- Risk Gate UI, RAG enable UI, Save threshold combo, mixAI Phase Registration
+
+## [10.1.0] - 2026-02-22 "Unified Studio"
+
+### Added
+- cloudAI tab (renamed soloAI), localAI tab (Ollama direct chat)
+- Execution Monitor Widget (real-time LLM monitoring with stall detection)
+- mixAI chat bubble display + conversation continue panel
+- Information Collection 2-tab layout (Execute/Settings with model combos)
+- Language switcher on tab bar corner, AI Status Check section
+- Phase 2 dynamic combo population, Web search tools (web_search/fetch_url)
+- Browser Use checkbox, Chat auto-scroll for cloudAI/mixAI
+
+### Changed
+- soloAI → cloudAI full rename (DB/WebSocket/i18n/code)
+- 5-tab layout: mixAI → cloudAI → localAI → Information → Settings
+- All QComboBox → NoScrollComboBox, --dangerously-skip-permissions unified
+
+### Removed
+- Settings tab: Language/CLI/Ollama/Resident/CustomServer sections (moved to respective tabs)
+- search_mode_combo (replaced by Browser Use checkbox)
+
 ## [9.5.0] - 2026-02-16
 
 ### Added - "Cross-Device Sync"

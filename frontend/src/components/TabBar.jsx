@@ -4,11 +4,12 @@ import { useI18n } from '../i18n';
 export default function TabBar({ activeTab, onTabChange }) {
   const { t } = useI18n();
 
+  // v11.0.0: settings tab removed, localAI added
   const TABS = [
-    { id: 'soloAI', label: t('tabs.soloAI'), desc: t('tabs.soloAIDesc') },
+    { id: 'cloudAI', label: t('tabs.cloudAI'), desc: t('tabs.cloudAIDesc') },
     { id: 'mixAI', label: t('tabs.mixAI'), desc: t('tabs.mixAIDesc') },
+    { id: 'localAI', label: t('tabs.localAI') || '🖥️ localAI', desc: t('tabs.localAIDesc') || 'Local LLM' },
     { id: 'files', label: t('tabs.files'), desc: t('tabs.filesDesc') },
-    { id: 'settings', label: t('tabs.settings'), desc: t('tabs.settingsDesc') },
   ];
 
   return (

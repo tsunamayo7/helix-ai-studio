@@ -32,7 +32,7 @@ class ChatStore:
         conn.executescript("""
             CREATE TABLE IF NOT EXISTS chats (
                 id TEXT PRIMARY KEY,
-                tab TEXT NOT NULL CHECK(tab IN ('soloAI', 'mixAI')),
+                tab TEXT NOT NULL CHECK(tab IN ('soloAI', 'cloudAI', 'mixAI')),
                 title TEXT NOT NULL DEFAULT '新しいチャット',
                 context_mode TEXT NOT NULL DEFAULT 'session'
                     CHECK(context_mode IN ('single', 'session', 'full')),

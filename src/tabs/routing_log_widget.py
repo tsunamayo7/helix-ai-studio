@@ -15,6 +15,11 @@ from PyQt6.QtGui import QFont, QColor
 
 from ..routing.decision_logger import get_routing_decision_logger
 from ..utils.i18n import t
+from ..widgets.no_scroll_widgets import NoScrollComboBox
+
+
+# v11.0.0: _NoScrollComboBox → NoScrollComboBox (共通importに統一)
+_NoScrollComboBox = NoScrollComboBox
 
 
 class RoutingLogDetailDialog(QDialog):
@@ -147,7 +152,7 @@ class RoutingLogWidget(QWidget):
 
         # Statusフィルタ
         filter_layout.addWidget(QLabel(t('desktop.routingLog.statusLabel')))
-        self.status_filter = QComboBox()
+        self.status_filter = _NoScrollComboBox()
         self.status_filter.addItems([t('desktop.routingLog.statusAll'), "success", "error", "blocked"])
         self.status_filter.setToolTip(t('desktop.routingLog.statusFilterTooltip'))
         self.status_filter.currentTextChanged.connect(self._apply_filters)
@@ -155,7 +160,7 @@ class RoutingLogWidget(QWidget):
 
         # Backendフィルタ
         filter_layout.addWidget(QLabel(t('desktop.routingLog.backendLabel')))
-        self.backend_filter = QComboBox()
+        self.backend_filter = _NoScrollComboBox()
         self.backend_filter.addItems([
             t('desktop.routingLog.backendAll'),
             "claude-opus-4-5",

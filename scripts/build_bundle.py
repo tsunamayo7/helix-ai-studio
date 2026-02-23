@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build helix_source_bundle.txt by concatenating all 25 source files."""
+"""Build helix_source_bundle.txt by concatenating all source files."""
 import os
 
 base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -7,7 +7,10 @@ output = os.path.join(base, 'helix_source_bundle.txt')
 
 files = [
     'src/utils/constants.py',
+    'src/utils/styles.py',
     'src/backends/local_agent.py',
+    'src/backends/codex_cli_backend.py',
+    'src/backends/claude_cli_backend.py',
     'src/backends/mix_orchestrator.py',
     'src/memory/memory_manager.py',
     'src/rag/rag_builder.py',
@@ -16,21 +19,43 @@ files = [
     'src/rag/rag_verifier.py',
     'src/tabs/information_collection_tab.py',
     'src/tabs/helix_orchestrator_tab.py',
+    'src/tabs/claude_tab.py',
+    'src/tabs/local_ai_tab.py',
     'src/tabs/settings_cortex_tab.py',
+    'src/utils/discord_notifier.py',
+    'src/utils/prompt_cache.py',
     'src/main_window.py',
+    'src/widgets/chat_history_panel.py',
+    'src/widgets/web_lock_overlay.py',
+    'src/widgets/bible_notification.py',
+    'src/widgets/bible_panel.py',
+    'src/widgets/chat_widgets.py',
+    'src/widgets/no_scroll_widgets.py',
+    'src/widgets/section_save_button.py',
+    'src/tabs/history_tab.py',
+    'src/utils/chat_logger.py',
+    'src/utils/model_catalog.py',
+    'src/memory/model_config.py',
+    'src/mixins/__init__.py',
+    'src/mixins/bible_context_mixin.py',
     'src/web/server.py',
     'src/web/api_routes.py',
+    'src/web/chat_store.py',
     'src/web/file_transfer.py',
     'src/web/launcher.py',
-    'src/widgets/web_lock_overlay.py',
     'frontend/src/App.jsx',
     'frontend/src/components/InputBar.jsx',
     'frontend/src/components/FileManagerView.jsx',
     'frontend/src/components/SettingsView.jsx',
+    'frontend/src/components/TabBar.jsx',
     'frontend/src/hooks/useWebSocket.js',
     'frontend/public/sw.js',
     'config/config.json',
     'config/app_settings.json',
+    'config/custom_models.json',
+    'config/cloud_models.json',
+    'i18n/ja.json',
+    'i18n/en.json',
 ]
 
 separator = '=' * 40

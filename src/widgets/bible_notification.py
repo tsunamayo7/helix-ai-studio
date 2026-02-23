@@ -33,12 +33,14 @@ class BibleNotificationWidget(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._bible: Optional[BibleInfo] = None
+        self._added_to_context = False  # v9.8.0: コンテキスト追加済みフラグ
         self._setup_ui()
-        self.setVisible(False)
+        self.setVisible(False)  # v9.7.2: 初期非表示（BIBLE検出時のみ表示）
 
     def _setup_ui(self):
         self.setStyleSheet(BIBLE_NOTIFICATION_STYLE)
         self.setMaximumHeight(44)
+        self.setToolTip(t('desktop.widgets.bibleNotification.tooltip'))
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
@@ -86,8 +88,12 @@ class BibleNotificationWidget(QFrame):
         layout.addWidget(self.btn_dismiss)
 
     def show_bible(self, bible: BibleInfo):
-        """BIBLE検出通知を表示"""
+        """BIBLE検出通知を表示（BIBLE検出 & 未追加の条件でのみ表示）"""
+        # v9.8.0: 既にコンテキストに追加済みなら再表示しない
+        if self._added_to_context and self._bible and self._bible.file_path == bible.file_path:
+            return
         self._bible = bible
+        self._added_to_context = False
         codename_str = f' "{bible.codename}"' if bible.codename else ""
         self.info_label.setText(
             t('desktop.widgets.bibleNotification.detected', project=bible.project_name, version=bible.version, codename=codename_str)
@@ -101,6 +107,7 @@ class BibleNotificationWidget(QFrame):
         """コンテキスト追加ボタン"""
         if self._bible:
             self.add_clicked.emit(self._bible)
+        self._added_to_context = True  # v9.8.0: 追加済みフラグ
         self.setVisible(False)
 
     def _on_dismiss(self):

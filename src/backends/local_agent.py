@@ -132,10 +132,78 @@ AGENT_TOOLS = [
             }
         }
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "ウェブを検索して最新情報を取得する。GitHub releases、公式ドキュメント、ニュース等に有効。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "検索クエリ（英語推奨、例: 'qwen3 coder latest release github'）"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "取得する結果の最大件数（デフォルト5、最大10）",
+                        "default": 5
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "fetch_url",
+            "description": "指定URLのページ内容を取得する。GitHub releases page、ドキュメントページ等の詳細内容確認に使用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "取得するURL（https://で始まること）"
+                    },
+                    "max_chars": {
+                        "type": "integer",
+                        "description": "取得する最大文字数（デフォルト3000）",
+                        "default": 3000
+                    }
+                },
+                "required": ["url"]
+            }
+        }
+    },
 ]
 
+# v11.1.0: Browser Use ツール定義（browser_useパッケージが必要）
+BROWSER_USE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "browser_use",
+        "description": "Browser Useでウェブページを自動操作してコンテンツを取得する。fetch_urlより高精度だが重い。JavaScriptレンダリングが必要なページに使用。",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "取得するURL（https://で始まること）"
+                },
+                "task": {
+                    "type": "string",
+                    "description": "ページから取得したい情報の説明（省略可）",
+                    "default": ""
+                }
+            },
+            "required": ["url"]
+        }
+    }
+}
+
 # 読み取り専用ツール（write確認不要）
-READ_ONLY_TOOLS = {"read_file", "list_dir", "search_files"}
+READ_ONLY_TOOLS = {"read_file", "list_dir", "search_files", "web_search", "fetch_url", "browser_use"}
 WRITE_TOOLS = {"write_file", "create_file"}
 
 # 除外ディレクトリ
@@ -161,6 +229,10 @@ class LocalAgentRunner:
         self.on_tool_call: Optional[Callable[[str, dict], None]] = None
         self.on_write_confirm: Optional[Callable[[str, str, str], bool]] = None
 
+        # v10.1.0: モニターコールバック
+        self.on_monitor_start: Optional[Callable[[str], None]] = None
+        self.on_monitor_finish: Optional[Callable[[str, bool], None]] = None
+
         # 書き込み確認が必要かどうか
         self.require_write_confirmation = self.tools_config.get(
             "require_write_confirmation", True)
@@ -178,7 +250,27 @@ class LocalAgentRunner:
             tool_name = tool["function"]["name"]
             if self.tools_config.get(tool_name, True):
                 active.append(tool)
+        # v11.1.0: Browser Use ツールを条件付きで追加
+        if self._is_browser_use_enabled():
+            active.append(BROWSER_USE_TOOL)
         return active
+
+    def _is_browser_use_enabled(self) -> bool:
+        """v11.1.0: config.jsonのlocalai_browser_use_enabledとbrowser_useパッケージを確認"""
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            config_path = _Path("config/config.json")
+            if not config_path.exists():
+                return False
+            with open(config_path, 'r', encoding='utf-8') as f:
+                cfg = _json.load(f)
+            if not cfg.get("localai_browser_use_enabled", False):
+                return False
+            import browser_use  # noqa: F401
+            return True
+        except Exception:
+            return False
 
     # ═══ メインエージェントループ ═══
 
@@ -250,6 +342,13 @@ class LocalAgentRunner:
 
     def _call_ollama_chat(self, messages: list) -> dict | None:
         """Ollama Chat API（ツール対応）を呼び出し"""
+        # v10.1.0: モニター開始通知
+        if self.on_monitor_start:
+            try:
+                self.on_monitor_start(self.model_name)
+            except Exception:
+                pass
+
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 resp = client.post(
@@ -266,12 +365,33 @@ class LocalAgentRunner:
                     },
                 )
                 resp.raise_for_status()
-                return resp.json()
+                result = resp.json()
+
+                # v10.1.0: モニター完了通知
+                if self.on_monitor_finish:
+                    try:
+                        self.on_monitor_finish(self.model_name, True)
+                    except Exception:
+                        pass
+
+                return result
         except httpx.TimeoutException:
             logger.error(f"Ollama timeout ({self.timeout}s)")
+            # v10.1.0: モニターエラー通知
+            if self.on_monitor_finish:
+                try:
+                    self.on_monitor_finish(self.model_name, False)
+                except Exception:
+                    pass
             return None
         except Exception as e:
             logger.error(f"Ollama API error: {e}")
+            # v10.1.0: モニターエラー通知
+            if self.on_monitor_finish:
+                try:
+                    self.on_monitor_finish(self.model_name, False)
+                except Exception:
+                    pass
             return None
 
     # ═══ ツール実行 ═══
@@ -295,6 +415,12 @@ class LocalAgentRunner:
                 return self._tool_write_file(args["path"], args["content"])
             elif name == "create_file":
                 return self._tool_create_file(args["path"], args["content"])
+            elif name == "web_search":
+                return self._tool_web_search(args["query"], args.get("max_results", 5))
+            elif name == "fetch_url":
+                return self._tool_fetch_url(args["url"], args.get("max_chars", 3000))
+            elif name == "browser_use":
+                return self._tool_browser_use(args.get("url", ""), args.get("task", ""))
             else:
                 return {"error": f"未知のツール: {name}"}
         except Exception as e:
@@ -424,3 +550,107 @@ class LocalAgentRunner:
             return {"status": "ok", "path": rel_path, "size": len(content)}
         except Exception as e:
             return {"error": f"作成エラー: {e}"}
+
+    def _tool_web_search(self, query: str, max_results: int = 5) -> dict:
+        """v10.1.0: Brave Search API または DuckDuckGo でウェブ検索を実行"""
+        import json as _json
+        from pathlib import Path as _Path
+
+        # Brave Search API キーの確認
+        brave_api_key = None
+        try:
+            settings_path = _Path("config/general_settings.json")
+            if settings_path.exists():
+                with open(settings_path, 'r') as f:
+                    settings = _json.load(f)
+                brave_api_key = settings.get("brave_search_api_key", "")
+        except Exception:
+            pass
+
+        try:
+            if brave_api_key:
+                import httpx
+                resp = httpx.get(
+                    "https://api.search.brave.com/res/v1/web/search",
+                    headers={"Accept": "application/json", "X-Subscription-Token": brave_api_key},
+                    params={"q": query, "count": min(max_results, 10)},
+                    timeout=15
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                results = [
+                    {"title": r.get("title", ""), "url": r.get("url", ""), "snippet": r.get("description", "")}
+                    for r in data.get("web", {}).get("results", [])[:max_results]
+                ]
+                return {"results": results, "source": "brave"}
+            else:
+                import httpx
+                resp = httpx.get(
+                    "https://api.duckduckgo.com/",
+                    params={"q": query, "format": "json", "no_redirect": 1, "no_html": 1},
+                    timeout=15,
+                    follow_redirects=True
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                results = []
+                for r in data.get("Results", [])[:max_results]:
+                    results.append({"title": r.get("Text", ""), "url": r.get("FirstURL", ""), "snippet": ""})
+                if not results and data.get("AbstractURL"):
+                    results.append({"title": data.get("Heading", ""), "url": data.get("AbstractURL", ""), "snippet": data.get("Abstract", "")})
+                return {"results": results, "source": "duckduckgo"}
+        except Exception as e:
+            return {"error": f"Web search failed: {str(e)}"}
+
+    def _tool_fetch_url(self, url: str, max_chars: int = 3000) -> dict:
+        """v10.1.0: 指定 URL のページ内容をテキストで取得（HTML タグ除去）"""
+        if not url.startswith("https://"):
+            return {"error": "https:// で始まる URL のみ許可されています"}
+        try:
+            import httpx
+            import re
+            headers = {"User-Agent": "Mozilla/5.0 (compatible; HelixAI/1.0)"}
+            # GitHub API の場合は PAT を自動付与
+            if "api.github.com" in url:
+                try:
+                    from pathlib import Path as _GP
+                    gs_path = _GP("config/general_settings.json")
+                    if gs_path.exists():
+                        import json as _gj
+                        with open(gs_path, 'r') as _gf:
+                            pat = _gj.load(_gf).get("github_pat", "")
+                        if pat:
+                            headers["Authorization"] = f"Bearer {pat}"
+                except Exception:
+                    pass
+            resp = httpx.get(url, timeout=15, follow_redirects=True, headers=headers)
+            resp.raise_for_status()
+            text = resp.text
+            text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return {"content": text[:max_chars], "url": url, "truncated": len(text) > max_chars}
+        except Exception as e:
+            return {"error": f"URL fetch failed: {str(e)}"}
+
+    def _tool_browser_use(self, url: str, task: str = "") -> dict:
+        """v11.1.0: Browser Use でウェブページを自動操作しコンテンツを取得"""
+        if not url.startswith("https://"):
+            return {"error": "https:// で始まる URL のみ許可されています"}
+        try:
+            import re
+            from browser_use import Browser
+            browser = Browser()
+            content = browser.get_text(url, timeout=20)
+            if content:
+                clean = re.sub(r'<[^>]+>', '', content)
+                clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
+                clean = re.sub(r'#{1,6}\s*', '', clean)
+                clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+                return {"url": url, "content": clean[:6000], "truncated": len(clean) > 6000}
+            return {"url": url, "content": ""}
+        except ImportError:
+            return {"error": "browser_use パッケージがインストールされていません (pip install browser-use)"}
+        except Exception as e:
+            return {"error": f"Browser Use fetch failed: {str(e)}"}

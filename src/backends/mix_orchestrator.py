@@ -1,15 +1,19 @@
 """
-mixAI 3Phase統合オーケストレーター v9.3.0
+mixAI 5Phase統合オーケストレーター v10.0.0
 
-新3Phase実行パイプライン:
+実行パイプライン:
   Phase 1: Claude CLI計画立案（--cwdオプション付き、ツール使用指示を明記）
   Phase 2: ローカルLLM順次実行（Ollama APIで1モデルずつロード→実行→アンロード）
   Phase 3: Claude CLI比較統合（2回目呼び出し、Phase 1+Phase 2全結果を渡す）
+  Phase 3.5: レビュー（Phase 3出力の品質判定、差し戻しまたは軽微修正指示）
+  Phase 4: 実装適用（file_changesがある場合のみ、Claude Sonnetで自動適用）
 
 v7.0.0: 旧5Phase→新3Phaseへの全面書き換え
 v9.3.0: P1/P3エンジン切替（Claude CLI / ローカルLLMエージェント分岐）
   - orchestrator_engine が claude- で始まる → Claude CLI
   - それ以外 → ローカルLLMエージェント（local_agent.py）
+v9.8.0: Phase 4（実装適用）追加、effort_level対応
+v10.0.0: Phase 3.5（レビュー）追加、Prompt Cache最適化、JSON出力統一
 """
 
 import subprocess
@@ -77,7 +81,7 @@ MAX_PHASE2_RESULT_CHARS_PER_ITEM = 5000
 
 
 class MixAIOrchestrator(QThread):
-    """mixAIタブの3Phase実行エンジン v8.0.0 (BIBLE Manager統合)"""
+    """mixAIタブの5Phase実行エンジン v10.0.0 (Phase 3.5レビュー追加)"""
 
     # ═══ UI通知用シグナル ═══
     phase_changed = pyqtSignal(int, str)       # (phase番号, 説明テキスト)
@@ -88,6 +92,8 @@ class MixAIOrchestrator(QThread):
     all_finished = pyqtSignal(str)             # 最終回答テキスト
     error_occurred = pyqtSignal(str)           # エラーメッセージ
     bible_action_proposed = pyqtSignal(object, str)  # v8.0.0: (BibleAction, reason)
+    monitor_event = pyqtSignal(str, str, str)  # v10.1.0: (event_type, model_name, detail)
+    # event_type: "start" | "output" | "finish" | "error" | "heartbeat" | "stall"
 
     def __init__(
         self,
@@ -226,9 +232,15 @@ class MixAIOrchestrator(QThread):
                     logger.warning(f"Phase 2 RAG context failed for {task.category}: {e}")
 
             self.local_llm_started.emit(task.category, task.model)
+            self.monitor_event.emit("start", task.model, f"Phase 2: {task.category}")  # v10.1.0
             result = executor.execute_task(task)
+
+            # v10.0.0: Phase 2 JSON出力統一
+            result = self._normalize_phase2_result(result)
+
             self._phase2_results.append(result)
             self.local_llm_finished.emit(result.category, result.success, result.elapsed)
+            self.monitor_event.emit("finish" if result.success else "error", task.model, task.category)  # v10.1.0
             self.phase2_progress.emit(i + 1, total_tasks)
 
         self._phase_times["phase2"] = time.time() - phase2_start
@@ -311,6 +323,79 @@ class MixAIOrchestrator(QThread):
                 if retry_result is None:
                     break
 
+        # ================================================================
+        # v10.0.0: Phase 3.5 (Review) - レビューフェーズ
+        # ================================================================
+        phase35_model = self.config.get("phase35_model", "")
+        if phase35_model and phase35_model not in ("", t('desktop.mixAI.phase35None')):
+            if self._cancelled:
+                pass  # skip
+            else:
+                self.phase_changed.emit(3, t('desktop.backends.phase35Reviewing'))
+                try:
+                    phase35_result = self._execute_phase35(final_output, phase35_model)
+                    if phase35_result:
+                        action = phase35_result.get("action", "pass")
+                        if action == "rerun_phase3":
+                            # Phase 3を再実行（最大1回）
+                            logger.info("[Phase 3.5] Phase 3 re-run requested")
+                            self.phase_changed.emit(3, t('desktop.backends.phase35RerunPhase3'))
+                            final_output = self._execute_phase3(claude_answer, self._phase2_results)
+                        elif action == "minor_fix":
+                            # 軽微な修正指示をPhase 4に渡す
+                            fix_instructions = phase35_result.get("fix_instructions", "")
+                            if fix_instructions and isinstance(final_output, dict):
+                                final_output["phase35_fix"] = fix_instructions
+                except Exception as e:
+                    logger.warning(f"[Phase 3.5] Review failed: {e}")
+
+        # ================================================================
+        # v9.8.0: Phase 4 (Implementation) - Execute if file_changes exist
+        # ================================================================
+        phase4_config = self.config.get("phase4_model", "")
+        if phase4_config and phase4_config != t('desktop.mixAI.phase4Disabled') if 't' in dir() else phase4_config != "（未選択 - スキップ）":
+            # Try to extract file_changes from Phase 3 output
+            file_changes = None
+            if isinstance(final_output, dict):
+                file_changes = final_output.get("file_changes")
+            elif isinstance(final_output, str):
+                # Try JSON extraction from text
+                try:
+                    import re
+                    json_match = re.search(r'\{[^{}]*"file_changes"[^{}]*\}', final_output, re.DOTALL)
+                    if json_match:
+                        parsed = json.loads(json_match.group())
+                        file_changes = parsed.get("file_changes")
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+
+            if file_changes:
+                self.phase_changed.emit(4, t('desktop.backends.phase4Applying'))
+                try:
+                    # Map Phase4 model selection to CLI model ID
+                    p4_model_map = {
+                        "Claude Sonnet 4.6": "claude-sonnet-4-6",
+                        "Claude Sonnet 4.5": "claude-sonnet-4-5-20250929",
+                    }
+                    p4_model = p4_model_map.get(phase4_config, "claude-sonnet-4-6")
+
+                    # Build Phase 4 prompt with file_changes
+                    p4_prompt = (
+                        "Apply the following file changes exactly as specified. "
+                        "Do not add, modify, or skip any changes.\n\n"
+                        f"File changes to apply:\n{json.dumps(file_changes, ensure_ascii=False, indent=2)}"
+                    )
+
+                    phase4_result = self._execute_claude_phase(p4_prompt, model_override=p4_model)
+                    if phase4_result:
+                        # Update final_output with Phase 4 result
+                        if isinstance(final_output, dict):
+                            final_output["phase4_result"] = phase4_result
+                        logger.info(f"[MixAI] Phase 4 completed successfully")
+                except Exception as e:
+                    logger.warning(f"[MixAI] Phase 4 failed: {e}")
+                    # Phase 4 failure is non-fatal; Phase 3 answer is still used
+
         # 最終回答を抽出
         if isinstance(final_output, dict):
             answer = final_output.get("final_answer", final_output.get("claude_answer", str(final_output)))
@@ -322,6 +407,16 @@ class MixAIOrchestrator(QThread):
         self._save_session_metadata(answer, skipped=False)
 
         self.all_finished.emit(answer)
+
+        # v10.0.0: Discord通知
+        try:
+            from ..utils.discord_notifier import notify_discord
+            elapsed = time.time() - self._phase_start_time if hasattr(self, '_phase_start_time') else 0
+            notify_discord("mixAI", "completed",
+                           f"3Phase実行完了: {self.user_prompt[:80]}...",
+                           elapsed=elapsed)
+        except Exception:
+            pass
 
         # v8.1.0: Post-Phase Memory Risk Gate
         if self._memory_manager:
@@ -372,17 +467,19 @@ class MixAIOrchestrator(QThread):
     # ═══════════════════════════════════════════════════════════════
 
     def _execute_phase1(self) -> dict:
-        """Phase 1: エンジンに応じた計画立案（v9.3.0: エンジン分岐対応）"""
+        """Phase 1: エンジンに応じた計画立案（v9.3.0: エンジン分岐対応 / v9.9.0: GPT-5.3-Codex追加）"""
         engine = self.config.get("orchestrator_engine",
                                  self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
 
         if engine.startswith("claude-"):
             return self._execute_phase1_claude(engine)
+        elif engine == "gpt-5.3-codex":
+            return self._execute_phase1_codex()
         else:
             return self._execute_phase1_local(engine)
 
     def _execute_phase1_claude(self, model_id: str) -> dict:
-        """Phase 1: Claude CLI版（従来の実装）"""
+        """Phase 1: Claude CLI版（v10.0.0: Prompt Cache最適化）"""
         system_prompt = self._build_phase1_system_prompt()
 
         # v8.0.0: BIBLEコンテキスト注入
@@ -391,7 +488,7 @@ class MixAIOrchestrator(QThread):
             try:
                 from ..bible.bible_injector import BibleInjector
                 bible_ctx = BibleInjector.build_context(self._bible_context, mode="phase1")
-                bible_block = f"<project_context>\n{bible_ctx}\n</project_context>\n\n"
+                bible_block = f"<project_context>\n{bible_ctx}\n</project_context>"
             except Exception as e:
                 logger.warning(f"BIBLE context injection failed: {e}")
 
@@ -401,11 +498,36 @@ class MixAIOrchestrator(QThread):
             try:
                 mem_ctx = self._memory_manager.build_context_for_phase1(self.user_prompt)
                 if mem_ctx:
-                    memory_block = f"<memory_context>\n{mem_ctx}\n</memory_context>\n\n"
+                    memory_block = f"<memory_context>\n{mem_ctx}\n</memory_context>"
             except Exception as e:
                 logger.warning(f"Memory context injection failed: {e}")
 
-        full_prompt = f"{system_prompt}\n\n{bible_block}{memory_block}## ユーザーの要求:\n{self.user_prompt}"
+        # v10.0.0: Prompt Cache最適化
+        # system_prompt + bible_block は変化頻度が低いため先頭に配置し
+        # Claude APIの自動キャッシュのヒット率を最大化
+        try:
+            from ..utils.prompt_cache import build_optimized_prompt
+            full_prompt = build_optimized_prompt(
+                system_prompt=system_prompt,
+                bible_context=bible_block,
+                memory_context=memory_block,
+                user_prompt=self.user_prompt,
+            )
+        except ImportError:
+            full_prompt = f"{system_prompt}\n\n{bible_block}\n\n{memory_block}\n\n## ユーザーの要求:\n{self.user_prompt}"
+
+        # v10.0.0: 検索モード適用 / v11.1.0: browser_use_enabled追加
+        search_mode = self.config.get("search_mode", 0)
+        browser_use_enabled = self.config.get("browser_use_enabled", False)
+        if search_mode == 1:
+            # WebSearch: Claude CLIのWebSearch機能を有効化
+            if not full_prompt.startswith("[WebSearch Enabled]"):
+                full_prompt = "[WebSearch Enabled]\n\n" + full_prompt
+        elif search_mode == 2 or browser_use_enabled:
+            # BrowserUse: URL事前取得
+            browser_results = self._fetch_browser_use_results(self.user_prompt)
+            if browser_results:
+                full_prompt += f"\n\n{browser_results}"
 
         # 添付ファイルがある場合はパス情報のみ伝える（内容の埋め込みはしない）
         if self.attached_files:
@@ -425,6 +547,12 @@ class MixAIOrchestrator(QThread):
             tools_config=self.config.get("local_agent_tools", {}),
             timeout=self.config.get("timeout", 1800),
         )
+        # v10.1.0: mixAI経由はUI確認不可のためwrite確認を無効化
+        agent.require_write_confirmation = False
+        # v10.1.0: モニターコールバック
+        agent.on_monitor_start = lambda name: self.monitor_event.emit("start", name, "Phase 1 (Local)")
+        agent.on_monitor_finish = lambda name, ok: self.monitor_event.emit(
+            "finish" if ok else "error", name, "Phase 1 (Local)")
 
         system_prompt = self._build_phase1_system_prompt()
 
@@ -452,6 +580,46 @@ class MixAIOrchestrator(QThread):
 
         result = agent.run(system_prompt, user_prompt)
         return self._parse_phase1_output(result)
+
+    def _execute_phase1_codex(self) -> dict:
+        """Phase 1: GPT-5.3-Codex CLI版（v9.9.0）"""
+        from .codex_cli_backend import run_codex_cli
+
+        system_prompt = self._build_phase1_system_prompt()
+
+        # BIBLEコンテキスト注入
+        bible_block = ""
+        if self._bible_context:
+            try:
+                from ..bible.bible_injector import BibleInjector
+                bible_ctx = BibleInjector.build_context(self._bible_context, mode="phase1")
+                bible_block = f"<project_context>\n{bible_ctx}\n</project_context>\n\n"
+            except Exception as e:
+                logger.warning(f"BIBLE context injection failed: {e}")
+
+        # 記憶コンテキスト注入
+        memory_block = ""
+        if self._memory_manager:
+            try:
+                mem_ctx = self._memory_manager.build_context_for_phase1(self.user_prompt)
+                if mem_ctx:
+                    memory_block = f"<memory_context>\n{mem_ctx}\n</memory_context>\n\n"
+            except Exception as e:
+                logger.warning(f"Memory context injection failed: {e}")
+
+        full_prompt = f"{system_prompt}\n\n{bible_block}{memory_block}## ユーザーの要求:\n{self.user_prompt}"
+
+        if self.attached_files:
+            files_info = "\n".join(f"- {f}" for f in self.attached_files)
+            full_prompt += f"\n\n## 添付ファイル:\n{files_info}"
+
+        effort = self.config.get("gpt_reasoning_effort", "default")
+        project_dir = self.config.get("project_dir")
+        run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
+        timeout = self.config.get("timeout", 600)
+
+        raw_output = run_codex_cli(full_prompt, effort=effort, run_cwd=run_cwd, timeout=timeout)
+        return self._parse_phase1_output(raw_output)
 
     def _build_phase1_system_prompt(self) -> str:
         """v8.4.0: Phase 1用システムプロンプト — 2段階構造化（設計分析→指示書生成）"""
@@ -566,11 +734,45 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 - **acceptance_criteria**: 各カテゴリに検証可能な完了条件を最低1つ含める（Phase 3評価で使用）
 - **context**: 関連ファイルパスやAPI仕様を含める（ローカルLLMの精度向上に直結）
 - coding: 使用言語、フレームワーク、命名規則、エラーハンドリングを明記
-- research: 検索キーワード候補、収集すべき情報の種類を明記
+- research: 検索キーワード候補、収集すべき情報の種類を明記。researchモデルはweb_search/fetch_urlツールが利用可能なため、最新情報が必要な場合は「web_searchツールで○○を検索せよ」「fetch_urlで△△のページ内容を確認せよ」と具体的に指示すること
 - reasoning: 検証すべき論理的観点、品質チェック基準を明記
 - vision: 画像分析の観点を明記（画像タスクがある場合のみskip: false）
 - translation: 原文の言語、翻訳先言語、専門用語の取扱いを明記
 - 不要なカテゴリはskip: trueに設定"""
+
+    def _fetch_browser_use_results(self, prompt: str) -> str:
+        """v10.0.0: BrowserUseでURL事前取得・トークンクリッピング"""
+        import re
+        try:
+            urls = re.findall(r'https?://[^\s\'"<>]+', prompt)
+            if not urls:
+                return ""
+            from browser_use import Browser
+            results = []
+            browser = Browser()
+            max_chars = 6000  # ~2000 tokens
+            for url in urls[:3]:
+                try:
+                    content = browser.get_text(url, timeout=15)
+                    if content:
+                        # HTML/Markdownタグ除去
+                        clean = re.sub(r'<[^>]+>', '', content)
+                        clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
+                        clean = re.sub(r'#{1,6}\s*', '', clean)
+                        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+                        results.append(f"[{url}]\n{clean}")
+                except Exception:
+                    pass
+            if results:
+                combined = "\n\n".join(results)
+                if len(combined) > max_chars:
+                    combined = combined[:max_chars] + "\n\n... [truncated]"
+                return f"<browser_results>\n{combined}\n</browser_results>"
+        except ImportError:
+            logger.debug("browser_use not installed, skipping")
+        except Exception as e:
+            logger.warning(f"Browser Use fetch failed: {e}")
+        return ""
 
     def _parse_phase1_output(self, raw_output: str) -> dict:
         """Phase 1のClaude出力をパースしてJSONを抽出"""
@@ -652,6 +854,47 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         return tasks
 
     # ═══════════════════════════════════════════════════════════════
+    # v10.0.0: Phase 2 JSON出力統一
+    # ═══════════════════════════════════════════════════════════════
+
+    def _normalize_phase2_result(self, result: SequentialResult) -> SequentialResult:
+        """v10.0.0: Phase 2結果を統一JSONスキーマに正規化
+
+        出力スキーマ:
+        {
+          "category": "coding",
+          "model_used": "...",
+          "output": "...",
+          "confidence": 0.0-1.0,
+          "notes": "..."
+        }
+        """
+        if not result.success:
+            return result
+
+        # 既にJSON形式の場合はパース試行
+        import json as _json
+        raw = result.response.strip()
+        try:
+            parsed = _json.loads(raw)
+            if isinstance(parsed, dict) and "output" in parsed:
+                # 既に統一スキーマに準拠
+                return result
+        except (_json.JSONDecodeError, ValueError):
+            pass
+
+        # プレーンテキスト → 統一JSON変換
+        normalized = _json.dumps({
+            "category": result.category,
+            "model_used": result.model,
+            "output": result.response,
+            "confidence": 0.8 if result.success else 0.0,
+            "notes": "",
+        }, ensure_ascii=False)
+        result.response = normalized
+        return result
+
+    # ═══════════════════════════════════════════════════════════════
     # Phase 3: Claude比較統合
     # ═══════════════════════════════════════════════════════════════
 
@@ -666,12 +909,14 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         return criteria
 
     def _execute_phase3(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> dict:
-        """Phase 3: エンジンに応じた比較統合（v9.3.0: エンジン分岐対応）"""
+        """Phase 3: エンジンに応じた比較統合（v9.3.0: エンジン分岐対応 / v9.9.0: GPT-5.3-Codex追加）"""
         engine = self.config.get("orchestrator_engine",
                                  self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
 
         if engine.startswith("claude-"):
             return self._execute_phase3_claude(phase1_answer, phase2_results, engine)
+        elif engine == "gpt-5.3-codex":
+            return self._execute_phase3_codex(phase1_answer, phase2_results)
         else:
             return self._execute_phase3_local(phase1_answer, phase2_results, engine)
 
@@ -717,6 +962,12 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
             tools_config=self.config.get("local_agent_tools", {}),
             timeout=self.config.get("timeout", 1800),
         )
+        # v10.1.0: mixAI経由はUI確認不可のためwrite確認を無効化
+        agent.require_write_confirmation = False
+        # v10.1.0: モニターコールバック
+        agent.on_monitor_start = lambda name: self.monitor_event.emit("start", name, "Phase 3 (Local)")
+        agent.on_monitor_finish = lambda name, ok: self.monitor_event.emit(
+            "finish" if ok else "error", name, "Phase 3 (Local)")
 
         agent.on_streaming = lambda text: self.streaming_output.emit(text)
         agent.on_tool_call = lambda tool, args: self.streaming_output.emit(
@@ -728,6 +979,43 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 
         result = agent.run(system_prompt, user_prompt)
         return self._parse_phase3_output(result)
+
+    def _execute_phase3_codex(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> dict:
+        """Phase 3: GPT-5.3-Codex CLI版（v9.9.0）"""
+        from .codex_cli_backend import run_codex_cli
+
+        system_prompt = self._build_phase3_system_prompt(phase1_answer, phase2_results)
+
+        # BIBLEコンテキスト注入（Phase 3用）
+        bible_block = ""
+        if self._bible_context:
+            try:
+                from ..bible.bible_injector import BibleInjector
+                bible_ctx = BibleInjector.build_context(self._bible_context, mode="phase3")
+                bible_block = f"\n\n<project_context>\n{bible_ctx}\n</project_context>"
+            except Exception as e:
+                logger.warning(f"BIBLE Phase 3 context injection failed: {e}")
+
+        # 記憶コンテキスト注入（Phase 3用）
+        memory_block = ""
+        if self._memory_manager:
+            try:
+                mem_ctx = self._memory_manager.build_context_for_phase3(
+                    self.user_prompt, phase1_answer)
+                if mem_ctx:
+                    memory_block = f"\n\n<memory_context>\n{mem_ctx}\n</memory_context>"
+            except Exception as e:
+                logger.warning(f"Memory Phase 3 context injection failed: {e}")
+
+        full_prompt = f"{system_prompt}{bible_block}{memory_block}\n\n統合を実行してください。"
+
+        effort = self.config.get("gpt_reasoning_effort", "default")
+        project_dir = self.config.get("project_dir")
+        run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
+        timeout = self.config.get("timeout", 600)
+
+        raw_output = run_codex_cli(full_prompt, effort=effort, run_cwd=run_cwd, timeout=timeout)
+        return self._parse_phase3_output(raw_output)
 
     def _build_phase3_system_prompt(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> str:
         """v8.4.0: Phase 3用システムプロンプト — Acceptance Criteria評価 + 統合"""
@@ -873,6 +1161,111 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         return None
 
     # ═══════════════════════════════════════════════════════════════
+    # v10.0.0: Phase 3.5 (Review)
+    # ═══════════════════════════════════════════════════════════════
+
+    def _execute_phase35(self, phase3_output: dict, model_key: str) -> dict:
+        """v10.0.0: Phase 3.5 — Phase 3出力のレビュー・差し戻し判定
+
+        Phase 3の統合結果を受け取り、大規模修正が必要かを判定する。
+        - 大規模修正が必要 → {"action": "rerun_phase3"} を返却
+        - 軽微な修正のみ → {"action": "minor_fix", "fix_instructions": "..."} を返却
+        - 問題なし → {"action": "pass"} を返却
+
+        Args:
+            phase3_output: Phase 3の出力dict
+            model_key: 使用モデルキー (e.g. "GPT-5.3-Codex (CLI)")
+
+        Returns:
+            レビュー結果dict
+        """
+        import re
+
+        # Phase 3の最終回答テキストを抽出
+        if isinstance(phase3_output, dict):
+            review_text = phase3_output.get("final_answer", json.dumps(phase3_output, ensure_ascii=False))
+        else:
+            review_text = str(phase3_output)
+
+        # レビュープロンプト構築
+        review_prompt = f"""あなたはHelix AI Studioのレビュー担当AIです。
+Phase 3（統合フェーズ）の出力をレビューし、品質を判定してください。
+
+## Phase 3の出力:
+{review_text[:8000]}
+
+## 元のユーザー要求:
+{self.user_prompt}
+
+## レビュー基準:
+1. ユーザーの要求に対して十分に回答しているか
+2. 技術的に正確か（明らかな誤りがないか）
+3. 重要な観点が欠落していないか
+4. コード変更がある場合、構文エラーや論理エラーがないか
+
+## 出力形式（JSON）:
+```json
+{{
+  "action": "pass" | "rerun_phase3" | "minor_fix",
+  "quality_score": 0.0-1.0,
+  "issues": ["問題点1", "問題点2"],
+  "fix_instructions": "軽微な修正指示（minor_fixの場合のみ）"
+}}
+```
+
+- **pass**: 品質十分。修正不要。
+- **rerun_phase3**: 重大な問題あり。Phase 3の再実行が必要。
+- **minor_fix**: 軽微な問題のみ。Phase 4で修正指示として適用。
+
+品質スコアが0.7以上で重大な問題がなければ "pass" を返してください。
+"""
+
+        # モデルルーティング
+        MODEL_MAP = {
+            "GPT-5.3-Codex (CLI)": "codex",
+            "Claude Sonnet 4.6 (CLI)": "claude-sonnet-4-6",
+            "Claude Opus 4.6 (CLI)": "claude-opus-4-6",
+        }
+
+        engine_type = MODEL_MAP.get(model_key, "claude-sonnet-4-6")
+
+        try:
+            if engine_type == "codex":
+                from .codex_cli_backend import run_codex_cli
+                project_dir = self.config.get("project_dir")
+                run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
+                raw_output = run_codex_cli(
+                    review_prompt,
+                    effort="default",
+                    run_cwd=run_cwd,
+                    timeout=self.config.get("timeout", 300),
+                )
+            else:
+                raw_output = self._run_claude_cli(review_prompt, model_id=engine_type)
+
+            # JSON解析
+            json_blocks = re.findall(r'```json\s*([\s\S]*?)\s*```', raw_output)
+            for json_str in reversed(json_blocks):
+                try:
+                    parsed = json.loads(json_str.strip())
+                    if isinstance(parsed, dict) and "action" in parsed:
+                        logger.info(
+                            f"[Phase 3.5] Review result: action={parsed['action']}, "
+                            f"score={parsed.get('quality_score', 'N/A')}"
+                        )
+                        return parsed
+                except json.JSONDecodeError:
+                    continue
+
+            # JSON解析失敗 → passとして扱う
+            logger.warning("[Phase 3.5] JSON parse failed, treating as pass")
+            return {"action": "pass", "quality_score": 0.8, "issues": []}
+
+        except Exception as e:
+            logger.warning(f"[Phase 3.5] Execution failed: {e}")
+            return {"action": "pass", "quality_score": 0.0, "issues": [str(e)]}
+
+    # ═══════════════════════════════════════════════════════════════
     # Claude CLI実行
     # ═══════════════════════════════════════════════════════════════
 
@@ -889,6 +1282,9 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         """
         # v7.1.0: model_id → --model に直接渡す
         effective_model = model_id or self.config.get("claude_model_id") or self.config.get("claude_model", DEFAULT_CLAUDE_MODEL_ID)
+
+        # v10.1.0: モニターイベント - 開始
+        self.monitor_event.emit("start", effective_model, "Claude CLI")
 
         cmd = [
             "claude",
@@ -919,21 +1315,44 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
             stderr = result.stderr or ""
 
             if result.returncode == 0:
+                # v10.1.0: モニターイベント - 完了
+                self.monitor_event.emit("finish", effective_model, "success")
                 try:
                     output_data = json.loads(stdout)
                     return output_data.get("result", stdout)
                 except json.JSONDecodeError:
                     return stdout.strip()
             else:
+                # v10.1.0: モニターイベント - エラー
+                self.monitor_event.emit("error", effective_model, f"exit code {result.returncode}")
                 raise RuntimeError(
                     f"Claude CLI終了コード {result.returncode}: "
                     f"{stderr[:500] if stderr else 'エラー詳細なし'}"
                 )
 
         except subprocess.TimeoutExpired:
+            # v10.1.0: モニターイベント - タイムアウト
+            self.monitor_event.emit("error", effective_model, "timeout")
             raise RuntimeError(
                 f"Claude CLIがタイムアウト({self.config.get('timeout', 600)}秒)しました"
             )
+
+    def _execute_claude_phase(self, prompt: str, model_override: str = None) -> str:
+        """v9.8.0: Phase 4用のClaude CLI実行ラッパー。
+
+        _run_claude_cliを内部で使用し、ストリーミング出力をUIに転送する。
+
+        Args:
+            prompt: Phase 4用のプロンプト
+            model_override: 使用するモデルID（指定なしの場合はデフォルト）
+
+        Returns:
+            Claude CLIの出力テキスト
+        """
+        model_id = model_override or self.config.get(
+            "claude_model_id", DEFAULT_CLAUDE_MODEL_ID
+        )
+        return self._run_claude_cli(prompt, model_id=model_id)
 
     # ═══════════════════════════════════════════════════════════════
     # Phase 2結果のファイル保存

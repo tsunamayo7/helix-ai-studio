@@ -1,7 +1,9 @@
 import React, { useState, useRef } from 'react';
 import FileBrowserModal from './FileBrowserModal';
-import ContextModeSelector from './ContextModeSelector';
 import { useI18n } from '../i18n';
+
+// v11.0.0: Simplified - removed ContextModeSelector, session buttons, RAG toggle
+// Settings are managed from the desktop app
 
 // v9.5.0: Upload + server file browser menu
 function AttachMenu({ token, onFileAttached, onOpenBrowser, onClose }) {
@@ -19,82 +21,50 @@ function AttachMenu({ token, onFileAttached, onOpenBrowser, onClose }) {
       return;
     }
 
-    const allowedExts = ['.txt','.md','.py','.js','.jsx','.ts','.json','.csv',
-      '.html','.css','.yaml','.sql','.pdf','.docx','.png','.jpg','.jpeg','.gif'];
-    const ext = '.' + file.name.split('.').pop().toLowerCase();
-    if (!allowedExts.includes(ext)) {
-      alert(t('web.inputBar.unsupportedExt', { ext }));
-      return;
-    }
-
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/files/upload', {
+      const resp = await fetch('/api/files/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
       });
-      if (res.ok) {
-        const data = await res.json();
-        onFileAttached({
-          name: file.name,
-          path: data.path || data.filename,
-          size: data.size,
-          source: 'upload',
-        });
-        onClose();
-      } else {
-        let detail = t('web.inputBar.uploadFailed', { status: res.status });
-        try {
-          const err = await res.json();
-          detail = err.detail || detail;
-        } catch (_) {}
-        alert(detail);
-      }
-    } catch (e) {
-      alert(t('web.inputBar.uploadError', { message: e.message || '' }));
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      onFileAttached({
+        name: file.name,
+        path: data.path || data.filename || file.name,
+        source: 'upload',
+      });
+    } catch (err) {
+      alert(t('web.inputBar.uploadFailed', { error: err.message }));
     }
     setUploading(false);
+    onClose();
   }
 
   return (
-    <div className="absolute bottom-full right-0 mb-2 bg-gray-800 rounded-lg
-                    border border-gray-700 shadow-xl p-2 min-w-[200px] z-50">
+    <div className="absolute bottom-full right-0 mb-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 overflow-hidden">
       <button
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
-        className="w-full text-left px-3 py-2 text-sm text-gray-300
-                   hover:bg-gray-700 rounded flex items-center gap-2"
-      >
-        <span>{t('web.inputBar.uploadFromDevice')}</span>
-        {uploading && <span className="text-[10px] text-emerald-400">{t('common.uploading')}</span>}
+        className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-gray-700 disabled:opacity-50">
+        {uploading ? t('web.inputBar.uploading') : t('web.inputBar.localUpload')}
       </button>
-      <input ref={fileInputRef} type="file" className="hidden"
-             onChange={handleLocalUpload}
-             accept=".txt,.md,.py,.js,.jsx,.ts,.json,.csv,.html,.css,.yaml,.sql,.pdf,.docx,.png,.jpg,.jpeg,.gif" />
-
       <button
         onClick={() => { onOpenBrowser(); onClose(); }}
-        className="w-full text-left px-3 py-2 text-sm text-gray-300
-                   hover:bg-gray-700 rounded flex items-center gap-2"
-      >
-        <span>{t('web.inputBar.browseServerFiles')}</span>
+        className="w-full px-4 py-2.5 text-left text-sm text-gray-200 hover:bg-gray-700 border-t border-gray-700">
+        {t('web.inputBar.serverFile')}
       </button>
-
-      <div className="px-3 py-1 text-[10px] text-gray-600 border-t border-gray-700 mt-1">
-        {t('web.inputBar.attachLimit')}
-      </div>
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleLocalUpload} />
     </div>
   );
 }
 
-export default function InputBar({ onSend, disabled, placeholder, token,
-                                    contextMode, onModeChange, tokenEstimate }) {
+export default function InputBar({ onSend, disabled, token, placeholder }) {
   const { t } = useI18n();
   const [text, setText] = useState('');
-  const [ragEnabled, setRagEnabled] = useState(true);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showFileBrowser, setShowFileBrowser] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -104,7 +74,6 @@ export default function InputBar({ onSend, disabled, placeholder, token,
     const trimmed = text.trim();
     if (!trimmed || disabled) return;
     onSend(trimmed, {
-      enableRag: ragEnabled,
       attachedFiles: attachedFiles.map(f => f.path),
     });
     setText('');
@@ -144,56 +113,46 @@ export default function InputBar({ onSend, disabled, placeholder, token,
         </div>
       )}
 
-      {/* Context mode + RAG toggle row */}
-      <div className="flex items-center justify-between px-3 py-1 border-b border-gray-800/50">
-        <ContextModeSelector mode={contextMode} onChange={onModeChange}
-                              tokenEstimate={tokenEstimate} />
-        <div className="flex items-center gap-2">
-          <button onClick={() => setRagEnabled(!ragEnabled)}
-            className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
-              ragEnabled ? 'bg-emerald-800 text-emerald-300' : 'bg-gray-800 text-gray-500'
-            }`}>
-            {ragEnabled ? t('web.inputBar.ragOn') : t('web.inputBar.ragOff')}
+      {/* Attach button row */}
+      <div className="flex items-center justify-end px-3 py-2 border-b border-gray-800/50">
+        <div className="relative">
+          <button onClick={() => setShowAttachMenu(!showAttachMenu)}
+            disabled={disabled}
+            className="px-4 py-1.5 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white disabled:opacity-50 transition-colors border border-gray-600">
+            {t('web.inputBar.attachButton')}
           </button>
-          <div className="relative">
-            <button onClick={() => setShowAttachMenu(!showAttachMenu)}
-              disabled={disabled}
-              className="px-2 py-0.5 rounded text-[10px] bg-gray-800 text-gray-400 hover:text-gray-200 disabled:opacity-50">
-              {t('web.inputBar.attachButton')}
-            </button>
-            {showAttachMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
-                <AttachMenu
-                  token={token}
-                  onFileAttached={(f) => setAttachedFiles(prev => [...prev, f])}
-                  onOpenBrowser={() => setShowFileBrowser(true)}
-                  onClose={() => setShowAttachMenu(false)}
-                />
-              </>
-            )}
-          </div>
+          {showAttachMenu && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowAttachMenu(false)} />
+              <AttachMenu
+                token={token}
+                onFileAttached={(f) => setAttachedFiles(prev => [...prev, f])}
+                onOpenBrowser={() => setShowFileBrowser(true)}
+                onClose={() => setShowAttachMenu(false)}
+              />
+            </>
+          )}
         </div>
       </div>
 
       {/* Text input + send button */}
-      <div className="flex items-end gap-2 px-4 py-3">
+      <div className="flex items-end gap-3 px-4 py-3">
         <textarea
           ref={textareaRef}
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || t('web.inputBar.placeholder')}
-          rows={1}
-          className="flex-1 resize-none bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-[200px]"
+          rows={2}
+          className="flex-1 resize-none bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 max-h-[200px]"
           disabled={disabled}
         />
         <button
           onClick={handleSend}
           disabled={disabled || !text.trim()}
-          className="shrink-0 w-12 h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 flex items-center justify-center transition-colors"
+          className="shrink-0 w-14 h-14 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-700 flex items-center justify-center transition-colors"
         >
-          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
           </svg>
         </button>

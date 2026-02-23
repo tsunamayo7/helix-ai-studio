@@ -137,9 +137,62 @@ class SequentialExecutor:
     def __init__(self, ollama_base: str = OLLAMA_API_BASE):
         self.ollama_base = ollama_base
 
+    # v10.0.0: Cloud AI モデル識別パターン
+    CLOUD_AI_MODELS = {
+        "GPT-5.3-Codex (CLI)": "codex",
+        "Claude Sonnet 4.6 (CLI)": "claude-sonnet-4-6",
+        "Claude Opus 4.6 (CLI)": "claude-opus-4-6",
+    }
+
+    def _is_cloud_model(self, model: str) -> bool:
+        """v10.0.0: Cloud AI (CLI) モデルかどうか判定"""
+        return model in self.CLOUD_AI_MODELS
+
+    def _execute_cloud_task(self, task: SequentialTask) -> SequentialResult:
+        """v10.0.0: Cloud AI (CLI) タスクを実行"""
+        start = time.time()
+        model_key = self.CLOUD_AI_MODELS.get(task.model, "")
+
+        try:
+            if model_key == "codex":
+                from .codex_cli_backend import run_codex_cli
+                raw = run_codex_cli(task.prompt, timeout=task.timeout)
+            elif model_key.startswith("claude-"):
+                from .claude_cli_backend import ClaudeCLIBackend
+                from .base import BackendRequest
+                cli = ClaudeCLIBackend(model=model_key, skip_permissions=True)
+                req = BackendRequest(prompt=task.prompt, session_id=f"phase2_{task.category}")
+                resp = cli.send(req)
+                if not resp.success:
+                    raise RuntimeError(resp.response_text)
+                raw = resp.response_text
+            else:
+                raise RuntimeError(f"Unknown cloud model: {task.model}")
+
+            elapsed = time.time() - start
+            filtered = filter_chain_of_thought(raw)
+            logger.info(f"Phase 2 Cloud AI完了: {task.category} ({task.model}) "
+                       f"{elapsed:.1f}秒, {len(filtered)}文字")
+            return SequentialResult(
+                category=task.category, model=task.model, success=True,
+                response=filtered, elapsed=elapsed, order=task.order,
+                original_prompt=task.prompt, expected_output=task.expected_output,
+            )
+        except Exception as e:
+            elapsed = time.time() - start
+            logger.error(f"Phase 2 Cloud AI失敗: {task.category} ({task.model}): {e}")
+            return SequentialResult(
+                category=task.category, model=task.model, success=False,
+                response="", error=str(e), elapsed=elapsed, order=task.order,
+                original_prompt=task.prompt, expected_output=task.expected_output,
+            )
+
     def execute_task(self, task: SequentialTask) -> SequentialResult:
         """
         単一タスクを実行。
+
+        v10.0.0: Cloud AI (CLI) モデルの場合はCLIバックエンド経由で実行。
+        それ以外はOllama APIで実行。
 
         1. モデルのロード状態を確認（必要なら待機）
         2. Ollama /api/generate で実行
@@ -152,6 +205,10 @@ class SequentialExecutor:
         Returns:
             実行結果
         """
+        # v10.0.0: Cloud AI モデルの場合はCLI経由
+        if self._is_cloud_model(task.model):
+            return self._execute_cloud_task(task)
+
         start = time.time()
 
         try:

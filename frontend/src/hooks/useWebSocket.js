@@ -161,7 +161,7 @@ export function useWebSocket(token, endpoint = 'solo') {
     }
   }
 
-  // soloAI用メッセージ送信（v9.2.0: chat_id対応）
+  // cloudAI用メッセージ送信（v9.2.0: chat_id対応）
   const sendMessage = useCallback((prompt, options = {}) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.error('WebSocket not connected');

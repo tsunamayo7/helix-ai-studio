@@ -106,14 +106,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Helix AI Studio Web API",
-    version="9.3.0",
+    version="10.0.0",
     lifespan=lifespan,
 )
 
 # CORS設定
+# v9.9.2: allow_credentials=True と allow_origins=["*"] の組み合わせは
+# ブラウザが拒否するため、明示的なオリジンリストに変更。
+# Tailscale VPN経由のローカル/モバイルアクセスを想定。
+_CORS_ORIGINS = [
+    "http://localhost:8500",
+    "http://127.0.0.1:8500",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tailscale VPN内なので全許可
+    allow_origins=_CORS_ORIGINS,
+    # v10.0.0: Tailscale IP + マシン名ベースアクセスの両方を許可
+    allow_origin_regex=r"http://(100\.\d+\.\d+\.\d+|[a-zA-Z0-9\-]+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -133,13 +144,12 @@ if frontend_dist.exists():
 
 
 # =============================================================================
-# WebSocket エンドポイント (soloAI)
+# WebSocket エンドポイント (cloudAI / 旧soloAI)
 # =============================================================================
 
-@app.websocket("/ws/solo")
-async def websocket_solo(websocket: WebSocket, token: str = Query(...)):
+async def _websocket_cloud_handler(websocket: WebSocket, token: str):
     """
-    soloAI WebSocketエンドポイント。
+    cloudAI WebSocketエンドポイント (v10.1.0: 旧soloAI)。
     接続時にJWT認証を行い、認証成功後にメッセージを受信する。
 
     クライアント → サーバー メッセージ:
@@ -173,7 +183,7 @@ async def websocket_solo(websocket: WebSocket, token: str = Query(...)):
         return
 
     try:
-        await ws_manager.send_status(client_id, "connected", "soloAI WebSocket ready")
+        await ws_manager.send_status(client_id, "connected", "cloudAI WebSocket ready")
 
         while True:
             data = await websocket.receive_json()
@@ -200,6 +210,17 @@ async def websocket_solo(websocket: WebSocket, token: str = Query(...)):
         await ws_manager.disconnect(client_id)
 
 
+@app.websocket("/ws/cloud")
+async def websocket_cloud(websocket: WebSocket, token: str = Query(...)):
+    await _websocket_cloud_handler(websocket, token)
+
+
+@app.websocket("/ws/solo")
+async def websocket_solo_compat(websocket: WebSocket, token: str = Query(...)):
+    """v10.1.0: 後方互換エイリアス（/ws/solo → /ws/cloud と同じハンドラ）"""
+    await _websocket_cloud_handler(websocket, token)
+
+
 # =============================================================================
 # WebSocket エンドポイント (mixAI)
 # =============================================================================
@@ -224,7 +245,7 @@ async def websocket_mix(websocket: WebSocket, token: str = Query(...)):
       {"type": "streaming", "chunk": "...", "done": true}
       {"type": "error", "error": "..."}
     """
-    # JWT認証（soloAIと同じ）
+    # JWT認証（cloudAIと同じ）
     client_ip = websocket.client.host
     if not auth_manager.check_ip(client_ip):
         await websocket.close(code=4003, reason="IP not allowed")
@@ -297,7 +318,7 @@ if frontend_dist.exists():
 
 async def _handle_solo_execute(client_id: str, data: dict):
     """
-    soloAI実行ハンドラ (v9.2.0: ChatStore統合)。
+    cloudAI実行ハンドラ (v10.1.0: 旧soloAI, v9.2.0: ChatStore統合)。
     Claude CLIをsubprocessで実行し、結果をWebSocketで送信。
     """
     from ..utils.subprocess_utils import run_hidden
@@ -319,11 +340,11 @@ async def _handle_solo_execute(client_id: str, data: dict):
         return
 
     # v9.5.0: Web実行ロック設定
-    _set_execution_lock("soloAI", client_info, prompt)
+    _set_execution_lock("cloudAI", client_info, prompt)
 
     # v9.2.0: チャットIDがない場合は新規作成
     if not chat_id:
-        chat = chat_store.create_chat(tab="soloAI")
+        chat = chat_store.create_chat(tab="cloudAI")
         chat_id = chat["id"]
         await ws_manager.send_to(client_id, {
             "type": "chat_created",
@@ -358,7 +379,7 @@ async def _handle_solo_execute(client_id: str, data: dict):
     # RAGコンテキスト注入（フルモード以外）
     if enable_rag and context_result["mode"] != "full":
         try:
-            rag_context = await rag_bridge.build_context(prompt, tab="soloAI")
+            rag_context = await rag_bridge.build_context(prompt, tab="cloudAI")
             if rag_context:
                 full_prompt = f"{rag_context}\n\n{full_prompt}"
                 await ws_manager.send_to(client_id, {
@@ -375,7 +396,7 @@ async def _handle_solo_execute(client_id: str, data: dict):
         full_prompt += f"\n\n[添付ファイル]\n" + "\n".join(file_lines)
 
     # ステータス: 実行中
-    ws_manager.set_active_task(client_id, "soloAI")
+    ws_manager.set_active_task(client_id, "cloudAI")
     await ws_manager.send_status(client_id, "executing", f"Claude ({model_id}) 実行中...")
 
     # Claude CLI構築
@@ -429,7 +450,7 @@ async def _handle_solo_execute(client_id: str, data: dict):
             asyncio.ensure_future(_save_web_conversation(
                 [{"role": "user", "content": prompt},
                  {"role": "assistant", "content": response_text}],
-                tab="soloAI",
+                tab="cloudAI",
             ))
         else:
             error_msg = f"Claude CLI error (code {result.returncode}): {stderr[:500]}"

@@ -106,15 +106,8 @@ class ClaudeCLIBackend(LLMBackend):
     v3.5.0: --dangerously-skip-permissions フラグ対応（権限確認スキップ）
     """
 
-    # 思考レベルに応じたタイムアウト設定（秒）
-    TIMEOUT_SETTINGS = {
-        'none': 20 * 60,          # 20分 - 通常モード
-        'light': 30 * 60,         # 30分 - じっくり (think)
-        'medium': 50 * 60,        # 50分 - 深く (think hard)
-        'medium_opus': 60 * 60,   # 60分 - 分析 (Opus計画)
-        'deep': 100 * 60,         # 100分 - 最大 (ultrathink + Opus)
-    }
-    DEFAULT_TIMEOUT = 60 * 60  # 60分（デフォルト）
+    # v9.8.0: Simplified timeout (effort doesn't affect timeout)
+    DEFAULT_TIMEOUT_SEC = 1200  # 20 minutes default
 
     # v7.1.0: モデルIDマッピング（UIテキスト → CLI用モデルID）
     MODEL_MAP = {
@@ -126,6 +119,10 @@ class ClaudeCLIBackend(LLMBackend):
         "Claude Opus 4.5 (最高性能)": "claude-opus-4-5-20250929",
         "Claude Sonnet 4.5 (推奨)": "claude-sonnet-4-5-20250929",
         "Claude Haiku 4.5 (高速)": "claude-sonnet-4-5-20250929",
+        # v9.8.0: Sonnet 4.6 追加
+        "Claude Sonnet 4.6 (高速・高性能)": "claude-sonnet-4-6",
+        "claude-sonnet-4-6": "claude-sonnet-4-6",
+        "sonnet-4-6": "claude-sonnet-4-6",
         # 短縮形もサポート
         "opus-4-6": "claude-opus-4-6",
         "opus-4-5": "claude-opus-4-5-20250929",
@@ -136,23 +133,24 @@ class ClaudeCLIBackend(LLMBackend):
         "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
     }
 
-    def __init__(self, working_dir: str = None, thinking_level: str = "none", skip_permissions: bool = True, model: str = None):
+    def __init__(self, working_dir: str = None, effort_level: str = "default", skip_permissions: bool = True, model: str = None):
         """
         Args:
             working_dir: 作業ディレクトリ
-            thinking_level: 思考レベル (none, light, medium, medium_opus, deep)
+            effort_level: エフォートレベル (low, default, high) - v9.8.0
             skip_permissions: 権限確認をスキップするか (v3.5.0)
             model: 使用するモデル名 (v3.9.4: モデル選択対応)
         """
         super().__init__("claude-cli")
         self._working_dir = working_dir or os.getcwd()
-        self._thinking_level = thinking_level
+        self._effort_level = effort_level
         self._skip_permissions = skip_permissions  # v3.5.0: 権限スキップフラグ
         self._model = model  # v3.9.4: モデル選択対応
         self._current_process: Optional[subprocess.Popen] = None
         self._stop_requested = False
         self._process_lock = threading.Lock()
         self._streaming_callback: Optional[Callable[[str], None]] = None
+        self._monitor_callback: Optional[Callable[[str], None]] = None  # v10.1.0
 
         # CLI利用可能チェック
         self._cli_available, self._cli_message = check_claude_cli_available()
@@ -166,12 +164,12 @@ class ClaudeCLIBackend(LLMBackend):
         self._working_dir = value
 
     @property
-    def thinking_level(self) -> str:
-        return self._thinking_level
+    def effort_level(self) -> str:
+        return self._effort_level
 
-    @thinking_level.setter
-    def thinking_level(self, value: str):
-        self._thinking_level = value
+    @effort_level.setter
+    def effort_level(self, value: str):
+        self._effort_level = value
 
     @property
     def skip_permissions(self) -> bool:
@@ -194,10 +192,20 @@ class ClaudeCLIBackend(LLMBackend):
         self._model = value
 
     def _get_model_id(self, model_text: str = None) -> Optional[str]:
-        """v7.1.0: UIテキストまたはmodel_idからCLI用モデルIDを取得"""
+        """v7.1.0: UIテキストまたはmodel_idからCLI用モデルIDを取得
+
+        v9.8.0: Sonnet 4.6 fuzzy matching, [1m] suffix stripping
+        """
         text = model_text or self._model
         if not text:
             return None
+
+        # v9.8.0: [1m] suffix stripping (1M context variant)
+        if "[1m]" in text.lower():
+            stripped = text.lower().replace("[1m]", "").strip()
+            logger.warning(f"[ClaudeCLIBackend] Stripping [1m] suffix from model: {text} -> {stripped}")
+            text = stripped
+
         # マッピングを確認（完全一致）
         if text in self.MODEL_MAP:
             return self.MODEL_MAP[text]
@@ -206,7 +214,13 @@ class ClaudeCLIBackend(LLMBackend):
             return text
         # 部分一致でチェック
         text_lower = text.lower()
-        if "4.6" in text_lower or "4-6" in text_lower:
+        if ("4.6" in text_lower or "4-6" in text_lower) and "sonnet" in text_lower:
+            # v9.8.0: Sonnet 4.6 matching (check before generic 4.6 which defaults to opus)
+            return self.MODEL_MAP["sonnet-4-6"]
+        elif ("4.6" in text_lower or "4-6" in text_lower) and "opus" in text_lower:
+            return self.MODEL_MAP["opus-4-6"]
+        elif "4.6" in text_lower or "4-6" in text_lower:
+            # Default 4.6 to opus (backward compat)
             return self.MODEL_MAP["opus-4-6"]
         elif "opus" in text_lower:
             return self.MODEL_MAP["opus-4-5"]
@@ -218,6 +232,10 @@ class ClaudeCLIBackend(LLMBackend):
         """ストリーミングコールバックを設定"""
         self._streaming_callback = callback
 
+    def set_monitor_callback(self, callback: Callable[[str], None]):
+        """v10.1.0: モニターコールバックを設定"""
+        self._monitor_callback = callback
+
     def is_available(self) -> bool:
         """CLIが利用可能かどうか"""
         return self._cli_available
@@ -227,18 +245,31 @@ class ClaudeCLIBackend(LLMBackend):
         return self._cli_message
 
     def _get_timeout(self) -> int:
-        """思考レベルに応じたタイムアウト値を取得（秒）"""
-        return self.TIMEOUT_SETTINGS.get(self._thinking_level, self.DEFAULT_TIMEOUT)
+        """v9.8.0: タイムアウト値を取得（秒）- エフォートレベルに依存しない"""
+        return self.DEFAULT_TIMEOUT_SEC
 
-    def _build_command(self, extra_options: List[str] = None, use_continue: bool = False) -> List[str]:
+    def _build_cli_env(self) -> dict:
+        """Build environment dict for CLI subprocess with effort level.
+
+        v9.8.0: Injects CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 adaptive thinking.
+        """
+        env = os.environ.copy()
+        if self._effort_level and self._effort_level != "default":
+            env["CLAUDE_CODE_EFFORT_LEVEL"] = self._effort_level
+        return env
+
+    def _build_command(self, extra_options: List[str] = None, use_continue: bool = False,
+                       resume_session_id: str = None) -> List[str]:
         """コマンドを構築
 
         Args:
             extra_options: 追加オプション
             use_continue: --continue フラグを使用するか（会話継続時）
+            resume_session_id: v11.0.0: --resume フラグ用セッションID
 
         v3.5.0: --dangerously-skip-permissions フラグ対応
         v3.9.4: --model フラグ対応（モデル選択）
+        v11.0.0: --resume フラグ対応（セッション復帰）
         """
         claude_cmd = find_claude_command()
         cmd = [claude_cmd, "-p"]  # Print mode (non-interactive)
@@ -254,17 +285,16 @@ class ClaudeCLIBackend(LLMBackend):
         if self._skip_permissions:
             cmd.append("--dangerously-skip-permissions")
 
-        # v3.4.0: 会話継続フラグ
-        if use_continue:
+        # v11.0.0: セッション復帰フラグ（--continue より優先）
+        if resume_session_id:
+            cmd.extend(["--resume", resume_session_id])
+            logger.info(f"[ClaudeCLIBackend] Resuming session: {resume_session_id[:8]}...")
+        elif use_continue:
+            # v3.4.0: 会話継続フラグ
             cmd.append("--continue")
 
-        # 思考レベルに応じたオプション追加
-        if self._thinking_level == "light":
-            cmd.extend(["--think"])
-        elif self._thinking_level == "medium":
-            cmd.extend(["--think", "hard"])
-        elif self._thinking_level in ["medium_opus", "deep"]:
-            cmd.extend(["--think", "ultrathink"])
+        # v9.8.0: --think flags removed. Effort level is now handled via
+        # CLAUDE_CODE_EFFORT_LEVEL environment variable in _build_cli_env()
 
         # 追加オプション
         if extra_options:
@@ -298,7 +328,9 @@ class ClaudeCLIBackend(LLMBackend):
             # コマンド構築
             extra_options = request.context.get("extra_options", []) if request.context else []
             use_continue = request.context.get("use_continue", False) if request.context else False
-            cmd = self._build_command(extra_options, use_continue=use_continue)
+            resume_session_id = request.context.get("resume_session_id") if request.context else None
+            cmd = self._build_command(extra_options, use_continue=use_continue,
+                                      resume_session_id=resume_session_id)
 
             # プロンプト構築
             full_prompt = self._build_prompt(request)
@@ -307,7 +339,7 @@ class ClaudeCLIBackend(LLMBackend):
             timeout = self._get_timeout()
 
             logger.info(f"[ClaudeCLIBackend] Starting CLI: session={request.session_id}, "
-                       f"thinking={self._thinking_level}, timeout={timeout // 60}min")
+                       f"effort={self._effort_level}, timeout={timeout // 60}min")
 
             # プロセス実行
             with self._process_lock:
@@ -321,6 +353,7 @@ class ClaudeCLIBackend(LLMBackend):
                     text=True,
                     encoding='utf-8',
                     errors='replace',
+                    env=self._build_cli_env(),
                 )
 
             # 出力収集用リスト
@@ -337,6 +370,9 @@ class ClaudeCLIBackend(LLMBackend):
                             # ストリーミングコールバック
                             if self._streaming_callback:
                                 self._streaming_callback(line)
+                            # v10.1.0: モニターコールバック
+                            if self._monitor_callback:
+                                self._monitor_callback(line)
                 except Exception as e:
                     logger.error(f"[ClaudeCLIBackend] stdout reader error: {e}")
 
@@ -395,6 +431,10 @@ class ClaudeCLIBackend(LLMBackend):
                 time.sleep(poll_interval)
                 elapsed += poll_interval
 
+                # v10.1.0: 10秒ごとのハートビート
+                if self._monitor_callback and int(elapsed * 10) % 100 == 0 and elapsed >= 10:
+                    self._monitor_callback("__heartbeat__")
+
             # リーダースレッド終了待機
             stdout_thread.join(timeout=1.0)
             stderr_thread.join(timeout=1.0)
@@ -449,18 +489,49 @@ class ClaudeCLIBackend(LLMBackend):
             logger.info(f"[ClaudeCLIBackend] Completed: session={request.session_id}, "
                        f"duration={duration_ms:.2f}ms, output_len={len(stdout)}")
 
+            # v11.0.0: Try to extract session ID from stderr for --resume support
+            captured_session_id = None
+            try:
+                import re
+                for line in stderr_data:
+                    # Claude CLI outputs session info in stderr
+                    m = re.search(r'session[_\s]*(?:id)?[:\s]+([a-f0-9-]{36})', line, re.IGNORECASE)
+                    if m:
+                        captured_session_id = m.group(1)
+                        break
+                    # Also check for conversation ID pattern
+                    m2 = re.search(r'conversation[_\s]*(?:id)?[:\s]+([a-f0-9-]{36})', line, re.IGNORECASE)
+                    if m2:
+                        captured_session_id = m2.group(1)
+                        break
+            except Exception:
+                pass
+
+            # v10.0.0: Discord通知
+            try:
+                from ..utils.discord_notifier import notify_discord
+                notify_discord("cloudAI", "completed",
+                               f"Claude応答完了 ({self._model or 'default'})",
+                               elapsed=duration_ms / 1000)
+            except Exception:
+                pass
+
+            response_metadata = {
+                "backend": self.name,
+                "effort_level": self._effort_level,
+                "working_dir": self._working_dir,
+                "note": "Claude Max/Proプラン使用（Extra Usage有効時は超過分のみ従量課金）"
+            }
+            if captured_session_id:
+                response_metadata["session_id"] = captured_session_id
+
             return BackendResponse(
                 success=True,
                 response_text=stdout,
                 duration_ms=duration_ms,
                 tokens_used=self._estimate_tokens(full_prompt, stdout),
                 cost_est=0.0,  # Max/Proプランなのでコスト0（Extra Usageは別途課金）
-                metadata={
-                    "backend": self.name,
-                    "thinking_level": self._thinking_level,
-                    "working_dir": self._working_dir,
-                    "note": "Claude Max/Proプラン使用（Extra Usage有効時は超過分のみ従量課金）"
-                }
+                metadata=response_metadata
             )
 
         except Exception as e:

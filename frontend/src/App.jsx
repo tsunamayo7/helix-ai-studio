@@ -5,14 +5,13 @@ import InputBar from './components/InputBar';
 import StatusIndicator from './components/StatusIndicator';
 import TabBar from './components/TabBar';
 import MixAIView from './components/MixAIView';
-import SettingsView from './components/SettingsView';
 import FileManagerView from './components/FileManagerView';
 import ChatListPanel from './components/ChatListPanel';
 import { useAuth } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useI18n } from './i18n';
 
-// v9.5.0: Pre-login chat viewing
+// v11.0.0: Pre-login chat viewing
 function PreLoginView({ onLogin }) {
   const { t, lang } = useI18n();
   const [recentChats, setRecentChats] = useState([]);
@@ -50,7 +49,8 @@ function PreLoginView({ onLogin }) {
 
   function tabBadge(tab) {
     if (tab === 'mixAI') return { text: 'mixAI', color: 'bg-purple-900/50 text-purple-300' };
-    return { text: 'soloAI', color: 'bg-cyan-900/50 text-cyan-300' };
+    if (tab === 'localAI') return { text: 'localAI', color: 'bg-blue-900/50 text-blue-300' };
+    return { text: 'cloudAI', color: 'bg-cyan-900/50 text-cyan-300' };
   }
 
   return (
@@ -58,7 +58,7 @@ function PreLoginView({ onLogin }) {
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-emerald-400">Helix AI Studio</h1>
-          <p className="text-[10px] text-gray-600">v9.6.0 Global Ready</p>
+          <p className="text-[10px] text-gray-600">v11.0.0 Smart History</p>
         </div>
         <button
           onClick={onLogin}
@@ -71,24 +71,18 @@ function PreLoginView({ onLogin }) {
 
       <div className="flex-1 overflow-auto p-4">
         <h2 className="text-sm font-medium text-gray-400 mb-3">{t('web.preLogin.recentChats')}</h2>
-
         {loading && (
           <p className="text-gray-600 text-sm text-center py-8">{t('web.preLogin.loading')}</p>
         )}
-
         {!loading && recentChats.length === 0 && (
-          <p className="text-gray-600 text-sm text-center py-8">
-            {t('web.preLogin.noChats')}
-          </p>
+          <p className="text-gray-600 text-sm text-center py-8">{t('web.preLogin.noChats')}</p>
         )}
-
         <div className="space-y-2">
           {recentChats.map(chat => {
             const badge = tabBadge(chat.tab);
             return (
               <div key={chat.id}
-                className="bg-gray-900 rounded-lg border border-gray-800 p-3
-                           hover:border-gray-700 transition-colors">
+                className="bg-gray-900 rounded-lg border border-gray-800 p-3 hover:border-gray-700 transition-colors">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-sm font-medium text-gray-200 truncate flex-1">
                     {chat.title || t('common.untitled')}
@@ -97,36 +91,22 @@ function PreLoginView({ onLogin }) {
                     {badge.text}
                   </span>
                 </div>
-
                 <div className="flex items-center gap-2 text-[10px] text-gray-600 mb-2">
                   <span>{formatDate(chat.updated_at)}</span>
                   <span>&middot;</span>
                   <span>{t('web.preLogin.messagesCount', { count: chat.message_count })}</span>
                 </div>
-
                 {chat.assistant_preview && (
-                  <p className="text-xs text-gray-500 line-clamp-2">
-                    {chat.assistant_preview}...
-                  </p>
+                  <p className="text-xs text-gray-500 line-clamp-2">{chat.assistant_preview}...</p>
                 )}
-
-                <button
-                  onClick={onLogin}
-                  className="mt-2 text-[10px] text-emerald-500 hover:text-emerald-400
-                             transition-colors"
-                >
+                <button onClick={onLogin}
+                  className="mt-2 text-[10px] text-emerald-500 hover:text-emerald-400 transition-colors">
                   {t('web.preLogin.loginToContinue')} &rarr;
                 </button>
               </div>
             );
           })}
         </div>
-
-        {recentChats.length > 0 && (
-          <p className="text-[10px] text-gray-700 text-center mt-4">
-            {t('web.preLogin.showingRecent', { count: recentChats.length })} &middot; {t('web.preLogin.loginRequired')}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -135,14 +115,12 @@ function PreLoginView({ onLogin }) {
 export default function App() {
   const { t, lang, setLang } = useI18n();
   const { token, isAuthenticated, login, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('soloAI');
-  const soloAI = useWebSocket(token, 'solo');
+  const [activeTab, setActiveTab] = useState('cloudAI');
+  const cloudAI = useWebSocket(token, 'cloud');
   const mixAI = useWebSocket(token, 'mix');
 
   const [showChatList, setShowChatList] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [contextMode, setContextMode] = useState('session');
-  const [tokenEstimate, setTokenEstimate] = useState(0);
 
   if (!isAuthenticated) {
     if (showLogin) {
@@ -151,37 +129,19 @@ export default function App() {
     return <PreLoginView onLogin={() => setShowLogin(true)} />;
   }
 
-  const current = activeTab === 'soloAI' ? soloAI : mixAI;
+  const current = activeTab === 'cloudAI' ? cloudAI : mixAI;
 
   function handleSelectChat(chat) {
-    const ws = activeTab === 'soloAI' ? soloAI : mixAI;
+    const ws = activeTab === 'cloudAI' ? cloudAI : mixAI;
     ws.loadChat(chat.id);
-    setContextMode(chat.context_mode || 'session');
-    setTokenEstimate(chat.total_tokens_estimated || 0);
   }
 
   function handleNewChat(chat) {
-    const ws = activeTab === 'soloAI' ? soloAI : mixAI;
+    const ws = activeTab === 'cloudAI' ? cloudAI : mixAI;
     if (chat) {
       ws.loadChat(chat.id);
-      setContextMode(chat.context_mode || 'session');
     } else {
       ws.loadChat(null);
-    }
-    setTokenEstimate(0);
-  }
-
-  async function handleModeChange(mode) {
-    setContextMode(mode);
-    const chatId = current.activeChatId;
-    if (chatId) {
-      try {
-        await fetch(`/api/chats/${chatId}/mode`, {
-          method: 'PUT',
-          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode }),
-        });
-      } catch (e) { console.error(e); }
     }
   }
 
@@ -198,22 +158,12 @@ export default function App() {
           <span className="text-lg font-semibold text-gray-100">Helix AI Studio</span>
         </div>
         <div className="flex items-center gap-2">
-          {/* v9.6.0: EN/JP toggle */}
           <button
             onClick={() => setLang(lang === 'ja' ? 'en' : 'ja')}
             className="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
           >
             {lang === 'ja' ? 'EN' : 'JP'}
           </button>
-          {current.activeChatId && tokenEstimate > 0 && (
-            <span className={`text-[10px] px-2 py-0.5 rounded ${
-              tokenEstimate > 50000 ? 'bg-red-900/50 text-red-400' :
-              tokenEstimate > 20000 ? 'bg-amber-900/50 text-amber-400' :
-              'bg-gray-800 text-gray-500'
-            }`}>
-              ~{(tokenEstimate / 1000).toFixed(1)}K
-            </span>
-          )}
           <StatusIndicator status={current.status} />
         </div>
       </header>
@@ -231,31 +181,31 @@ export default function App() {
         />
       )}
 
-      {activeTab === 'settings' ? (
-        <SettingsView token={token} />
-      ) : activeTab === 'files' ? (
+      {activeTab === 'files' ? (
         <FileManagerView token={token} />
-      ) : activeTab === 'soloAI' ? (
+      ) : activeTab === 'cloudAI' ? (
         <>
-          <ChatView messages={soloAI.messages} isExecuting={soloAI.isExecuting} />
+          <ChatView messages={cloudAI.messages} isExecuting={cloudAI.isExecuting} />
           <InputBar
-            onSend={soloAI.sendMessage}
-            disabled={soloAI.isExecuting}
+            onSend={cloudAI.sendMessage}
+            disabled={cloudAI.isExecuting}
             token={token}
-            contextMode={contextMode}
-            onModeChange={handleModeChange}
-            tokenEstimate={tokenEstimate}
           />
         </>
-      ) : (
+      ) : activeTab === 'mixAI' ? (
         <MixAIView
           mixAI={mixAI}
           token={token}
-          contextMode={contextMode}
-          onModeChange={handleModeChange}
-          tokenEstimate={tokenEstimate}
         />
-      )}
+      ) : activeTab === 'localAI' ? (
+        <div className="flex-1 flex items-center justify-center text-gray-500">
+          <div className="text-center">
+            <p className="text-4xl mb-4">🖥️</p>
+            <p className="text-lg font-medium">{t('tabs.localAI')}</p>
+            <p className="text-sm mt-2 text-gray-600">{t('web.localAI.comingSoon') || 'Coming soon — use desktop app for localAI'}</p>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

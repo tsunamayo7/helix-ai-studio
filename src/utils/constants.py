@@ -7,11 +7,12 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "9.6.0"
-APP_CODENAME = "Global Ready"
+APP_VERSION = "11.0.0"
+APP_CODENAME = "Smart History"
 APP_DESCRIPTION = (
-    "Helix AI Studio v9.6.0 'Global Ready' - "
-    "Multi-language UI (Japanese/English) with shared i18n for Desktop & Web"
+    "Helix AI Studio v11.0.0 'Smart History' - "
+    "UI簡素化, cloudAI継続送信(--resume), Historyタブ新設, "
+    "BIBLEクロスタブ統合, MCP分散配置, RAGタブチャットUI化"
 )
 
 # v8.5.0: 情報収集フォルダ
@@ -44,28 +45,29 @@ MID_SESSION_TRIGGER_COUNT = 5    # 中間要約トリガーのメッセージ間
 MID_SESSION_CONTEXT_CHARS = 600  # 中間要約コンテキストの最大文字数
 
 # =============================================================================
-# Claude 思考モード (Thinking Mode)
+# Adaptive Thinking - Effort Level (v9.8.0: replaces ThinkingMode)
 # =============================================================================
-class ThinkingMode:
-    """Claudeの思考モード定数"""
-    OFF = "OFF"           # 通常の応答モード (デフォルト)
-    STANDARD = "Standard"  # 回答前に思考プロセスを実行
-    DEEP = "Deep"         # 詳細な思考プロセス (タイムアウト延長)
+class EffortLevel:
+    """
+    Claude Code CLI の effort 設定（Opus 4.6 専用）
+    環境変数 CLAUDE_CODE_EFFORT_LEVEL で反映する。
+    """
+    DEFAULT = "default"   # 未使用（env設定なし = CLI既定動作）
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
     @classmethod
-    def all_modes(cls) -> list:
-        """全ての思考モードをリストで返す"""
-        return [cls.OFF, cls.STANDARD, cls.DEEP]
+    def all_levels(cls) -> list:
+        """全てのeffortレベルをリストで返す"""
+        return [cls.DEFAULT, cls.LOW, cls.MEDIUM, cls.HIGH]
 
     @classmethod
-    def get_timeout_multiplier(cls, mode: str) -> float:
-        """思考モードに応じたタイムアウト倍率を返す"""
-        multipliers = {
-            cls.OFF: 1.0,
-            cls.STANDARD: 1.5,
-            cls.DEEP: 3.0,
-        }
-        return multipliers.get(mode, 1.0)
+    def is_opus_46(cls, model_id: str) -> bool:
+        """Opus 4.6系モデルかどうか判定（effortが有効なモデル）"""
+        if not model_id:
+            return False
+        return model_id.startswith("claude-opus-4-6")
 
 # =============================================================================
 # AIモデル設定
@@ -73,6 +75,7 @@ class ThinkingMode:
 # v7.1.0: Claudeモデル定義（動的選択対応）
 CLAUDE_MODELS = [
     {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6 (最高知能)", "description": "最も高度で知的なモデル。複雑な推論・計画立案に最適", "tier": "opus", "is_default": True, "i18n_display": "desktop.mixAI.claudeModelOpus46", "i18n_desc": "desktop.mixAI.claudeModelOpus46Desc"},
+    {"id": "claude-sonnet-4-6", "display_name": "Claude Sonnet 4.6 (高速・高性能)", "description": "高速かつ高性能。Opus 4.6に次ぐ推論力とコスト効率", "tier": "sonnet", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelSonnet46", "i18n_desc": "desktop.mixAI.claudeModelSonnet46Desc"},
     {"id": "claude-opus-4-5-20250929", "display_name": "Claude Opus 4.5 (高品質)", "description": "高品質でバランスの取れた応答。安定性重視", "tier": "opus", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelOpus45", "i18n_desc": "desktop.mixAI.claudeModelOpus45Desc"},
     {"id": "claude-sonnet-4-5-20250929", "display_name": "Claude Sonnet 4.5 (高速)", "description": "高速応答とコスト効率。日常タスク向き", "tier": "sonnet", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelSonnet45", "i18n_desc": "desktop.mixAI.claudeModelSonnet45Desc"},
 ]
@@ -98,6 +101,7 @@ def get_default_claude_model() -> dict:
 class ClaudeModels:
     """Claudeモデル定数（後方互換性のため維持）"""
     SONNET_45 = "Claude Sonnet 4.5 (高速)"
+    SONNET_46 = "Claude Sonnet 4.6 (高速・高性能)"
     OPUS_45 = "Claude Opus 4.5 (高品質)"
     OPUS_46 = "Claude Opus 4.6 (最高知能)"
 

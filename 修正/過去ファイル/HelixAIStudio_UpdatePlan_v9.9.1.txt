@@ -1,0 +1,84 @@
+HelixAIStudioのアップデートを依頼します。"C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI"を適切に更新してください。なお、この更新に伴い、"C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio\GitHub"と"C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio\BIBLE"内ファイルを確認しながら更新分を新規作成してください。（BIBLE不足セクションのないよう適切な更新を行ってください）また、最新バージョンの状態に合わせて"C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio\helix_source_bundle.txt"を更新してください。必要に応じて現在のUI画像（"C:\Users\tomot\Desktop\開発環境\生成AIアプリ\Helix AI Studio\修正\最新UI画像(参考スクリーンショット)"）を確認しながら更新してください。なお、UI上のバージョン情報が9.8.0から更新されていない点も最新状態に合わせ修正してください。
+
+目的:
+HelixAIStudio v9.9.0 を基点に v9.9.1 として以下を実装する。既存実装を最大限再利用し、差分を小さく保つ（読まないで済む巨大ファイルは読まない / rgでピンポイントに当てる / 1変更=1コミットの粒度）。
+
+= ゴール（必須）=
+(1) HelixMemoryManager 強化（Claude-Mem思想の流用）
+- 「常駐Embeddingで常に観測→永続化」を既存の HelixMemoryManager に統合する。
+- Claude-Memの設計思想を流用（直接呼び出しは不要）:
+  A) 観測モデル化: チャット入出力ごとに “保存候補メモリ” を抽出
+  B) 段階的注入: プロンプトへ注入する記憶を段階化（短い要約→必要時に詳細）
+  C) 保存除外: <private>...</private> 相当の除外指定（ユーザーが明示できる）
+  D) ビューア: 記憶一覧の閲覧・検索・ピン留め・削除・無効化
+- 既存の qwen3-embedding 等の常駐Embedding設計は維持し、その埋め込みを観測・保存に利用する（日本語に強いEmbeddingを前提にする）。
+- 保存除外仕様:
+  - UI/入力で「private」指定できるようにする（例: <private>...</private>、または [[private]]...[[/private]]）
+  - 除外指定部分は embedding/保存の対象から除外（ただし会話そのものは履歴として保持してもよい）
+- 段階的注入仕様:
+  - Phase1/3 へ注入するのは “短いサマリ + 上位N件（例 3〜7）” をデフォルト
+  - 詳細注入は「必要時」または「スイッチON時」のみ（設定で注入量を調整）
+- ビューア仕様:
+  - 記憶(episodic/semantic/procedural/doc)を一覧表示し、編集/削除/ピン留め/無効化ができる
+  - “この記憶はなぜ保存されたか” を表示（観測ログ/根拠の短文）
+
+(2) GPT-5.3-Codex(Codex CLI) を soloAI に追加
+- 既に mixAI で Codex CLI を使っているコード経路があるなら、それを再利用して soloAI でも実行できるようにする。
+- soloAI のモデル選択肢に「GPT-5.3-Codex (CLI)」を追加し、実行backendを紐付ける。
+- Codex CLI が未ログインの場合のガイド文をUIに出す（例: codex logout → codex でサブスクログインへ切替など）。
+
+(3) mixAI に「P1=Opus4.6 / P3=GPT-5.3-Codex」プリセットを追加
+- mixAI設定のプリセット選択肢として追加する（選ぶと P1/P3 のエンジン値が自動反映）。
+- 既存のプリセット実装（あるなら）に追記し、なければ最小実装で追加（設定値の上書きのみ）。
+
+(4) soloAI の検索/ブラウズ方式を “選択式” にする
+- 選択肢:
+  A) Claude Code の WebSearch/WebFetch を使う（Claudeモデル時）
+  B) Codex 側の “cached search” 相当（可能なら）を使う（Codex時）
+  C) Pythonライブラリ「Browser Use」を使う（トークン節約目的の事前収集 or 自動操作）
+- 実装方針:
+  - 「モデルが自律的にツールを使う」方式は暴走しやすいので、まずは Helix 側が “事前に収集→要約→LLMへ渡す” のパイプラインを優先実装。
+  - Claude(WebSearch/WebFetch) は “許可された時だけ” 使うように指示注入。permission/allowed-tools も確認。
+  - Browser Use は Python 側で実行し、取得結果を markdown で返して LLM に渡す（キャッシュも保存）。
+  - Codexのcached searchがCLIで確実でない場合は、Helix側で「検索結果キャッシュ（URL→本文/要約/取得日時）」を実装し、同一クエリは再利用する。
+
+= 不具合修正（必須）=
+(5) mixAI-設定-モデル設定の「設定の保存」が機能していない問題を修正
+- 保存ボタン押下 → 設定値が config に書き込まれ、再起動後も復元されること。
+- 同種の“保存できてない”箇所がないか、全タブで保存経路を点検（特に mixAI/soloAI/一般設定）。
+
+(6) 保存内容を表示するポップアップ（差分ダイアログ）の反映不具合を修正
+- 一般設定の常駐モデル変更が反映されない
+- mixAI設定のモデル変更が反映されない
+→ 原因が「スナップショット更新漏れ」「参照キー不一致」「UI→config反映順」なら修正する。
+→ 保存成功後にスナップショットを更新し、次回以降の差分比較に正しい値が出るようにする。
+
+(7) 一般設定-常駐モデル設定のスクロール誤操作を防止
+- 画面スクロールと ComboBox の wheelEvent が競合し、値が勝手に変わる問題を解消。
+- NoScrollComboBox（または wheelEvent 無効化）を適用し、フォーカス時のみ変更可などにする。
+- 同様の誤操作が起きるUIがないか横展開チェック。
+
+(8) 「設定を保存」ボタンのUIを統一
+- 一般設定の「保存しました」UIが良いので、他の全保存ボタンも同じ挙動に統一。
+- 共通ヘルパー（例: set_saved_state(button)）を作って各所で再利用。
+
+= 追加: Opus4.6 effort（Adaptive thinking）=
+(9) 旧「思考モード」は廃止し、Opus 4.6 選択時のみ effort プルダウンを表示
+- 選択肢: 未使用（通常）/ low / medium / high
+- 実装: CLAUDE_CODE_EFFORT_LEVEL を subprocess env に注入
+- Opus 4.6 以外は表示しない or disabled（誤解を防ぐ）
+- mixAI と soloAI の両方に適用
+
+= 実装手順（省トークン運用）=
+1) rg で対象箇所を特定（保存/差分/NoScroll/MemoryManager/Codex/BrowserUse）
+2) バグ修正（保存/差分/スクロール/UI統一）を先に通す
+3) その後に機能追加（Codex追加/プリセット/検索方式/Memory強化）
+4) 最後に README/BIBLE/バンドル更新
+
+= 完了条件（手動テスト）=
+- mixAI/soloAI/一般設定：保存→再起動→復元 OK
+- 差分ポップアップ：変更内容が正しく表示 OK
+- 常駐モデル UI：スクロールで値が変わらない OK
+- soloAI：GPT-5.3-Codex を選んで実行できる（未ログイン時は案内が出る）
+- mixAI：プリセット「P1=Opus4.6 / P3=Codex」で値が自動反映
+- Memory：private除外、段階注入、ビューア表示が動作

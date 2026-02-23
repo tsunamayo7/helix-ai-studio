@@ -4,9 +4,13 @@ Helix AI Studio - Main Window
 """
 
 import sys
+import logging
+
+logger = logging.getLogger(__name__)
+
 from PyQt6.QtWidgets import (
-    QMainWindow, QTabWidget, QWidget, QVBoxLayout,
-    QStatusBar, QToolBar, QLabel, QApplication
+    QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout,
+    QStatusBar, QToolBar, QLabel, QApplication, QPushButton,
 )
 from PyQt6.QtCore import Qt, QSize, QSettings, QByteArray, QTimer
 from PyQt6.QtGui import QFont, QIcon, QAction
@@ -21,21 +25,28 @@ from .tabs.helix_orchestrator_tab import HelixOrchestratorTab
 # from .tabs.chat_creation_tab import ChatCreationTab
 # v8.5.0: 情報収集タブ追加
 from .tabs.information_collection_tab import InformationCollectionTab
+# v10.1.0: localAIタブ追加
+from .tabs.local_ai_tab import LocalAITab
+# v11.0.0: Historyタブ追加
+from .tabs.history_tab import HistoryTab
 from .utils.constants import APP_NAME, APP_VERSION
-from .utils.i18n import t
+from .utils.i18n import t, set_language, get_language
+# v11.0.0: ChatHistoryPanel removed (replaced by History tab)
 
 
 class MainWindow(QMainWindow):
     """
     Helix AI Studio メインウィンドウ
 
-    4タブ構成 (v8.5.0):
+    6タブ構成 (v11.0.0):
     1. mixAI - 3Phase実行アーキテクチャ・Claude中心型オーケストレーション
-    2. soloAI - Claude単体チャット (旧Claude Code)
-    3. 情報収集 - ドキュメントRAG自律構築パイプライン
-    4. 一般設定 - アプリ全体の設定
+    2. cloudAI - クラウドAI単体チャット (旧soloAI / Claude Code)
+    3. localAI - ローカルLLMチャット (Ollama直接実行)
+    4. History - 全タブ統合チャット履歴 (JSONL検索・引用)
+    5. RAG - AI知識ベース管理・RAGコンテキスト構築
+    6. 一般設定 - アプリ全体の設定
 
-    v8.5.0変更: 情報収集タブ追加（自律RAG構築）
+    v11.0.0変更: Historyタブ追加 (Tab 3)
     """
 
     VERSION = APP_VERSION
@@ -108,7 +119,7 @@ class MainWindow(QMainWindow):
                 port = config.get("web_server", {}).get("port", 8500)
                 self._web_server_thread = start_server_background(port=port)
 
-                # settings_cortex_tabのUIを更新
+                # settings_cortex_tabのUIを更新（手動起動と同じURL表示に統一）
                 if hasattr(self, 'settings_tab'):
                     tab = self.settings_tab
                     if hasattr(tab, 'web_ui_toggle'):
@@ -116,8 +127,39 @@ class MainWindow(QMainWindow):
                         tab.web_ui_toggle.setText(t('desktop.settings.webStop'))
                         tab.web_ui_status_label.setText(t('desktop.settings.webRunning', port=port))
                         tab._web_server_thread = self._web_server_thread
-        except Exception:
-            pass  # 設定ファイルなし・起動失敗は黙って無視
+                    # v11.0.0: Tailscale IP + マシン名URL表示
+                    if hasattr(tab, 'web_ui_url_label'):
+                        ip = "localhost"
+                        try:
+                            import subprocess as _sp
+                            for cmd in [
+                                [r"C:\Program Files\Tailscale\tailscale.exe", "ip", "-4"],
+                                ["tailscale", "ip", "-4"],
+                            ]:
+                                try:
+                                    result = _sp.run(cmd, capture_output=True, text=True, timeout=5)
+                                    if result.returncode == 0 and result.stdout.strip():
+                                        ip = result.stdout.strip()
+                                        break
+                                except Exception:
+                                    continue
+                        except Exception:
+                            pass
+                        import socket
+                        machine = ""
+                        try:
+                            machine = socket.gethostname().lower()
+                        except Exception:
+                            pass
+                        url_ip = f"http://{ip}:{port}"
+                        if machine and ip != "localhost":
+                            url_name = f"http://{machine}:{port}"
+                            tab.web_ui_url_label.setText(f"📱 {url_ip}\n📱 {url_name}")
+                        else:
+                            tab.web_ui_url_label.setText(f"📱 {url_ip}")
+                logger.info(f"[MainWindow] Web UI auto-started on port {port}")
+        except Exception as e:
+            logger.warning(f"Web UI auto-start failed: {e}")
 
     def _init_ui(self):
         """UIを初期化"""
@@ -141,29 +183,58 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
 
         # タブを追加（workflow_stateを渡す）
-        # v6.0.0: タブ順序を変更: mixAI → soloAI → 一般設定（チャット作成削除）
+        # v11.0.0: タブ順序: mixAI → cloudAI → localAI → History → RAG → 一般設定
 
         # 1. mixAI タブ (3Phase実行アーキテクチャ)
         self.llmmix_tab = HelixOrchestratorTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.llmmix_tab, t('desktop.mainWindow.mixAITab'))
         self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
 
-        # 2. soloAI タブ (Claude単体チャット)
+        # 2. cloudAI タブ (v10.1.0: 旧soloAI → cloudAI改名)
         self.claude_tab = ClaudeTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.claude_tab, t('desktop.mainWindow.soloAITab'))
-        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
+        self.tab_widget.addTab(self.claude_tab, t('desktop.mainWindow.cloudAITab'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.cloudAITip'))
 
-        # 3. 情報収集 タブ (v8.5.0: 自律RAG構築)
+        # 3. localAI タブ (v10.1.0: 新規追加)
+        self.local_ai_tab = LocalAITab(workflow_state=self.workflow_state, main_window=self)
+        self.tab_widget.addTab(self.local_ai_tab, t('desktop.mainWindow.localAITab'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.localAITip'))
+
+        # 4. History タブ (v11.0.0: 全タブ統合チャット履歴)
+        self.history_tab = HistoryTab()
+        self.history_tab.statusChanged.connect(self._update_status)
+        self.tab_widget.addTab(self.history_tab, t('desktop.mainWindow.historyTab'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
+
+        # 5. RAG タブ (v8.5.0: 自律RAG構築 → v11.0.0: RAGに改名)
         self.info_tab = InformationCollectionTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.infoTab'))
-        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.infoTip'))
+        self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.ragTab'))
+        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
 
-        # 4. 一般設定 タブ (v6.0.0: APIキー設定削除)
+        # 6. 一般設定 タブ (v6.0.0: APIキー設定削除)
         self.settings_tab = SettingsCortexTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.settings_tab, t('desktop.mainWindow.settingsTab'))
-        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.settingsTip'))
+
+        # v10.1.0: 言語切替ボタン（タブバー右端に常時表示）
+        corner_widget = QWidget()
+        corner_layout = QHBoxLayout(corner_widget)
+        corner_layout.setContentsMargins(4, 2, 8, 2)
+        corner_layout.setSpacing(4)
+        self.lang_ja_btn = QPushButton("日本語")
+        self.lang_en_btn = QPushButton("English")
+        self.lang_ja_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lang_en_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.lang_ja_btn.clicked.connect(lambda: self._on_language_changed('ja'))
+        self.lang_en_btn.clicked.connect(lambda: self._on_language_changed('en'))
+        self._update_lang_button_styles(get_language())
+        corner_layout.addWidget(self.lang_ja_btn)
+        corner_layout.addWidget(self.lang_en_btn)
+        self.tab_widget.setCornerWidget(corner_widget, Qt.Corner.TopRightCorner)
 
         layout.addWidget(self.tab_widget)
+
+        # v11.0.0: ChatHistoryPanel removed (replaced by History tab)
 
         # シグナル接続
         self._connect_signals()
@@ -229,12 +300,33 @@ class MainWindow(QMainWindow):
     # v3.9.0: _on_style_applied削除（Gemini Designer削除のため）
 
     def _on_settings_changed(self):
-        """設定変更時"""
+        """設定変更時 - フォントサイズ・テーマを即時反映"""
         self._update_status(t('desktop.mainWindow.settingsSaved'))
+        self._apply_font_and_theme()
 
-        # v3.9.0: Gemini関連削除
+    def _apply_font_and_theme(self):
+        """設定ファイルからフォントサイズ・ダークモードを読み込んでアプリ全体に反映"""
+        import json
+        from pathlib import Path
+        config_path = Path("config/general_settings.json")
+        font_size = 10
+        try:
+            if config_path.exists():
+                data = json.loads(config_path.read_text(encoding='utf-8'))
+                font_size = int(data.get("font_size", 10))
+                font_size = max(8, min(20, font_size))
+        except Exception:
+            pass
 
-        # TODO: スタイルシート再適用などのリアルタイム反映処理
+        # フォントサイズをアプリ全体に反映
+        app = QApplication.instance()
+        if app:
+            font = app.font()
+            font.setPointSize(font_size)
+            app.setFont(font)
+
+        # スタイルシートを再適用（font-size除去済みのため競合なし）
+        self._apply_stylesheet()
 
     def notify_workflow_state_changed(self):
         """
@@ -291,26 +383,61 @@ class MainWindow(QMainWindow):
                 tab_widget.web_lock_overlay.hide_lock()
         self.status_label.setText(t('desktop.mainWindow.ready'))
 
+    # v11.0.0: ChatHistoryPanel handlers removed (replaced by History tab)
+
+    def toggle_chat_history(self, tab: str = None):
+        """v11.0.0: 後方互換スタブ (Historyタブへリダイレクト)"""
+        # Historyタブに切り替え
+        if hasattr(self, 'history_tab'):
+            self.tab_widget.setCurrentWidget(self.history_tab)
+
     def retranslateUi(self):
         """v9.6.0: 言語切替時にUIテキストを更新"""
-        # タブ名
+        # タブ名 (v11.0.0: History追加、インデックス変更)
         self.tab_widget.setTabText(0, t('desktop.mainWindow.mixAITab'))
-        self.tab_widget.setTabText(1, t('desktop.mainWindow.soloAITab'))
-        self.tab_widget.setTabText(2, t('desktop.mainWindow.infoTab'))
-        self.tab_widget.setTabText(3, t('desktop.mainWindow.settingsTab'))
+        self.tab_widget.setTabText(1, t('desktop.mainWindow.cloudAITab'))
+        self.tab_widget.setTabText(2, t('desktop.mainWindow.localAITab'))
+        self.tab_widget.setTabText(3, t('desktop.mainWindow.historyTab'))
+        self.tab_widget.setTabText(4, t('desktop.mainWindow.ragTab'))
+        self.tab_widget.setTabText(5, t('desktop.mainWindow.settingsTab'))
         # タブツールチップ
         self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
-        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
-        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.infoTip'))
-        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.cloudAITip'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.localAITip'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
+        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.settingsTip'))
         # ステータスバー
         if not self._web_locked:
             self.status_label.setText(t('desktop.mainWindow.ready'))
 
-        # 子タブにも通知
-        for tab in [self.llmmix_tab, self.claude_tab, self.info_tab, self.settings_tab]:
+        # 子タブにも通知 (v11.0.0: history_tab追加)
+        for tab in [self.llmmix_tab, self.claude_tab, self.local_ai_tab, self.history_tab, self.info_tab, self.settings_tab]:
             if hasattr(tab, 'retranslateUi'):
                 tab.retranslateUi()
+
+        # v11.0.0: ChatHistoryPanel removed (History tab handles retranslation via tab loop above)
+
+        # セクション保存ボタンのテキストを一括更新
+        from .widgets.section_save_button import retranslate_section_save_buttons
+        retranslate_section_save_buttons(self)
+
+        # v10.1.0: 言語ボタンスタイル更新
+        if hasattr(self, 'lang_ja_btn'):
+            self._update_lang_button_styles(get_language())
+
+    def _on_language_changed(self, lang: str):
+        """v10.1.0: 言語変更（タブバー右端ボタンから呼び出し）"""
+        set_language(lang)
+        self._update_lang_button_styles(lang)
+        self.retranslateUi()
+
+    def _update_lang_button_styles(self, current_lang: str):
+        """v10.1.0: 言語ボタンのアクティブ/非アクティブスタイルを切替"""
+        active = "background-color: #059669; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px; border: none; font-size: 11px;"
+        inactive = "background-color: #2d2d2d; color: #888; padding: 4px 12px; border-radius: 4px; font-size: 11px;"
+        self.lang_ja_btn.setStyleSheet(active if current_lang == 'ja' else inactive)
+        self.lang_en_btn.setStyleSheet(active if current_lang == 'en' else inactive)
 
     def _apply_stylesheet(self):
         """スタイルシートを適用 (Cyberpunk Minimalテーマ)"""
@@ -326,7 +453,7 @@ QWidget {
     background-color: #1a1a1a;
     color: #e0e0e0;
     font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-    font-size: 10pt;
+    /* font-size は QApplication.setFont() で動的制御 */
 }
 
 /* Tab Widget - Cyberpunk Style */
@@ -703,13 +830,13 @@ QMenu::separator {
                     worker.terminate()
                     worker.wait(1000)
 
-        # soloAI (Claude) タブのワーカーを停止
+        # cloudAI (Claude) タブのワーカーを停止
         if hasattr(self, 'claude_tab'):
             # claude_tabに_workerがある場合
             if hasattr(self.claude_tab, '_worker'):
                 worker = self.claude_tab._worker
                 if worker and worker.isRunning():
-                    logger.info("[MainWindow] Stopping soloAI worker...")
+                    logger.info("[MainWindow] Stopping cloudAI worker...")
                     if hasattr(worker, 'stop'):
                         worker.stop()
                     worker.wait(3000)

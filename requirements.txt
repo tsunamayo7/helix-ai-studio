@@ -27,6 +27,9 @@ aiohttp>=3.9.0
 # Browser Automation (for future Auto-Debug feature)
 # playwright>=1.40.0
 
+# Browser Use - LLM web automation (v11.1.0: localAI/mixAI Browser Use integration)
+# browser-use>=0.1.0
+
 # PDF Document Processing (v8.5.0: RAG構築用)
 PyMuPDF>=1.23.0
 
@@ -35,6 +38,9 @@ python-dotenv>=1.0.0
 pyyaml>=6.0.1
 cryptography>=41.0.0
 requests>=2.31.0
+
+# QR Code generation (v10.0.0: Discord通知用)
+qrcode[pil]>=7.4.0
 
 # Development (optional)
 # pyinstaller>=6.3.0

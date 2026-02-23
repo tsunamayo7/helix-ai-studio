@@ -27,7 +27,7 @@ class WebSocketClient:
     client_id: str
     connected_at: float = field(default_factory=time.time)
     last_ping: float = field(default_factory=time.time)
-    active_task: Optional[str] = None  # "soloAI" / "mixAI" / None
+    active_task: Optional[str] = None  # "cloudAI" / "mixAI" / None
 
 
 class WebSocketManager:

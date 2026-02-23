@@ -1,7 +1,13 @@
 """
-Helix AI Studio - Cyberpunk Minimal Theme Styles (v8.0.0)
+Helix AI Studio - Cyberpunk Minimal Theme Styles (v10.1.0)
 全UIスタイルの中央集権的な定義。各タブ/ウィジェットからimportして使用する。
 """
+import os as _os
+
+# アイコンパス（SpinBox矢印用）
+_ICONS_DIR = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..', 'icons')
+_ARROW_UP = _os.path.normpath(_os.path.join(_ICONS_DIR, 'arrow_up.png')).replace('\\', '/')
+_ARROW_DOWN = _os.path.normpath(_os.path.join(_ICONS_DIR, 'arrow_down.png')).replace('\\', '/')
 
 # =============================================================================
 # カラーパレット
@@ -455,25 +461,50 @@ RAG_FILE_LIST_STYLE = """
 # =============================================================================
 SPINBOX_STYLE = """
     QSpinBox {
-        padding: 6px 12px; font-size: 14px;
-        min-height: 32px; min-width: 100px;
-        background: #1f2937; border: 1px solid #4b5563;
-        border-radius: 6px; color: #e5e7eb;
+        padding: 4px 60px 4px 8px;
+        font-size: 13px;
+        min-height: 32px;
+        min-width: 80px;
+        background: #1f2937;
+        border: 1px solid #4b5563;
+        border-radius: 6px;
+        color: #e5e7eb;
     }
-    QSpinBox::up-button, QSpinBox::down-button {
-        width: 28px; border: none; background: #2a2a3e;
+    QSpinBox::up-button {
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        right: 2px;
+        width: 26px;
+        height: 26px;
+        border: 1px solid #4b5563;
+        border-radius: 4px;
+        background: #2a2a3e;
+    }
+    QSpinBox::down-button {
+        subcontrol-origin: padding;
+        subcontrol-position: center right;
+        right: 30px;
+        width: 26px;
+        height: 26px;
+        border: 1px solid #4b5563;
+        border-radius: 4px;
+        background: #2a2a3e;
     }
     QSpinBox::up-button:hover, QSpinBox::down-button:hover {
         background: #374151;
+        border-color: #00d4ff;
     }
     QSpinBox::up-arrow {
-        image: none; border-left: 7px solid transparent;
-        border-right: 7px solid transparent;
-        border-bottom: 9px solid #00d4ff; width: 0; height: 0;
+        image: url(""" + _ARROW_UP + """);
+        width: 10px;
+        height: 10px;
     }
     QSpinBox::down-arrow {
-        image: none; border-left: 7px solid transparent;
-        border-right: 7px solid transparent;
-        border-top: 9px solid #00d4ff; width: 0; height: 0;
+        image: url(""" + _ARROW_DOWN + """);
+        width: 10px;
+        height: 10px;
+    }
+    QSpinBox:disabled {
+        background: #404040; color: #808080; border: 1px solid #505050;
     }
 """

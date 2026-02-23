@@ -22,6 +22,15 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class _NoScrollComboBox(QComboBox):
+    """QComboBox that ignores wheel events unless focused. (v10.1.0)"""
+    def wheelEvent(self, event):
+        if self.hasFocus():
+            super().wheelEvent(event)
+        else:
+            event.ignore()
+
+
 class HistoryCitationWidget(QWidget):
     """
     履歴引用ウィジェット
@@ -56,14 +65,14 @@ class HistoryCitationWidget(QWidget):
 
         # AIソースフィルター
         filter_layout.addWidget(QLabel(t('desktop.historyCitation.aiLabel')))
-        self.ai_filter = QComboBox()
+        self.ai_filter = _NoScrollComboBox()
         self.ai_filter.addItems([t('desktop.historyCitation.aiAll'), "Claude", "Gemini", "Trinity", "Ollama"])
         self.ai_filter.setMaximumWidth(100)
         filter_layout.addWidget(self.ai_filter)
 
         # 期間フィルター
         filter_layout.addWidget(QLabel(t('desktop.historyCitation.periodLabel')))
-        self.period_filter = QComboBox()
+        self.period_filter = _NoScrollComboBox()
         self.period_filter.addItems([t('desktop.historyCitation.periodAll'), t('desktop.historyCitation.periodToday'), t('desktop.historyCitation.periodWeek'), t('desktop.historyCitation.periodMonth')])
         self.period_filter.setMaximumWidth(100)
         filter_layout.addWidget(self.period_filter)

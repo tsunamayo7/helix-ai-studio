@@ -3,8 +3,12 @@ Settings / General Tab - 一般設定
 v3.9.0: 大幅簡略化（スクリーンキャプチャ、予算管理、Local接続、Gemini関連を削除）
 v8.1.0: Claudeモデル設定・MCPサーバー管理をsoloAIから移設、記憶・知識管理セクション追加
 v9.6.0: i18n対応（t()による多言語化）+ 言語切替UIセクション追加
+v11.0.0 Phase 1-C: MCP管理・カスタムサーバー削除、記憶セクション簡略化
+  - MCP管理はcloudAI/localAIタブに移設（Phase 2/5）
+  - カスタムサーバー設定はcloudAI/localAIタブに移設
+  - RAG有効化・Risk Gate・保存閾値はUI削除（バックエンド常時ON）
 
-一般設定: モデル・CLI・MCP・記憶知識・表示・自動化
+一般設定: AI状態確認・記憶知識・表示・自動化・Web UI
 """
 
 import json
@@ -20,44 +24,32 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 
 try:
-    from ..utils.styles import SPINBOX_STYLE
+    from ..utils.styles import SPINBOX_STYLE, SECTION_CARD_STYLE
 except ImportError:
     SPINBOX_STYLE = ""
+    SECTION_CARD_STYLE = ""
 
 from ..utils.i18n import t, set_language, get_language
+from ..widgets.section_save_button import create_section_save_button
+from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
 
 logger = logging.getLogger(__name__)
 
 
-class _NoScrollComboBox(QComboBox):
-    """QComboBox that ignores wheel events unless focused."""
-    def wheelEvent(self, event):
-        if self.hasFocus():
-            super().wheelEvent(event)
-        else:
-            event.ignore()
 
 
-class _NoScrollSpinBox(QSpinBox):
-    """QSpinBox that ignores wheel events unless focused."""
-    def wheelEvent(self, event):
-        if self.hasFocus():
-            super().wheelEvent(event)
-        else:
-            event.ignore()
 
 
 class SettingsCortexTab(QWidget):
     """
-    一般設定タブ (v8.1.0)
+    一般設定タブ (v11.0.0)
 
     Features:
-    - Claudeモデル設定（soloAIから移設）
-    - Claude CLI 状態
-    - MCPサーバー管理（soloAIから移設）
-    - 記憶・知識管理（4層メモリ + RAG + Knowledge + Encyclopedia）
+    - AI状態確認（Claude CLI / Codex CLI / Ollama）
+    - 記憶・知識管理（4層メモリ + Knowledge + Encyclopedia）
     - 表示とテーマ設定
     - 自動化設定
+    - Web UIサーバー（ポート・Discord webhook）
     """
 
     # シグナル
@@ -104,24 +96,18 @@ class SettingsCortexTab(QWidget):
         content_layout = QVBoxLayout(content_widget)
         content_layout.setSpacing(15)
 
-        # 0. 言語切替 (v9.6.0)
-        self.lang_group = self._create_language_group()
-        content_layout.addWidget(self.lang_group)
+        # v10.1.0: 言語切替はメインウィンドウのタブバー右端に移設済み
+        # v10.1.0: CLI状態/Ollama/常駐モデル/カスタムサーバーはcloudAI/localAIに移設済み
 
-        # 1. Claudeモデル設定（soloAIから移設）
-        self.model_group = self._create_model_group()
-        content_layout.addWidget(self.model_group)
+        # 0. AI 状態確認セクション（v10.1.0: CLI/Ollama一括確認の代替）
+        self.ai_status_group = self._create_ai_status_group()
+        content_layout.addWidget(self.ai_status_group)
 
-        # 2. Claude CLI 状態
-        self.cli_group = self._create_cli_status_group()
-        content_layout.addWidget(self.cli_group)
+        # v11.0.0: MCP管理はcloudAI/localAIタブに移設（Phase 2/5）
 
-        # 3. MCPサーバー管理（soloAIから移設）
-        self.mcp_group = self._create_mcp_group()
-        content_layout.addWidget(self.mcp_group)
-
-        # 4. 記憶・知識管理
+        # 4. 記憶・知識管理 → v11.0.0: RAGタブ設定に移動（非表示化）
         self.memory_group = self._create_memory_knowledge_group()
+        self.memory_group.setVisible(False)
         content_layout.addWidget(self.memory_group)
 
         # 5. 表示とテーマ
@@ -136,13 +122,7 @@ class SettingsCortexTab(QWidget):
         self.webui_group = self._create_web_ui_section()
         content_layout.addWidget(self.webui_group)
 
-        # 8. 保存ボタン
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        self.save_settings_btn = QPushButton(t('desktop.settings.saveButton'))
-        self.save_settings_btn.setToolTip(t('desktop.settings.saveButtonTip'))
-        btn_layout.addWidget(self.save_settings_btn)
-        content_layout.addLayout(btn_layout)
+        # v11.0.0 C-4: 画面下部の単一保存ボタンを廃止（各セクション内に移設済み）
 
         content_layout.addStretch()
 
@@ -191,46 +171,93 @@ class SettingsCortexTab(QWidget):
         self.lang_en_btn.setStyleSheet(active_style if current_lang == 'en' else inactive_style)
 
     # ========================================
-    # 1. Claudeモデル設定（soloAIから移設）
+    # 0. AI 状態確認（v10.1.0: CLI/Ollama/Codex一括確認）
     # ========================================
 
-    def _create_model_group(self) -> QGroupBox:
-        """v8.1.0: Claudeモデル設定（soloAIから移設）"""
-        group = QGroupBox(t('desktop.settings.claudeModel'))
-        layout = QFormLayout(group)
+    def _create_ai_status_group(self) -> QGroupBox:
+        """v10.1.0: AI接続状態を一括確認するセクション"""
+        group = QGroupBox(t('desktop.settings.aiStatusGroup'))
+        group.setStyleSheet(SECTION_CARD_STYLE)
+        layout = QVBoxLayout(group)
 
-        # デフォルトモデル
-        self.default_model_combo = _NoScrollComboBox()
-        self.default_model_combo.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.default_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
-        try:
-            from ..utils.constants import CLAUDE_MODELS
-            for model_def in CLAUDE_MODELS:
-                display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
-                self.default_model_combo.addItem(
-                    display, userData=model_def["id"]
-                )
-        except ImportError:
-            self.default_model_combo.addItem(t('desktop.settings.sonnetFallback'))
-        self.default_model_label = QLabel(t('desktop.settings.defaultModel'))
-        layout.addRow(self.default_model_label, self.default_model_combo)
+        status_row = QHBoxLayout()
+        self.ai_status_result_label = QLabel("")
+        self.ai_status_result_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+        self.ai_status_result_label.setWordWrap(True)
+        status_row.addWidget(self.ai_status_result_label)
+        status_row.addStretch()
 
-        # タイムアウト
-        self.timeout_spin = _NoScrollSpinBox()
-        self.timeout_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
-        self.timeout_spin.setStyleSheet(SPINBOX_STYLE)
-        self.timeout_spin.setRange(10, 120)
-        self.timeout_spin.setValue(30)
-        self.timeout_spin.setSuffix(t('desktop.settings.timeoutSuffix'))
-        self.timeout_spin.setSingleStep(10)
-        self.timeout_spin.setToolTip(t('desktop.settings.timeoutTip'))
-        self.timeout_label = QLabel(t('desktop.settings.timeout'))
-        layout.addRow(self.timeout_label, self.timeout_spin)
+        self.ai_status_check_btn = QPushButton(t('desktop.settings.aiStatusCheckBtn'))
+        self.ai_status_check_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.ai_status_check_btn.clicked.connect(self._check_all_ai_status)
+        status_row.addWidget(self.ai_status_check_btn)
+        layout.addLayout(status_row)
+
+        # 初期チェック
+        QTimer.singleShot(500, self._check_all_ai_status)
 
         return group
 
+    def _check_all_ai_status(self):
+        """Claude CLI / Codex CLI / Ollama を一括確認（v11.0.0: QTimer遅延で確実にUI更新）"""
+        # 即座にUI反応（確認中表示）
+        self.ai_status_result_label.setText("⏳ " + t('desktop.settings.aiStatusChecking'))
+        self.ai_status_result_label.setStyleSheet("color: #f59e0b; font-size: 12px;")
+        self.ai_status_check_btn.setEnabled(False)
+        # 50ms遅延で実行（UIスレッドで同期実行 — 各チェックは内部でタイムアウト制御）
+        QTimer.singleShot(50, self._do_ai_status_check)
+
+    def _do_ai_status_check(self):
+        """AI状態チェック本体"""
+        statuses = []
+
+        # Claude CLI
+        try:
+            from ..backends.claude_cli_backend import check_claude_cli_available
+            available, msg = check_claude_cli_available()
+            statuses.append(f"Claude CLI {'✓' if available else '✗'}")
+        except Exception:
+            statuses.append("Claude CLI ✗")
+
+        # Codex CLI
+        try:
+            from ..backends.codex_cli_backend import check_codex_cli_available
+            codex_ok, _ = check_codex_cli_available()
+            statuses.append(f"Codex CLI {'✓' if codex_ok else '✗'}")
+        except Exception:
+            statuses.append("Codex CLI ✗")
+
+        # Ollama
+        try:
+            import requests
+            ollama_url = "http://localhost:11434"
+            try:
+                import json
+                from pathlib import Path
+                settings_path = Path("config/app_settings.json")
+                if settings_path.exists():
+                    with open(settings_path, 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                    ollama_url = settings.get("ollama", {}).get("url", ollama_url)
+            except Exception:
+                pass
+            resp = requests.get(f"{ollama_url}/api/tags", timeout=3)
+            if resp.status_code == 200:
+                model_count = len(resp.json().get("models", []))
+                statuses.append(f"Ollama ✓ ({model_count} models)")
+            else:
+                statuses.append("Ollama ✗")
+        except Exception:
+            statuses.append("Ollama ✗")
+
+        result_text = " | ".join(statuses)
+        self.ai_status_result_label.setText(
+            t('desktop.settings.aiStatusResult', statuses=result_text))
+        self.ai_status_result_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+        self.ai_status_check_btn.setEnabled(True)
+
     # ========================================
-    # 2. Claude CLI 状態
+    # 1. Claude CLI 状態（v10.1.0: cloudAIに移設済み、後方互換のため残存）
     # ========================================
 
     def _create_cli_status_group(self) -> QGroupBox:
@@ -280,64 +307,207 @@ class SettingsCortexTab(QWidget):
                                 t('desktop.settings.cliCheckError', message=str(e)))
 
     def _check_cli_status(self):
-        """CLI状態を確認"""
+        """CLI状態を確認（v10.0.0: Claude + Ollama + Codex 3ツール対応）"""
+        status_parts = []
+
+        # Claude CLI
         try:
             from ..backends.claude_cli_backend import check_claude_cli_available
             available, message = check_claude_cli_available()
             if available:
-                self.cli_status_label.setText(t('desktop.settings.cliAvailable'))
-                self.cli_status_label.setStyleSheet("color: #4CAF50;")
+                status_parts.append("Claude CLI ✓")
             else:
-                self.cli_status_label.setText(t('desktop.settings.cliUnavailable'))
-                self.cli_status_label.setStyleSheet("color: #ffa500;")
+                status_parts.append("Claude CLI ✗")
         except Exception:
-            self.cli_status_label.setText("")
+            status_parts.append("Claude CLI ?")
+
+        # Ollama
+        try:
+            import requests
+            resp = requests.get("http://localhost:11434/api/tags", timeout=3)
+            if resp.status_code == 200:
+                model_count = len(resp.json().get("models", []))
+                status_parts.append(f"Ollama ✓ ({model_count} models)")
+            else:
+                status_parts.append("Ollama ✗")
+        except Exception:
+            status_parts.append("Ollama ✗")
+
+        # Codex CLI
+        try:
+            from ..backends.codex_cli_backend import check_codex_cli_available
+            codex_ok, _ = check_codex_cli_available()
+            status_parts.append("Codex CLI ✓" if codex_ok else "Codex CLI ✗")
+        except Exception:
+            status_parts.append("Codex CLI ✗")
+
+        all_ok = all("✓" in p for p in status_parts)
+        self.cli_status_label.setText(" | ".join(status_parts))
+        if all_ok:
+            self.cli_status_label.setStyleSheet("color: #4CAF50;")
+        elif any("✓" in p for p in status_parts):
+            self.cli_status_label.setStyleSheet("color: #ffa500;")
+        else:
+            self.cli_status_label.setStyleSheet("color: #ef4444;")
+
+        # ツールチップに詳細インストール手順
+        self.cli_status_label.setToolTip(t('desktop.settings.cliInstallInstructions'))
 
     # ========================================
-    # 3. MCPサーバー管理（soloAIから移設）
+    # 1.6 v9.8.0: 常駐モデル設定（mixAIから移設）
     # ========================================
 
-    def _create_mcp_group(self) -> QGroupBox:
-        """v8.1.0: MCPサーバー管理（soloAIから移設）"""
-        group = QGroupBox(t('desktop.settings.mcp'))
+    def _create_resident_model_group(self) -> QGroupBox:
+        """v9.8.0: 常駐モデル設定（mixAIタブから一般設定へ移設）"""
+        group = QGroupBox(t('desktop.settings.residentGroup'))
+        group.setStyleSheet(SECTION_CARD_STYLE)
         layout = QVBoxLayout(group)
 
-        # チェックボックス形式
-        self.mcp_filesystem_cb = QCheckBox(t('desktop.settings.mcpFilesystem'))
-        self.mcp_filesystem_cb.setToolTip(t('desktop.settings.mcpFilesystemTip'))
-        self.mcp_filesystem_cb.setChecked(True)
-        layout.addWidget(self.mcp_filesystem_cb)
+        # GPU検出情報
+        self.gpu_detect_label = QLabel(t('desktop.settings.noGpuDetected'))
+        self.gpu_detect_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.gpu_detect_label)
+        self._detect_gpu_info()
 
-        self.mcp_git_cb = QCheckBox(t('desktop.settings.mcpGit'))
-        self.mcp_git_cb.setToolTip(t('desktop.settings.mcpGitTip'))
-        self.mcp_git_cb.setChecked(True)
-        layout.addWidget(self.mcp_git_cb)
+        # 制御AIモデル
+        control_row = QHBoxLayout()
+        self.resident_control_label = QLabel(t('desktop.settings.residentControlAi'))
+        control_row.addWidget(self.resident_control_label)
+        self.resident_control_combo = NoScrollComboBox()
+        self.resident_control_combo.addItems([
+            "ministral-3:8b",
+            "ministral-3:14b",
+            "qwen3-vl:2b",
+        ])
+        self.resident_control_combo.setToolTip(t('desktop.settings.residentControlAiTip'))
+        control_row.addWidget(self.resident_control_combo)
+        self.resident_control_change_btn = QPushButton(t('desktop.settings.residentChangeBtn'))
+        self.resident_control_change_btn.setFixedWidth(80)
+        self.resident_control_change_btn.clicked.connect(lambda: self.resident_control_combo.showPopup())
+        control_row.addWidget(self.resident_control_change_btn)
+        layout.addLayout(control_row)
 
-        self.mcp_brave_cb = QCheckBox(t('desktop.settings.mcpBrave'))
-        self.mcp_brave_cb.setToolTip(t('desktop.settings.mcpBraveTip'))
-        self.mcp_brave_cb.setChecked(True)
-        layout.addWidget(self.mcp_brave_cb)
+        # Embeddingモデル
+        embed_row = QHBoxLayout()
+        self.resident_embed_label = QLabel(t('desktop.settings.residentEmbedding'))
+        embed_row.addWidget(self.resident_embed_label)
+        self.resident_embed_combo = NoScrollComboBox()
+        self.resident_embed_combo.addItems([
+            "qwen3-embedding:4b",
+            "qwen3-embedding:8b",
+            "qwen3-embedding:0.6b",
+            "bge-m3:latest",
+        ])
+        self.resident_embed_combo.setToolTip(t('desktop.settings.residentEmbeddingTip'))
+        embed_row.addWidget(self.resident_embed_combo)
+        self.resident_embed_change_btn = QPushButton(t('desktop.settings.residentChangeBtn'))
+        self.resident_embed_change_btn.setFixedWidth(80)
+        self.resident_embed_change_btn.clicked.connect(lambda: self.resident_embed_combo.showPopup())
+        embed_row.addWidget(self.resident_embed_change_btn)
+        layout.addLayout(embed_row)
 
-        # 一括ボタン
-        btn_layout = QHBoxLayout()
-        self.enable_all_btn = QPushButton(t('desktop.settings.mcpEnableAll'))
-        self.enable_all_btn.setToolTip(t('desktop.settings.mcpEnableAllTip'))
-        self.enable_all_btn.clicked.connect(lambda: self._set_all_mcp(True))
-        btn_layout.addWidget(self.enable_all_btn)
-        self.disable_all_btn = QPushButton(t('desktop.settings.mcpDisableAll'))
-        self.disable_all_btn.setToolTip(t('desktop.settings.mcpDisableAllTip'))
-        self.disable_all_btn.clicked.connect(lambda: self._set_all_mcp(False))
-        btn_layout.addWidget(self.disable_all_btn)
-        btn_layout.addStretch()
-        layout.addLayout(btn_layout)
+        # VRAM合計表示
+        self.resident_vram_label = QLabel(t('desktop.settings.residentVramTotal', vram="8.5"))
+        self.resident_vram_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.resident_vram_label)
+
+        # GPU2枚以上の場合: 実行先GPU選択（初期非表示）
+        gpu_target_row = QHBoxLayout()
+        self.resident_gpu_target_label = QLabel(t('desktop.settings.residentGpuTarget'))
+        gpu_target_row.addWidget(self.resident_gpu_target_label)
+        self.resident_gpu_target_combo = NoScrollComboBox()
+        self.resident_gpu_target_combo.setToolTip(t('desktop.settings.residentGpuTargetTip'))
+        gpu_target_row.addWidget(self.resident_gpu_target_combo)
+        gpu_target_row.addStretch()
+        layout.addLayout(gpu_target_row)
+        # GPU1枚の場合は非表示
+        self.resident_gpu_target_label.setVisible(False)
+        self.resident_gpu_target_combo.setVisible(False)
+
+        # 設定復元
+        self._load_resident_settings()
 
         return group
 
-    def _set_all_mcp(self, enabled: bool):
-        """全MCPサーバーの有効/無効を一括設定"""
-        self.mcp_filesystem_cb.setChecked(enabled)
-        self.mcp_git_cb.setChecked(enabled)
-        self.mcp_brave_cb.setChecked(enabled)
+    def _detect_gpu_info(self):
+        """nvidia-smiでGPU情報を動的検出"""
+        try:
+            import subprocess as _sp
+            result = _sp.run(
+                ['nvidia-smi', '--query-gpu=index,name,memory.total',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                gpus = []
+                for line in result.stdout.strip().split('\n'):
+                    parts = [p.strip() for p in line.split(',')]
+                    if len(parts) >= 3:
+                        idx, name, vram_mb = parts[0], parts[1], parts[2]
+                        vram_gb = round(int(vram_mb) / 1024, 1)
+                        gpus.append((idx, name, vram_gb))
+
+                if gpus:
+                    gpu_texts = [t('desktop.settings.gpuDetected', name=g[1], vram=g[2]) for g in gpus]
+                    self.gpu_detect_label.setText("\n".join(gpu_texts))
+                    self.gpu_detect_label.setStyleSheet("color: #00ff88; font-size: 11px;")
+
+                    # GPU2枚以上の場合: 実行先選択を表示
+                    if len(gpus) >= 2:
+                        self.resident_gpu_target_combo.clear()
+                        for g in gpus:
+                            self.resident_gpu_target_combo.addItem(f"GPU {g[0]}: {g[1]} ({g[2]}GB)")
+                        self.resident_gpu_target_label.setVisible(True)
+                        self.resident_gpu_target_combo.setVisible(True)
+        except Exception as e:
+            logger.warning(f"GPU detection failed: {e}")
+
+    def _load_resident_settings(self):
+        """常駐モデル設定を読み込み"""
+        try:
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                resident = config.get("resident_models", {})
+                if "control_ai" in resident:
+                    idx = self.resident_control_combo.findText(resident["control_ai"])
+                    if idx >= 0:
+                        self.resident_control_combo.setCurrentIndex(idx)
+                if "embedding" in resident:
+                    idx = self.resident_embed_combo.findText(resident["embedding"])
+                    if idx >= 0:
+                        self.resident_embed_combo.setCurrentIndex(idx)
+                if "gpu_target" in resident:
+                    idx = self.resident_gpu_target_combo.findText(resident["gpu_target"])
+                    if idx >= 0:
+                        self.resident_gpu_target_combo.setCurrentIndex(idx)
+
+            # v9.8.0: マイグレーション - 旧tool_orchestrator.jsonからの移行
+            old_config_paths = [
+                Path.home() / ".helix_ai_studio" / "tool_orchestrator.json",
+                Path("config/tool_orchestrator.json"),
+            ]
+            for old_path in old_config_paths:
+                if old_path.exists():
+                    try:
+                        with open(old_path, 'r', encoding='utf-8') as f:
+                            old_config = json.load(f)
+                        if "image_analyzer_model" in old_config and not config.get("resident_models", {}).get("control_ai"):
+                            idx = self.resident_control_combo.findText(old_config["image_analyzer_model"])
+                            if idx >= 0:
+                                self.resident_control_combo.setCurrentIndex(idx)
+                        if "embedding_model" in old_config and not config.get("resident_models", {}).get("embedding"):
+                            idx = self.resident_embed_combo.findText(old_config["embedding_model"])
+                            if idx >= 0:
+                                self.resident_embed_combo.setCurrentIndex(idx)
+                    except Exception:
+                        pass
+                    break
+        except Exception as e:
+            logger.warning(f"Resident model settings load failed: {e}")
+
+    # v11.0.0: MCP管理はcloudAI/localAIタブに移設（Phase 2/5）
 
     # ========================================
     # 4. 記憶・知識管理
@@ -358,39 +528,14 @@ class SettingsCortexTab(QWidget):
         self.memory_stats_label.setStyleSheet("color: #aaa; padding-left: 10px;")
         layout.addWidget(self.memory_stats_label)
 
-        # RAG有効化
-        self.rag_enabled_cb = QCheckBox(t('desktop.settings.ragEnabled'))
-        self.rag_enabled_cb.setToolTip(t('desktop.settings.ragEnabledTip'))
-        self.rag_enabled_cb.setChecked(True)
-        layout.addWidget(self.rag_enabled_cb)
+        # v11.0.0: RAG有効化はRAGタブで制御（ここでは常にON）
+        # v11.0.0: Memory Risk Gateは常にON（UI削除、バックエンド維持）
 
         # 記憶の自動保存
         self.memory_auto_save_cb = QCheckBox(t('desktop.settings.memoryAutoSave'))
         self.memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
         self.memory_auto_save_cb.setChecked(True)
         layout.addWidget(self.memory_auto_save_cb)
-
-        # 保存閾値
-        threshold_layout = QHBoxLayout()
-        self.threshold_label = QLabel(t('desktop.settings.saveThreshold'))
-        threshold_layout.addWidget(self.threshold_label)
-        self.threshold_combo = QComboBox()
-        self.threshold_combo.setToolTip(t('desktop.settings.saveThresholdTip'))
-        self.threshold_combo.addItems([
-            t('desktop.settings.thresholdLow'),
-            t('desktop.settings.thresholdMid'),
-            t('desktop.settings.thresholdHigh')
-        ])
-        self.threshold_combo.setCurrentIndex(1)
-        threshold_layout.addWidget(self.threshold_combo)
-        threshold_layout.addStretch()
-        layout.addLayout(threshold_layout)
-
-        # Memory Risk Gate
-        self.risk_gate_toggle = QCheckBox(t('desktop.settings.riskGate'))
-        self.risk_gate_toggle.setToolTip(t('desktop.settings.riskGateTip'))
-        self.risk_gate_toggle.setChecked(True)
-        layout.addWidget(self.risk_gate_toggle)
 
         # Knowledge有効化
         self.knowledge_enabled_cb = QCheckBox(t('desktop.settings.knowledgeEnabled'))
@@ -425,6 +570,9 @@ class SettingsCortexTab(QWidget):
 
         # 初回統計取得
         QTimer.singleShot(500, self._refresh_memory_stats)
+
+        # v11.0.0 C-4: セクション保存ボタン
+        layout.addWidget(create_section_save_button(self._save_memory_settings))
 
         return group
 
@@ -487,21 +635,24 @@ class SettingsCortexTab(QWidget):
         group = QGroupBox(t('desktop.settings.display'))
         layout = QVBoxLayout(group)
 
-        # ダークモード
+        # ダークモード (v9.7.0: 機能未実装のため非表示)
         self.dark_mode_cb = QCheckBox(t('desktop.settings.darkMode'))
         self.dark_mode_cb.setToolTip(t('desktop.settings.darkModeTip'))
         self.dark_mode_cb.setChecked(True)
+        self.dark_mode_cb.setVisible(False)
         layout.addWidget(self.dark_mode_cb)
 
         # フォントサイズ
         font_layout = QHBoxLayout()
         self.font_size_label = QLabel(t('desktop.settings.fontSize'))
         font_layout.addWidget(self.font_size_label)
-        self.font_size_spin = QSpinBox()
+        self.font_size_spin = NoScrollSpinBox()
+        self.font_size_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.font_size_spin.setStyleSheet(SPINBOX_STYLE)
         self.font_size_spin.setToolTip(t('desktop.settings.fontSizeTip'))
         self.font_size_spin.setRange(8, 20)
         self.font_size_spin.setValue(10)
+        self.font_size_spin.setFixedWidth(130)
         font_layout.addWidget(self.font_size_spin)
         font_layout.addStretch()
         layout.addLayout(font_layout)
@@ -519,10 +670,12 @@ class SettingsCortexTab(QWidget):
 
         self.auto_save_cb = QCheckBox(t('desktop.settings.autoSave'))
         self.auto_save_cb.setChecked(True)
+        self.auto_save_cb.setToolTip(t('desktop.settings.autoSaveHint'))
         layout.addWidget(self.auto_save_cb)
 
         self.auto_context_cb = QCheckBox(t('desktop.settings.autoContext'))
         self.auto_context_cb.setChecked(True)
+        self.auto_context_cb.setToolTip(t('desktop.settings.autoContextHint'))
         layout.addWidget(self.auto_context_cb)
 
         return group
@@ -581,13 +734,98 @@ class SettingsCortexTab(QWidget):
         self.port_label = QLabel(t('desktop.settings.webPort'))
         self.port_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
         port_row.addWidget(self.port_label)
-        self.web_port_spin = QSpinBox()
+        self.web_port_spin = NoScrollSpinBox()
+        self.web_port_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.web_port_spin.setStyleSheet(SPINBOX_STYLE)
         self.web_port_spin.setRange(1024, 65535)
         self.web_port_spin.setValue(self._load_port_setting())
-        self.web_port_spin.setFixedWidth(80)
+        self.web_port_spin.setFixedWidth(150)
         port_row.addWidget(self.web_port_spin)
         port_row.addStretch()
         layout.addLayout(port_row)
+
+        # v11.0.0: パスワード設定ボタン
+        self.web_password_btn = QPushButton(t('desktop.settings.webPasswordBtn'))
+        self.web_password_btn.setStyleSheet("""
+            QPushButton { background: #2d3748; color: #e0e0e0; border: 1px solid #4a5568;
+                border-radius: 4px; padding: 6px 14px; font-size: 11px; margin-top: 6px; }
+            QPushButton:hover { background: #4a5568; }
+        """)
+        self.web_password_btn.clicked.connect(self._on_set_web_password)
+        layout.addWidget(self.web_password_btn)
+
+        # v9.7.2: Discord Webhook送信
+        discord_label = QLabel(t('desktop.settings.discordWebhook'))
+        discord_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 8px;")
+        layout.addWidget(discord_label)
+
+        discord_row = QHBoxLayout()
+        self.discord_webhook_edit = QLineEdit()
+        self.discord_webhook_edit.setPlaceholderText(t('desktop.settings.discordWebhookPlaceholder'))
+        self.discord_webhook_edit.setStyleSheet("""
+            QLineEdit {
+                background-color: #1a1a2e;
+                color: #e0e0e0;
+                border: 1px solid #4a5568;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+        """)
+        discord_row.addWidget(self.discord_webhook_edit)
+
+        self.discord_send_btn = QPushButton(t('desktop.settings.discordSendBtn'))
+        self.discord_send_btn.setToolTip(t('desktop.settings.discordSendBtnTip'))
+        self.discord_send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5865F2;
+                color: white;
+                padding: 6px 14px;
+                border-radius: 6px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4752C4;
+            }
+            QPushButton:disabled {
+                background-color: #3d3d5c;
+                color: #888;
+            }
+        """)
+        self.discord_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.discord_send_btn.clicked.connect(self._send_discord_webhook)
+        discord_row.addWidget(self.discord_send_btn)
+        layout.addLayout(discord_row)
+
+        self.discord_status_label = QLabel("")
+        self.discord_status_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+        layout.addWidget(self.discord_status_label)
+
+        # Discord Webhook URLを設定から復元
+        self._load_discord_webhook_setting()
+
+        # v11.0.0: Discord通知イベント選択
+        self.discord_event_label = QLabel(t('desktop.settings.discordNotifyLabel'))
+        self.discord_event_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 6px;")
+        layout.addWidget(self.discord_event_label)
+
+        self.discord_notify_start_cb = QCheckBox(t('desktop.settings.discordNotifyStart'))
+        self.discord_notify_start_cb.setChecked(True)
+        layout.addWidget(self.discord_notify_start_cb)
+
+        self.discord_notify_complete_cb = QCheckBox(t('desktop.settings.discordNotifyComplete'))
+        self.discord_notify_complete_cb.setChecked(True)
+        layout.addWidget(self.discord_notify_complete_cb)
+
+        self.discord_notify_error_cb = QCheckBox(t('desktop.settings.discordNotifyError'))
+        self.discord_notify_error_cb.setChecked(True)
+        layout.addWidget(self.discord_notify_error_cb)
+
+        self._load_discord_notify_events()
+
+        # v11.0.0 C-4: セクション保存ボタン
+        layout.addWidget(create_section_save_button(self._save_webui_settings))
 
         return group
 
@@ -624,7 +862,20 @@ class SettingsCortexTab(QWidget):
                         continue
             except Exception:
                 pass
-            self.web_ui_url_label.setText(f"📱 http://{ip}:{port}")
+            # v10.0.0: IP + マシン名ベースURL両方を表示
+            machine_name = ""
+            try:
+                import socket
+                machine_name = socket.gethostname().lower()
+            except Exception:
+                pass
+
+            url_ip = f"http://{ip}:{port}"
+            if machine_name and ip != "localhost":
+                url_name = f"http://{machine_name}:{port}"
+                self.web_ui_url_label.setText(f"📱 {url_ip}\n📱 {url_name}")
+            else:
+                self.web_ui_url_label.setText(f"📱 {url_ip}")
         else:
             if hasattr(self, '_web_server_thread') and self._web_server_thread:
                 self._web_server_thread.stop()
@@ -632,6 +883,164 @@ class SettingsCortexTab(QWidget):
             self.web_ui_toggle.setText(t('desktop.settings.webStart'))
             self.web_ui_status_label.setText(t('desktop.settings.webStopped'))
             self.web_ui_url_label.setText("")
+
+    def _load_discord_webhook_setting(self):
+        """Discord Webhook URLを設定から読み込み"""
+        try:
+            with open("config/config.json", 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            url = config.get("web_server", {}).get("discord_webhook_url", "")
+            self.discord_webhook_edit.setText(url)
+        except Exception:
+            pass
+
+    def _save_discord_webhook_setting(self):
+        """Discord Webhook URLを設定に保存"""
+        try:
+            config_path = Path("config/config.json")
+            config = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            if "web_server" not in config:
+                config["web_server"] = {}
+            config["web_server"]["discord_webhook_url"] = self.discord_webhook_edit.text().strip()
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to save Discord webhook URL: {e}")
+
+    def _send_discord_webhook(self):
+        """Web UIのURLとQRコードをDiscordに送信"""
+        url_text = self.web_ui_url_label.text()
+        if not url_text:
+            self.discord_status_label.setText(t('desktop.settings.discordNoUrl'))
+            self.discord_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+            return
+
+        webhook_url = self.discord_webhook_edit.text().strip()
+        if not webhook_url:
+            self.discord_status_label.setText(t('desktop.settings.discordNoWebhook'))
+            self.discord_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+            return
+
+        # Webhook URLを保存
+        self._save_discord_webhook_setting()
+
+        # URLからアドレス部分を抽出（📱プレフィックス除去）
+        server_url = url_text.replace("📱 ", "").strip()
+
+        self.discord_send_btn.setEnabled(False)
+        self.discord_status_label.setText(t('desktop.settings.discordSending'))
+        self.discord_status_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+
+        # 別スレッドで送信
+        from PyQt6.QtCore import QThread
+
+        class DiscordSendThread(QThread):
+            finished = pyqtSignal(bool, str)
+
+            def __init__(self, webhook_url, server_url, parent=None):
+                super().__init__(parent)
+                self._webhook_url = webhook_url
+                self._server_url = server_url
+
+            def run(self):
+                try:
+                    import io
+                    # QRコード生成
+                    try:
+                        import qrcode
+                        qr = qrcode.QRCode(version=1, box_size=10, border=2)
+                        qr.add_data(self._server_url)
+                        qr.make(fit=True)
+                        img = qr.make_image(fill_color="black", back_color="white")
+                        img_bytes = io.BytesIO()
+                        img.save(img_bytes, format='PNG')
+                        img_bytes.seek(0)
+                        has_qr = True
+                    except ImportError:
+                        has_qr = False
+                        img_bytes = None
+
+                    import urllib.request
+                    import urllib.error
+
+                    boundary = "----HelixDiscordBoundary"
+                    body_parts = []
+
+                    # JSON payload part (message content)
+                    payload = json.dumps({
+                        "embeds": [{
+                            "title": "Helix AI Studio - Web UI",
+                            "description": f"**Server URL:** {self._server_url}",
+                            "color": 0x00d4ff,
+                            "footer": {"text": "Helix AI Studio"}
+                        }]
+                    })
+                    body_parts.append(
+                        f"--{boundary}\r\n"
+                        f"Content-Disposition: form-data; name=\"payload_json\"\r\n"
+                        f"Content-Type: application/json\r\n\r\n"
+                        f"{payload}\r\n"
+                    )
+
+                    # QR code image part
+                    if has_qr and img_bytes:
+                        body_parts.append(
+                            f"--{boundary}\r\n"
+                            f"Content-Disposition: form-data; name=\"files[0]\"; filename=\"helix_webui_qr.png\"\r\n"
+                            f"Content-Type: image/png\r\n\r\n"
+                        )
+
+                    body_end = f"\r\n--{boundary}--\r\n"
+
+                    # Build multipart body
+                    body = b""
+                    for part in body_parts:
+                        body += part.encode('utf-8')
+
+                    if has_qr and img_bytes:
+                        body += img_bytes.read()
+
+                    body += body_end.encode('utf-8')
+
+                    req = urllib.request.Request(
+                        self._webhook_url,
+                        data=body,
+                        method='POST',
+                        headers={
+                            'Content-Type': f'multipart/form-data; boundary={boundary}',
+                            'User-Agent': 'Helix-AI-Studio'
+                        }
+                    )
+
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        if resp.status in (200, 204):
+                            self.finished.emit(True, "")
+                        else:
+                            self.finished.emit(False, f"HTTP {resp.status}")
+
+                except urllib.error.HTTPError as e:
+                    self.finished.emit(False, f"HTTP {e.code}")
+                except Exception as e:
+                    self.finished.emit(False, str(e))
+
+        self._discord_thread = DiscordSendThread(webhook_url, server_url, self)
+        self._discord_thread.finished.connect(self._on_discord_send_finished)
+        self._discord_thread.start()
+
+    def _on_discord_send_finished(self, success: bool, error: str):
+        """Discord送信完了コールバック"""
+        self.discord_send_btn.setEnabled(True)
+        if success:
+            self.discord_status_label.setText(t('desktop.settings.discordSent'))
+            self.discord_status_label.setStyleSheet("color: #22c55e; font-size: 10px;")
+        else:
+            self.discord_status_label.setText(t('desktop.settings.discordFailed', error=error))
+            self.discord_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
+
+    # v11.0.0: カスタムサーバー管理はcloudAI/localAIタブに移設
 
     def _load_auto_start_setting(self) -> bool:
         """自動起動設定を読み込み"""
@@ -668,15 +1077,44 @@ class SettingsCortexTab(QWidget):
             return 8500
 
     # ========================================
+    # v9.7.0: Ollama接続テスト (一般設定)
+    # ========================================
+
+    def _test_ollama_general(self):
+        """v9.7.0: Ollama接続テスト (一般設定)"""
+        url = self.ollama_conn_url_edit.text().strip()
+        if not url:
+            self.ollama_conn_status.setText(t('desktop.settings.ollamaNoUrl'))
+            self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+            return
+        try:
+            import httpx
+            resp = httpx.get(f"{url}/api/tags", timeout=5)
+            if resp.status_code == 200:
+                models = resp.json().get("models", [])
+                model_names = [m.get("name", "?") for m in models[:5]]
+                self.ollama_conn_status.setText(t('desktop.settings.ollamaConnected', count=len(models), models=", ".join(model_names)))
+                self.ollama_conn_status.setStyleSheet("color: #00ff88; font-size: 11px;")
+            else:
+                self.ollama_conn_status.setText(t('desktop.settings.ollamaFailed', status=resp.status_code))
+                self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+        except Exception as e:
+            self.ollama_conn_status.setText(t('desktop.settings.ollamaError', error=str(e)[:80]))
+            self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+
+    # ========================================
     # シグナル接続 + 設定保存/読み込み
     # ========================================
 
     def _connect_signals(self):
-        """シグナルを接続"""
-        self.save_settings_btn.clicked.connect(self._on_save_settings)
+        """シグナルを接続
+        v11.0.0 C-4: 画面下部の単一保存ボタン廃止。各セクション内の保存ボタンは
+        create_section_save_button() 内で接続済み。
+        """
+        pass
 
     def _on_save_settings(self):
-        """設定保存 (v8.1.0: モデル/MCP/記憶設定を追加)"""
+        """設定保存 (v9.9.2: 差分ダイアログ廃止、即時保存)"""
         import json
         from pathlib import Path
 
@@ -685,31 +1123,28 @@ class SettingsCortexTab(QWidget):
             config_dir.mkdir(exist_ok=True)
             config_path = config_dir / "general_settings.json"
 
+            # --- general_settings.json 用データ（フラットなプリミティブ値のみ） ---
+            # NOTE: resident_models は config.json にのみ保存する（nested dict 排除）
             settings_data = {
-                # Claudeモデル設定
-                "default_model": self.default_model_combo.currentText(),
-                "default_model_id": self.default_model_combo.currentData() or "",
-                "timeout_minutes": self.timeout_spin.value(),
-                # MCPサーバー
-                "mcp_servers": {
-                    "filesystem": self.mcp_filesystem_cb.isChecked(),
-                    "git": self.mcp_git_cb.isChecked(),
-                    "brave-search": self.mcp_brave_cb.isChecked(),
-                },
-                # 記憶・知識管理
-                "rag_enabled": self.rag_enabled_cb.isChecked(),
-                "memory_auto_save": self.memory_auto_save_cb.isChecked(),
-                "save_threshold": self.threshold_combo.currentText(),
-                "risk_gate_enabled": self.risk_gate_toggle.isChecked(),
-                "knowledge_enabled": self.knowledge_enabled_cb.isChecked(),
-                "knowledge_path": self.knowledge_path_edit.text(),
-                "encyclopedia_enabled": self.encyclopedia_enabled_cb.isChecked(),
-                # 表示
-                "dark_mode": self.dark_mode_cb.isChecked(),
-                "font_size": self.font_size_spin.value(),
-                # 自動化
-                "auto_save": self.auto_save_cb.isChecked(),
-                "auto_context": self.auto_context_cb.isChecked(),
+                "language": get_language(),
+                # v11.0.0: MCP設定はcloudAI/localAIタブに移設
+                "rag_enabled": True,  # v11.0.0: always ON, controlled from RAG tab
+                "memory_auto_save": bool(self.memory_auto_save_cb.isChecked()),
+                "risk_gate_enabled": True,  # v11.0.0: always ON in backend
+                "knowledge_enabled": bool(self.knowledge_enabled_cb.isChecked()),
+                "knowledge_path": str(self.knowledge_path_edit.text()),
+                "encyclopedia_enabled": bool(self.encyclopedia_enabled_cb.isChecked()),
+                "dark_mode": bool(self.dark_mode_cb.isChecked()),
+                "font_size": int(self.font_size_spin.value()),
+                "auto_save": bool(self.auto_save_cb.isChecked()),
+                "auto_context": bool(self.auto_context_cb.isChecked()),
+            }
+
+            # --- 常駐モデル設定（config.json 専用） ---
+            resident_models_data = {
+                "control_ai": str(self.resident_control_combo.currentText()) if hasattr(self, 'resident_control_combo') else "ministral-3:8b",
+                "embedding": str(self.resident_embed_combo.currentText()) if hasattr(self, 'resident_embed_combo') else "qwen3-embedding:4b",
+                "gpu_target": str(self.resident_gpu_target_combo.currentText()) if hasattr(self, 'resident_gpu_target_combo') and self.resident_gpu_target_combo.isVisible() else "",
             }
 
             # 既存データを読み込んでマージ（language等を保持）
@@ -719,8 +1154,13 @@ class SettingsCortexTab(QWidget):
                     with open(config_path, 'r', encoding='utf-8') as f:
                         existing = json.load(f)
                 except Exception:
-                    pass
+                    existing = {}
+            # 旧バージョンで保存された resident_models を general_settings.json から除去
+            existing.pop("resident_models", None)
             existing.update(settings_data)
+
+            # JSON書き込み前に全値がシリアライズ可能か検証
+            json.dumps(existing, ensure_ascii=False)
 
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(existing, f, indent=2, ensure_ascii=False)
@@ -733,14 +1173,26 @@ class SettingsCortexTab(QWidget):
                     with open(app_settings_path, 'r', encoding='utf-8') as f:
                         app_settings = json.load(f)
                 app_settings["memory"] = {
-                    "auto_save": self.memory_auto_save_cb.isChecked(),
-                    "risk_gate_enabled": self.risk_gate_toggle.isChecked(),
-                    "save_threshold": self.threshold_combo.currentText(),
+                    "auto_save": bool(self.memory_auto_save_cb.isChecked()),
+                    "risk_gate_enabled": True,  # v11.0.0: always ON
                 }
                 with open(app_settings_path, 'w', encoding='utf-8') as f:
                     json.dump(app_settings, f, indent=2, ensure_ascii=False)
             except Exception as e:
                 logger.warning(f"app_settings.json update failed: {e}")
+
+            # v9.8.0: Save resident models to config.json (唯一の保存先)
+            try:
+                config_json_path = config_dir / "config.json"
+                config_data = {}
+                if config_json_path.exists():
+                    with open(config_json_path, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                config_data["resident_models"] = resident_models_data
+                with open(config_json_path, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                logger.warning(f"config.json resident model save failed: {e}")
 
             self.settingsChanged.emit()
 
@@ -754,8 +1206,126 @@ class SettingsCortexTab(QWidget):
                     sender.setText(original_text), sender.setEnabled(True)))
 
         except Exception as e:
+            logger.error(f"Settings save failed: {e}", exc_info=True)
             QMessageBox.warning(self, t('common.error'),
                                 t('desktop.settings.saveError', message=str(e)))
+
+    # ========================================
+    # v11.0.0 C-4: セクション別保存メソッド
+    # ========================================
+
+    def _save_memory_settings(self):
+        """v11.0.0: Save memory settings only"""
+        try:
+            import json
+            from pathlib import Path
+            # Save to app_settings.json
+            settings_path = Path("config/app_settings.json")
+            data = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["memory"] = {
+                "auto_save": bool(self.memory_auto_save_cb.isChecked()),
+                "risk_gate_enabled": True,
+            }
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to save memory settings: {e}")
+
+    def _save_webui_settings(self):
+        """v11.0.0: Save web UI settings only"""
+        try:
+            import json
+            from pathlib import Path
+            config_path = Path("config/config.json")
+            config = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+            config["web_server"] = config.get("web_server", {})
+            config["web_server"]["port"] = self.web_port_spin.value()
+            config["web_server"]["auto_start"] = self.web_auto_start_cb.isChecked()
+            if hasattr(self, 'discord_webhook_edit'):
+                config["web_server"]["discord_webhook_url"] = self.discord_webhook_edit.text().strip()
+            # v11.0.0: Discord通知イベント設定を保存
+            if hasattr(self, 'discord_notify_start_cb'):
+                config["web_server"]["discord_notify_start"] = self.discord_notify_start_cb.isChecked()
+                config["web_server"]["discord_notify_complete"] = self.discord_notify_complete_cb.isChecked()
+                config["web_server"]["discord_notify_error"] = self.discord_notify_error_cb.isChecked()
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Failed to save web UI settings: {e}")
+
+    def _load_discord_notify_events(self):
+        """v11.0.0: Discord通知イベント設定を読み込み"""
+        try:
+            import json
+            from pathlib import Path
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                ws = config.get("web_server", {})
+                self.discord_notify_start_cb.setChecked(ws.get("discord_notify_start", True))
+                self.discord_notify_complete_cb.setChecked(ws.get("discord_notify_complete", True))
+                self.discord_notify_error_cb.setChecked(ws.get("discord_notify_error", True))
+        except Exception:
+            pass
+
+    def _on_set_web_password(self):
+        """v11.0.0: Web UIパスワード設定ダイアログ"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t('desktop.settings.webPasswordTitle'))
+        dialog.setMinimumWidth(350)
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel(t('desktop.settings.webPasswordNew')))
+        pw_input = QLineEdit()
+        pw_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(pw_input)
+
+        layout.addWidget(QLabel(t('desktop.settings.webPasswordConfirm')))
+        pw_confirm = QLineEdit()
+        pw_confirm.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(pw_confirm)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            pw = pw_input.text()
+            confirm = pw_confirm.text()
+            if pw != confirm:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, t('common.error'), "Passwords do not match")
+                return
+            if not pw:
+                return
+            try:
+                import json
+                from pathlib import Path
+                config_path = Path("config/config.json")
+                config = {}
+                if config_path.exists():
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                config["web_server"] = config.get("web_server", {})
+                config["web_server"]["pin_code"] = pw
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=2, ensure_ascii=False)
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.information(self, "OK", "Password updated successfully")
+            except Exception as e:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "Error", str(e))
 
     def _load_settings(self):
         """保存済み設定を読み込み"""
@@ -770,34 +1340,12 @@ class SettingsCortexTab(QWidget):
             with open(config_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
 
-            # Claudeモデル設定
-            if "default_model" in data:
-                idx = self.default_model_combo.findText(data["default_model"])
-                if idx >= 0:
-                    self.default_model_combo.setCurrentIndex(idx)
-            if "timeout_minutes" in data:
-                self.timeout_spin.setValue(data["timeout_minutes"])
-
-            # MCP
-            mcp = data.get("mcp_servers", {})
-            if "filesystem" in mcp:
-                self.mcp_filesystem_cb.setChecked(mcp["filesystem"])
-            if "git" in mcp:
-                self.mcp_git_cb.setChecked(mcp["git"])
-            if "brave-search" in mcp:
-                self.mcp_brave_cb.setChecked(mcp["brave-search"])
+            # v11.0.0: MCP設定はcloudAI/localAIタブに移設
 
             # 記憶・知識
-            if "rag_enabled" in data:
-                self.rag_enabled_cb.setChecked(data["rag_enabled"])
+            # v11.0.0: rag_enabled, save_threshold, risk_gate_enabled は常にON（UI削除）
             if "memory_auto_save" in data:
                 self.memory_auto_save_cb.setChecked(data["memory_auto_save"])
-            if "save_threshold" in data:
-                idx = self.threshold_combo.findText(data["save_threshold"])
-                if idx >= 0:
-                    self.threshold_combo.setCurrentIndex(idx)
-            if "risk_gate_enabled" in data:
-                self.risk_gate_toggle.setChecked(data["risk_gate_enabled"])
             if "knowledge_enabled" in data:
                 self.knowledge_enabled_cb.setChecked(data["knowledge_enabled"])
             if "knowledge_path" in data:
@@ -825,80 +1373,37 @@ class SettingsCortexTab(QWidget):
     # ========================================
 
     def retranslateUi(self):
-        """言語変更時に全UIテキストを再適用"""
-        # 言語ボタンスタイル更新
-        self._update_lang_button_styles(get_language())
+        """言語変更時に全UIテキストを再適用（v10.1.0: 整理後）"""
 
         # GroupBox titles
-        self.lang_group.setTitle(t('desktop.settings.language'))
-        self.model_group.setTitle(t('desktop.settings.claudeModel'))
-        self.cli_group.setTitle(t('desktop.settings.cliStatus'))
-        self.mcp_group.setTitle(t('desktop.settings.mcp'))
+        self.ai_status_group.setTitle(t('desktop.settings.aiStatusGroup'))
         self.memory_group.setTitle(t('desktop.settings.memory'))
         self.display_group.setTitle(t('desktop.settings.display'))
         self.auto_group.setTitle(t('desktop.settings.automation'))
         self.webui_group.setTitle(t('desktop.settings.webUI'))
 
-        # Model group
-        self.default_model_label.setText(t('desktop.settings.defaultModel'))
-        self.timeout_label.setText(t('desktop.settings.timeout'))
-        self.default_model_combo.setToolTip(t('desktop.settings.defaultModelTip'))
-        # Update model combo display names for current language
-        try:
-            from ..utils.constants import CLAUDE_MODELS
-            model_idx = self.default_model_combo.currentIndex()
-            self.default_model_combo.blockSignals(True)
-            for i, model_def in enumerate(CLAUDE_MODELS):
-                if i < self.default_model_combo.count():
-                    display = t(model_def["i18n_display"]) if "i18n_display" in model_def else model_def["display_name"]
-                    self.default_model_combo.setItemText(i, display)
-            if 0 <= model_idx < self.default_model_combo.count():
-                self.default_model_combo.setCurrentIndex(model_idx)
-            self.default_model_combo.blockSignals(False)
-        except ImportError:
-            pass
-        self.timeout_spin.setSuffix(t('desktop.settings.timeoutSuffix'))
-        self.timeout_spin.setToolTip(t('desktop.settings.timeoutTip'))
+        # AI Status group
+        self.ai_status_check_btn.setText(t('desktop.settings.aiStatusCheckBtn'))
 
-        # CLI group
-        self.cli_label.setText(t('desktop.settings.cliLabel'))
-        self.cli_test_btn.setText(t('desktop.settings.cliTest'))
-        self.cli_test_btn.setToolTip(t('desktop.settings.cliTestTip'))
-        # Re-check CLI status to update status label in current language
-        self._check_cli_status()
+        # v10.1.0: 後方互換 - lang_group/cli_groupが存在する場合のみ更新
+        if hasattr(self, 'lang_group'):
+            self.lang_group.setTitle(t('desktop.settings.language'))
+            self._update_lang_button_styles(get_language())
+        if hasattr(self, 'cli_group'):
+            self.cli_group.setTitle(t('desktop.settings.cliStatus'))
+            self.cli_label.setText(t('desktop.settings.cliLabel'))
+            self.cli_test_btn.setText(t('desktop.settings.cliTest'))
+            self.cli_test_btn.setToolTip(t('desktop.settings.cliTestTip'))
+            self._check_cli_status()
 
-        # MCP group
-        self.mcp_filesystem_cb.setText(t('desktop.settings.mcpFilesystem'))
-        self.mcp_filesystem_cb.setToolTip(t('desktop.settings.mcpFilesystemTip'))
-        self.mcp_git_cb.setText(t('desktop.settings.mcpGit'))
-        self.mcp_git_cb.setToolTip(t('desktop.settings.mcpGitTip'))
-        self.mcp_brave_cb.setText(t('desktop.settings.mcpBrave'))
-        self.mcp_brave_cb.setToolTip(t('desktop.settings.mcpBraveTip'))
-        self.enable_all_btn.setText(t('desktop.settings.mcpEnableAll'))
-        self.enable_all_btn.setToolTip(t('desktop.settings.mcpEnableAllTip'))
-        self.disable_all_btn.setText(t('desktop.settings.mcpDisableAll'))
-        self.disable_all_btn.setToolTip(t('desktop.settings.mcpDisableAllTip'))
+        # v11.0.0: MCP retranslate removed (moved to cloudAI/localAI tabs)
 
         # Memory group
         self.stats_title_label.setText(t('desktop.settings.memoryStats'))
         self.memory_stats_label.setToolTip(t('desktop.settings.memoryStatsTip'))
-        self.rag_enabled_cb.setText(t('desktop.settings.ragEnabled'))
-        self.rag_enabled_cb.setToolTip(t('desktop.settings.ragEnabledTip'))
+        # v11.0.0: rag_enabled_cb, threshold_combo, risk_gate_toggle removed
         self.memory_auto_save_cb.setText(t('desktop.settings.memoryAutoSave'))
         self.memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
-        self.threshold_label.setText(t('desktop.settings.saveThreshold'))
-        self.threshold_combo.setToolTip(t('desktop.settings.saveThresholdTip'))
-        # Update threshold combo items preserving selection
-        old_idx = self.threshold_combo.currentIndex()
-        self.threshold_combo.clear()
-        self.threshold_combo.addItems([
-            t('desktop.settings.thresholdLow'),
-            t('desktop.settings.thresholdMid'),
-            t('desktop.settings.thresholdHigh')
-        ])
-        self.threshold_combo.setCurrentIndex(old_idx)
-        self.risk_gate_toggle.setText(t('desktop.settings.riskGate'))
-        self.risk_gate_toggle.setToolTip(t('desktop.settings.riskGateTip'))
         self.knowledge_enabled_cb.setText(t('desktop.settings.knowledgeEnabled'))
         self.knowledge_path_label.setText(t('desktop.settings.knowledgePath'))
         self.encyclopedia_enabled_cb.setText(t('desktop.settings.encyclopediaEnabled'))
@@ -930,10 +1435,48 @@ class SettingsCortexTab(QWidget):
             self.web_ui_status_label.setText(t('desktop.settings.webRunning', port=port))
         self.web_auto_start_cb.setText(t('desktop.settings.webAutoStart'))
         self.port_label.setText(t('desktop.settings.webPort'))
+        # Web UI: パスワード設定ボタン
+        if hasattr(self, 'web_password_btn'):
+            self.web_password_btn.setText(t('desktop.settings.webPasswordBtn'))
 
-        # Save button
-        self.save_settings_btn.setText(t('desktop.settings.saveButton'))
-        self.save_settings_btn.setToolTip(t('desktop.settings.saveButtonTip'))
+        # v9.7.2: Discord
+        self.discord_send_btn.setText(t('desktop.settings.discordSendBtn'))
+        self.discord_send_btn.setToolTip(t('desktop.settings.discordSendBtnTip'))
+        self.discord_webhook_edit.setPlaceholderText(t('desktop.settings.discordWebhookPlaceholder'))
+        if hasattr(self, 'discord_event_label'):
+            self.discord_event_label.setText(t('desktop.settings.discordNotifyLabel'))
+        if hasattr(self, 'discord_notify_start_cb'):
+            self.discord_notify_start_cb.setText(t('desktop.settings.discordNotifyStart'))
+        if hasattr(self, 'discord_notify_complete_cb'):
+            self.discord_notify_complete_cb.setText(t('desktop.settings.discordNotifyComplete'))
+        if hasattr(self, 'discord_notify_error_cb'):
+            self.discord_notify_error_cb.setText(t('desktop.settings.discordNotifyError'))
+
+        # v11.0.0: Custom server retranslate removed (moved to cloudAI/localAI tabs)
+
+        # v9.7.0: Ollama connection
+        if hasattr(self, 'ollama_conn_group'):
+            self.ollama_conn_group.setTitle(t('desktop.settings.ollamaConnGroup'))
+            self.ollama_conn_url_label.setText(t('desktop.settings.ollamaUrl'))
+            self.ollama_conn_test_btn.setText(t('desktop.settings.ollamaTest'))
+            self.ollama_conn_test_btn.setToolTip(t('desktop.settings.ollamaTestTip'))
+            # Reset status label to initial text in current language
+            self.ollama_conn_status.setText(t('desktop.settings.ollamaStatusInit'))
+
+        # v9.8.0: Resident models
+        if hasattr(self, 'resident_group'):
+            self.resident_group.setTitle(t('desktop.settings.residentGroup'))
+            self.resident_control_label.setText(t('desktop.settings.residentControlAi'))
+            self.resident_embed_label.setText(t('desktop.settings.residentEmbedding'))
+            self.resident_control_change_btn.setText(t('desktop.settings.residentChangeBtn'))
+            self.resident_embed_change_btn.setText(t('desktop.settings.residentChangeBtn'))
+            self.resident_gpu_target_label.setText(t('desktop.settings.residentGpuTarget'))
+            # Update VRAM total label in current language
+            self.resident_vram_label.setText(t('desktop.settings.residentVramTotal', vram="8.5"))
+            # Re-detect GPU info so gpuDetected strings use current language
+            self._detect_gpu_info()
+
+        # v11.0.0 C-4: 画面下部の単一保存ボタン廃止（各セクション内に移設済み）
 
     # ========================================
     # 互換性のためのプロパティ/メソッド

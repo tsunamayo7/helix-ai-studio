@@ -16,9 +16,11 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QSpinBox, QFormLayout,
     QFileDialog  # v5.1: ファイル添付用
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
-from PyQt6.QtGui import QFont, QAction
+from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
+from PyQt6.QtGui import QFont, QAction, QTextCursor, QKeyEvent
 from ..utils.i18n import t
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -74,14 +76,16 @@ from ..routing.execution import execute_with_fallback
 from ..routing import get_routing_executor
 
 # v7.1.0: Claudeモデル動的選択
-from ..utils.constants import CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL_ID
+from ..utils.constants import CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL_ID, get_claude_model_by_id
 from ..utils.markdown_renderer import markdown_to_html
 from ..utils.styles import (
     SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
     INPUT_AREA_STYLE, SCROLLBAR_STYLE, TAB_BAR_STYLE,
     USER_MESSAGE_STYLE, AI_MESSAGE_STYLE, SPINBOX_STYLE,
 )
-from ..widgets.chat_widgets import SoloAIStatusBar, ExecutionIndicator, InterruptionBanner
+from ..widgets.chat_widgets import CloudAIStatusBar, ExecutionIndicator, InterruptionBanner
+from ..widgets.section_save_button import create_section_save_button
+from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
 
 
 # --- Backend呼び出しスレッド (Phase 2.0) ---
@@ -109,7 +113,7 @@ class BackendThread(QThread):
             # エラーレスポンスを生成してemit
             error_response = BackendResponse(
                 success=False,
-                response_text=t('desktop.soloAI.backendErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
+                response_text=t('desktop.cloudAI.backendErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
                 error_type=type(e).__name__,
                 duration_ms=0,
                 tokens_used=0,
@@ -151,7 +155,7 @@ class RoutingExecutorThread(QThread):
             # エラーレスポンスを生成してemit
             error_response = BackendResponse(
                 success=False,
-                response_text=t('desktop.soloAI.routingErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
+                response_text=t('desktop.cloudAI.routingErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
                 error_type=type(e).__name__,
                 duration_ms=0,
                 tokens_used=0,
@@ -169,13 +173,15 @@ class CLIWorkerThread(QThread):
     errorOccurred = pyqtSignal(str)
 
     def __init__(self, backend, prompt: str, model: str = None,
-                 working_dir: str = None, thinking_level: str = "none", parent=None):
+                 working_dir: str = None, effort_level: str = "default",
+                 resume_session_id: str = None, parent=None):
         super().__init__(parent)
         self._backend = backend
         self._prompt = prompt
         self._model = model
         self._working_dir = working_dir
-        self._thinking_level = thinking_level
+        self._effort_level = effort_level
+        self._resume_session_id = resume_session_id  # v11.0.0
         self._full_response = ""
         self._start_time = None
 
@@ -188,9 +194,9 @@ class CLIWorkerThread(QThread):
         self._start_time = time.time()
 
         try:
-            # CLIバックエンドの思考レベルを設定
-            if self._thinking_level:
-                self._backend.thinking_level = self._thinking_level
+            # v9.8.0: CLIバックエンドのeffortレベルを設定
+            if self._effort_level:
+                self._backend.effort_level = self._effort_level
 
             # 作業ディレクトリを設定
             if self._working_dir:
@@ -204,12 +210,16 @@ class CLIWorkerThread(QThread):
             self._backend.set_streaming_callback(on_chunk)
 
             # BackendRequestを作成
+            context = {}
+            # v11.0.0: --resume session support
+            if self._resume_session_id:
+                context["resume_session_id"] = self._resume_session_id
             request = BackendRequest(
                 session_id="cli_session",
                 phase="S4",
                 user_text=self._prompt,
                 toggles={},
-                context={}
+                context=context
             )
 
             # CLI経由で送信
@@ -226,7 +236,7 @@ class CLIWorkerThread(QThread):
             # エラーレスポンスを生成
             error_response = BackendResponse(
                 success=False,
-                response_text=t('desktop.soloAI.cliExecErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
+                response_text=t('desktop.cloudAI.cliExecErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
                 error_type=type(e).__name__,
                 duration_ms=duration_ms,
                 tokens_used=0,
@@ -318,11 +328,11 @@ class OllamaWorkerThread(QThread):
 
 
 # =============================================================================
-# v5.1: soloAI用添付ファイルウィジェット
+# v5.1: cloudAI用添付ファイルウィジェット
 # =============================================================================
 
-class SoloAIAttachmentWidget(QFrame):
-    """soloAI用個別添付ファイルウィジェット"""
+class CloudAIAttachmentWidget(QFrame):
+    """cloudAI用個別添付ファイルウィジェット"""
     removed = pyqtSignal(str)  # ファイルパス
 
     FILE_ICONS = {
@@ -340,13 +350,13 @@ class SoloAIAttachmentWidget(QFrame):
         self.filepath = filepath
         self.setFrameStyle(QFrame.Shape.StyledPanel)
         self.setStyleSheet("""
-            SoloAIAttachmentWidget {
+            CloudAIAttachmentWidget {
                 background-color: #2d3748;
                 border: 1px solid #4a5568;
                 border-radius: 6px;
                 padding: 2px 6px;
             }
-            SoloAIAttachmentWidget:hover {
+            CloudAIAttachmentWidget:hover {
                 border-color: #63b3ed;
             }
         """)
@@ -366,16 +376,19 @@ class SoloAIAttachmentWidget(QFrame):
         name_label.setToolTip(filepath)
 
         remove_btn = QPushButton("×")
-        remove_btn.setFixedSize(16, 16)
+        remove_btn.setFixedSize(24, 20)
+        remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         remove_btn.setStyleSheet("""
             QPushButton {
-                background: transparent;
-                color: #a0aec0;
+                background: #e53e3e;
+                color: white;
                 border: none;
+                border-radius: 4px;
                 font-size: 12px;
                 font-weight: bold;
+                padding: 0px 4px;
             }
-            QPushButton:hover { color: #fc8181; }
+            QPushButton:hover { background: #fc8181; }
         """)
         remove_btn.clicked.connect(lambda: self.removed.emit(self.filepath))
 
@@ -384,8 +397,79 @@ class SoloAIAttachmentWidget(QFrame):
         layout.addWidget(remove_btn)
 
 
-class SoloAIAttachmentBar(QWidget):
-    """soloAI用添付ファイルバー"""
+class CloudAITextInput(QTextEdit):
+    """
+    cloudAI用チャット入力ウィジェット
+    - 先頭行+上キー -> テキスト先頭(一番左)へ移動
+    - 最終行+下キー -> テキスト末尾(一番右)へ移動
+    - Ctrl+Enter で送信
+    """
+    send_requested = pyqtSignal()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        key = event.key()
+        modifiers = event.modifiers()
+
+        # Ctrl+Enter -> 送信
+        if key == Qt.Key.Key_Return and (modifiers & Qt.KeyboardModifier.ControlModifier):
+            self.send_requested.emit()
+            return
+
+        # 上キー処理
+        if key == Qt.Key.Key_Up:
+            cursor = self.textCursor()
+            cursor_block = cursor.block()
+            first_block = self.document().firstBlock()
+            if cursor_block == first_block:
+                cursor.movePosition(QTextCursor.MoveOperation.Start)
+                self.setTextCursor(cursor)
+                return
+            super().keyPressEvent(event)
+            return
+
+        # 下キー処理
+        if key == Qt.Key.Key_Down:
+            cursor = self.textCursor()
+            cursor_block = cursor.block()
+            last_block = self.document().lastBlock()
+            if cursor_block == last_block:
+                cursor.movePosition(QTextCursor.MoveOperation.End)
+                self.setTextCursor(cursor)
+                return
+            super().keyPressEvent(event)
+            return
+
+        super().keyPressEvent(event)
+
+
+class CloudAIContinueInput(QTextEdit):
+    """
+    cloudAI用会話継続入力ウィジェット
+    - 先頭行+上キー -> テキスト先頭(一番左)へ移動
+    - 最終行+下キー -> テキスト末尾(一番右)へ移動
+    """
+    def keyPressEvent(self, event: QKeyEvent):
+        key = event.key()
+
+        if key == Qt.Key.Key_Up:
+            cursor = self.textCursor()
+            if cursor.block() == self.document().firstBlock():
+                cursor.movePosition(QTextCursor.MoveOperation.Start)
+                self.setTextCursor(cursor)
+                return
+
+        if key == Qt.Key.Key_Down:
+            cursor = self.textCursor()
+            if cursor.block() == self.document().lastBlock():
+                cursor.movePosition(QTextCursor.MoveOperation.End)
+                self.setTextCursor(cursor)
+                return
+
+        super().keyPressEvent(event)
+
+
+class CloudAIAttachmentBar(QWidget):
+    """cloudAI用添付ファイルバー"""
     attachments_changed = pyqtSignal(list)
 
     def __init__(self, parent=None):
@@ -423,7 +507,7 @@ class SoloAIAttachmentBar(QWidget):
         for fp in filepaths:
             if fp not in self._files and os.path.exists(fp):
                 self._files.append(fp)
-                widget = SoloAIAttachmentWidget(fp)
+                widget = CloudAIAttachmentWidget(fp)
                 widget.removed.connect(self.remove_file)
                 self.container_layout.insertWidget(
                     self.container_layout.count() - 1, widget)
@@ -439,7 +523,7 @@ class SoloAIAttachmentBar(QWidget):
             item = self.container_layout.itemAt(i)
             if item and item.widget():
                 w = item.widget()
-                if isinstance(w, SoloAIAttachmentWidget) and w.filepath == filepath:
+                if isinstance(w, CloudAIAttachmentWidget) and w.filepath == filepath:
                     w.deleteLater()
                     break
         self.setVisible(bool(self._files))
@@ -527,12 +611,24 @@ class ClaudeTab(QWidget):
         # v5.1: 添付ファイルリスト
         self._attached_files: list = []
 
+        # v11.0.0: Session management for Continue Send
+        self._claude_session_id = None
+
+        # v9.7.0: ChatStore integration
+        self._active_chat_id = None
+        self._chat_store = None
+        try:
+            from ..web.chat_store import ChatStore
+            self._chat_store = ChatStore()
+        except Exception as e:
+            logger.warning(f"ChatStore init failed for cloudAI: {e}")
+
         # v8.1.0: メモリマネージャー
         self._memory_manager = None
         try:
             from ..memory.memory_manager import HelixMemoryManager
             self._memory_manager = HelixMemoryManager()
-            logger.info("HelixMemoryManager initialized for soloAI")
+            logger.info("HelixMemoryManager initialized for cloudAI")
         except Exception as e:
             logger.warning(f"Memory manager init failed: {e}")
 
@@ -562,20 +658,40 @@ class ClaudeTab(QWidget):
                 return True  # イベントを消費（無効化）
         return super().eventFilter(obj, event)
 
-    def _init_backend(self):
-        """Backend を初期化 (Phase 2.0, v2.5.0: CLI/API両対応, v3.2.0: CLI分離)"""
-        # v3.2.0: CLIバックエンドを常に初期化（利用不可でも参照用）
-        self._cli_backend = None
+    # v11.0.0: CLI検出完了シグナル
+    _cli_check_done = pyqtSignal(bool)
 
-        # v2.5.0: デフォルトはCLI (Max/Proプラン)、利用不可の場合はAPI
-        cli_available, _ = check_claude_cli_available()
-        if cli_available:
+    def _init_backend(self):
+        """Backend を初期化 (v11.0.0: 非ブロッキング化)"""
+        import threading
+
+        # まずAPI fallbackで即時初期化（ブロッキングなし）
+        self._cli_backend = None
+        self.backend = ClaudeBackend(model="sonnet-4-5")
+        self._use_cli_mode = False
+
+        # シグナル接続（初回のみ）
+        try:
+            self._cli_check_done.connect(self._on_cli_check_done)
+        except Exception:
+            pass
+
+        # CLI利用可否をバックグラウンドで確認
+        def _check_cli():
+            try:
+                cli_available, _ = check_claude_cli_available()
+                self._cli_check_done.emit(cli_available)
+            except Exception:
+                self._cli_check_done.emit(False)
+
+        threading.Thread(target=_check_cli, daemon=True).start()
+
+    def _on_cli_check_done(self, available: bool):
+        """UIスレッドでCLI検出結果を反映"""
+        if available:
             self._cli_backend = get_claude_cli_backend()
             self.backend = self._cli_backend
             self._use_cli_mode = True
-        else:
-            self.backend = ClaudeBackend(model="sonnet-4-5")
-            self._use_cli_mode = False
 
     def _on_auth_mode_changed(self, index: int):
         """認証モード変更時 (v2.5.0, v3.0.0: Ollama追加, v3.2.0: CLI Backend強化, v3.9.2: UI無効化)"""
@@ -586,13 +702,13 @@ class ClaudeTab(QWidget):
                 self.backend = self._cli_backend
                 self._use_cli_mode = True
                 self._use_ollama_mode = False
-                self.statusChanged.emit(t('desktop.soloAI.cliAuthSwitched'))
+                self.statusChanged.emit(t('desktop.cloudAI.cliAuthSwitched'))
             else:
                 # CLIが利用不可の場合は警告して元に戻す
                 QMessageBox.warning(
                     self,
-                    t('desktop.soloAI.cliAuthWarningTitle'),
-                    t('desktop.soloAI.cliNotAvailableDialogMsg', message=message)
+                    t('desktop.cloudAI.cliAuthWarningTitle'),
+                    t('desktop.cloudAI.cliNotAvailableDialogMsg', message=message)
                 )
                 self.auth_mode_combo.blockSignals(True)
                 self.auth_mode_combo.setCurrentIndex(1)
@@ -612,7 +728,7 @@ class ClaudeTab(QWidget):
                 self.backend = ClaudeBackend(model="sonnet-4-5")
             self._use_cli_mode = False
             self._use_ollama_mode = False
-            self.statusChanged.emit(t('desktop.soloAI.apiAuthSwitched'))
+            self.statusChanged.emit(t('desktop.cloudAI.apiAuthSwitched'))
             # v3.9.2: CLI/APIモードではUIを有効化
             self._set_ollama_ui_disabled(False)
         else:  # Ollama (ローカル) - v3.0.0
@@ -621,7 +737,7 @@ class ClaudeTab(QWidget):
             self._configure_ollama_mode()
             # v3.9.2: Ollamaモードでは使用モデル・思考を無効化
             self._set_ollama_ui_disabled(True)
-            self.statusChanged.emit(t('desktop.soloAI.ollamaSwitched', model=self._ollama_model))
+            self.statusChanged.emit(t('desktop.cloudAI.ollamaSwitched', model=self._ollama_model))
 
         self._update_auth_status()
 
@@ -644,31 +760,22 @@ class ClaudeTab(QWidget):
             self.model_combo.setStyleSheet(disabled_style if disabled else enabled_style)
             if disabled:
                 self.model_combo.setToolTip(
-                    t('desktop.soloAI.ollamaModelTooltip', model=getattr(self, '_ollama_model', t('desktop.soloAI.notConfigured')))
+                    t('desktop.cloudAI.ollamaModelTooltip', model=getattr(self, '_ollama_model', t('desktop.cloudAI.notConfigured')))
                 )
             else:
-                tooltip_lines = t('desktop.soloAI.modelTooltipHtml')
+                tooltip_lines = t('desktop.cloudAI.modelTooltipHtml')
                 for model_def in CLAUDE_MODELS:
                     tooltip_lines += f"<b>{model_def['display_name']}:</b> {model_def['description']}<br>"
                 self.model_combo.setToolTip(tooltip_lines
                 )
 
-        # 思考モード選択を無効化
-        if hasattr(self, 'thinking_combo'):
-            self.thinking_combo.setEnabled(not disabled)
-            # v3.9.4: 視覚的なグレーアウト
-            self.thinking_combo.setStyleSheet(disabled_style if disabled else enabled_style)
-            if disabled:
-                self.thinking_combo.setCurrentIndex(0)  # OFFに戻す
-                self.thinking_combo.setToolTip(
-                    t('desktop.soloAI.thinkingDisabledTooltip')
-                )
+        # v11.0.0: effort_combo removed (hidden setting in config.json)
 
     def _configure_ollama_mode(self):
         """Ollamaモードの設定 (v3.0.0, v3.9.2: 設定タブ参照を修正)"""
         import os
 
-        # v3.9.2: soloAI(Claude)タブの設定からOllama設定を取得
+        # v3.9.2: cloudAI(Claude)タブの設定からOllama設定を取得
         ollama_url = "http://localhost:11434"
         self._ollama_model = "qwen3-coder"
 
@@ -697,7 +804,7 @@ class ClaudeTab(QWidget):
             self.auth_status_label.setText("🖥️")
             self.auth_status_label.setStyleSheet("color: #3b82f6; font-size: 12pt;")
             self.auth_status_label.setToolTip(
-                t('desktop.soloAI.ollamaAuthTooltip', url=ollama_url, model=model_name)
+                t('desktop.cloudAI.ollamaAuthTooltip', url=ollama_url, model=model_name)
             )
         elif hasattr(self, '_use_cli_mode') and self._use_cli_mode:
             cli_available, _ = check_claude_cli_available()
@@ -705,19 +812,19 @@ class ClaudeTab(QWidget):
                 self.auth_status_label.setText("✅")
                 self.auth_status_label.setStyleSheet("color: #22c55e; font-size: 12pt;")
                 self.auth_status_label.setToolTip(
-                    t('desktop.soloAI.cliAuthPrefix')
-                    + t('desktop.soloAI.cliProTooltip')
+                    t('desktop.cloudAI.cliAuthPrefix')
+                    + t('desktop.cloudAI.cliProTooltip')
                 )
             else:
                 self.auth_status_label.setText("⚠️")
                 self.auth_status_label.setStyleSheet("color: #fbbf24; font-size: 12pt;")
-                self.auth_status_label.setToolTip(t('desktop.soloAI.cliNotConnectedTooltip'))
+                self.auth_status_label.setToolTip(t('desktop.cloudAI.cliNotConnectedTooltip'))
         else:
             # v6.0.0: API認証は廃止、CLI専用化
             self.auth_status_label.setText("⚙️")
             self.auth_status_label.setStyleSheet("color: #fbbf24; font-size: 12pt;")
             self.auth_status_label.setToolTip(
-                t('desktop.soloAI.apiDeprecatedLongTooltip')
+                t('desktop.cloudAI.apiDeprecatedLongTooltip')
             )
 
     def _init_ui(self):
@@ -731,11 +838,11 @@ class ClaudeTab(QWidget):
 
         # チャットサブタブ
         chat_tab = self._create_chat_tab()
-        self.sub_tabs.addTab(chat_tab, t('desktop.soloAI.chatSubTab'))
+        self.sub_tabs.addTab(chat_tab, t('desktop.cloudAI.chatSubTab'))
 
         # 設定サブタブ
         settings_tab = self._create_settings_tab()
-        self.sub_tabs.addTab(settings_tab, t('desktop.soloAI.settingsSubTab'))
+        self.sub_tabs.addTab(settings_tab, t('desktop.cloudAI.settingsSubTab'))
 
         layout.addWidget(self.sub_tabs)
 
@@ -750,10 +857,6 @@ class ClaudeTab(QWidget):
         workflow_bar = self._create_workflow_bar()
         chat_layout.addWidget(workflow_bar)
 
-        # ツールバー
-        toolbar = self._create_toolbar()
-        chat_layout.addWidget(toolbar)
-
         # メインスプリッター (チャット表示と入力エリア)
         main_splitter = QSplitter(Qt.Orientation.Vertical)
 
@@ -761,24 +864,33 @@ class ClaudeTab(QWidget):
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))
+        self.chat_display.setPlaceholderText(t('desktop.cloudAI.chatReady'))
         self.chat_display.setStyleSheet(
             "QTextEdit { background-color: #0a0a1a; border: none; "
             "padding: 10px; color: #e0e0e0; }" + SCROLLBAR_STYLE
         )
+        # v10.1.0: Auto-scroll to bottom on new content
+        self.chat_display.textChanged.connect(self._auto_scroll_chat)
         main_splitter.addWidget(self.chat_display)
+
+        # v10.1.0: ExecutionMonitorWidget（chat_displayと入力エリアの間）
+        from ..widgets.execution_monitor_widget import ExecutionMonitorWidget
+        self.monitor_widget = ExecutionMonitorWidget()
+        self.monitor_widget.stallDetected.connect(self._on_stall_detected)
+        main_splitter.addWidget(self.monitor_widget)
 
         # 入力エリア
         input_frame = self._create_input_area()
         main_splitter.addWidget(input_frame)
 
-        main_splitter.setSizes([600, 200])
+        main_splitter.setSizes([600, 0, 200])
         main_splitter.setHandleWidth(2)
         chat_layout.addWidget(main_splitter)
 
         return chat_widget
 
     def _create_settings_tab(self) -> QWidget:
-        """設定サブタブを作成 (v3.9.0: Claude関連設定を統合)"""
+        """設定サブタブを作成 (v3.9.0: Claude関連設定を統合, v9.6: ツールバーから移設)"""
         settings_widget = QWidget()
         settings_layout = QVBoxLayout(settings_widget)
         settings_layout.setContentsMargins(10, 10, 10, 10)
@@ -790,109 +902,350 @@ class ClaudeTab(QWidget):
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setSpacing(15)
 
-        # === v8.1.0: CLI認証設定（API Key/MCP/モデル設定は一般設定に移設） ===
-        self.api_group = QGroupBox(t('desktop.soloAI.cliAuthGroup'))
-        api_group = self.api_group
+        # === 🔑 認証方式 (旧ツールバー行1から移設) ===
+        self.api_group = QGroupBox(t('desktop.cloudAI.authGroup'))
         api_layout = QFormLayout()
+
+        # 認証方式コンボ
+        self.auth_label = QLabel(t('desktop.cloudAI.authLabel2'))
+        self.auth_mode_combo = NoScrollComboBox()
+        self.auth_mode_combo.addItems([
+            t('desktop.cloudAI.authCliOption'),
+            t('desktop.cloudAI.authApiOption'),
+            t('desktop.cloudAI.authOllamaOption'),
+        ])
+        self.auth_mode_combo.setToolTip(t('desktop.cloudAI.authComboTooltipFull'))
+        self.auth_mode_combo.currentIndexChanged.connect(self._on_auth_mode_changed)
+        self.auth_status_label = QLabel("")
+        self.auth_status_label.setStyleSheet("font-size: 9pt; margin-left: 3px;")
+        auth_combo_row = QHBoxLayout()
+        auth_combo_row.addWidget(self.auth_mode_combo)
+        auth_combo_row.addWidget(self.auth_status_label)
+        auth_combo_row.addStretch()
+        api_layout.addRow(self.auth_label, auth_combo_row)
 
         # CLIステータス
         cli_status_layout = QHBoxLayout()
         cli_available, cli_msg = check_claude_cli_available()
-        self.cli_status_label = QLabel(f"{t('desktop.soloAI.cliEnabled') if cli_available else t('desktop.soloAI.cliDisabled')}")
+        self.cli_status_label = QLabel(f"{t('desktop.cloudAI.cliEnabled') if cli_available else t('desktop.cloudAI.cliDisabled')}")
         self.cli_status_label.setToolTip(cli_msg)
         cli_status_layout.addWidget(self.cli_status_label)
         self.cli_check_btn = QPushButton(t('common.confirm'))
-        cli_check_btn = self.cli_check_btn
-        cli_check_btn.clicked.connect(self._check_cli_status)
-        cli_status_layout.addWidget(cli_check_btn)
+        self.cli_check_btn.clicked.connect(self._check_cli_status)
+        cli_status_layout.addWidget(self.cli_check_btn)
         cli_status_layout.addStretch()
         api_layout.addRow("Claude CLI:", cli_status_layout)
 
-        # === v3.9.2: 統合接続テスト ===
+        # 統合接続テスト
         test_group_layout = QHBoxLayout()
-        self.unified_test_btn = QPushButton(t('desktop.soloAI.testBtnLabel'))
-        self.unified_test_btn.setToolTip(t('desktop.soloAI.testBtnTooltip'))
+        self.unified_test_btn = QPushButton(t('desktop.cloudAI.testBtnLabel'))
+        self.unified_test_btn.setToolTip(t('desktop.cloudAI.testBtnTooltip'))
         self.unified_test_btn.clicked.connect(self._run_unified_model_test)
         test_group_layout.addWidget(self.unified_test_btn)
         api_layout.addRow("", test_group_layout)
 
-        # 最終テスト成功表示 (v3.9.2)
+        # 最終テスト成功表示
         self.last_test_success_label = QLabel("")
         self.last_test_success_label.setStyleSheet("color: #22c55e; font-size: 9pt;")
         api_layout.addRow("", self.last_test_success_label)
         self._load_last_test_success()
 
-        api_group.setLayout(api_layout)
-        scroll_layout.addWidget(api_group)
+        self.api_group.setLayout(api_layout)
+        scroll_layout.addWidget(self.api_group)
+        self.api_group.setVisible(False)
+
+        # === 🤖 モデル設定 (v11.0.0: モデル管理機能追加) ===
+        self.model_settings_group = QGroupBox(t('desktop.cloudAI.modelSettingsGroup'))
+        model_settings_layout = QVBoxLayout()
+
+        # 登録済みモデルリスト
+        self.cloud_model_list_label = QLabel(t('desktop.cloudAI.registeredModels'))
+        self.cloud_model_list_label.setStyleSheet("font-weight: bold; color: #e0e0e0; margin-bottom: 4px;")
+        model_settings_layout.addWidget(self.cloud_model_list_label)
+
+        self.cloud_model_list = QListWidget()
+        self.cloud_model_list.setMaximumHeight(140)
+        self.cloud_model_list.setStyleSheet("""
+            QListWidget { background: #0d0d1f; color: #e0e0e0; border: 1px solid #333;
+                border-radius: 4px; padding: 4px; font-size: 11px; }
+            QListWidget::item { padding: 4px; }
+            QListWidget::item:selected { background: #0078d4; color: white; }
+        """)
+        self._refresh_cloud_model_list()
+        model_settings_layout.addWidget(self.cloud_model_list)
+
+        # モデル管理ボタン行
+        model_btn_row = QHBoxLayout()
+        model_btn_row.setSpacing(4)
+
+        _mgmt_btn_style = """
+            QPushButton { background: #2d3748; color: #e0e0e0; border: 1px solid #4a5568;
+                border-radius: 4px; padding: 4px 10px; font-size: 11px; }
+            QPushButton:hover { background: #4a5568; }
+        """
+
+        self.cloud_add_model_btn = QPushButton(t('desktop.cloudAI.addModelBtn'))
+        self.cloud_add_model_btn.setStyleSheet(_mgmt_btn_style)
+        self.cloud_add_model_btn.clicked.connect(self._on_add_cloud_model)
+        model_btn_row.addWidget(self.cloud_add_model_btn)
+
+        self.cloud_del_model_btn = QPushButton(t('desktop.cloudAI.deleteModelBtn'))
+        self.cloud_del_model_btn.setStyleSheet(_mgmt_btn_style)
+        self.cloud_del_model_btn.clicked.connect(self._on_delete_cloud_model)
+        model_btn_row.addWidget(self.cloud_del_model_btn)
+
+        self.cloud_edit_json_btn = QPushButton(t('desktop.cloudAI.editJsonBtn'))
+        self.cloud_edit_json_btn.setStyleSheet(_mgmt_btn_style)
+        self.cloud_edit_json_btn.clicked.connect(self._on_edit_cloud_models_json)
+        model_btn_row.addWidget(self.cloud_edit_json_btn)
+
+        self.cloud_reload_btn = QPushButton(t('desktop.cloudAI.reloadModelsBtn'))
+        self.cloud_reload_btn.setStyleSheet(_mgmt_btn_style)
+        self.cloud_reload_btn.clicked.connect(self._on_reload_cloud_models)
+        model_btn_row.addWidget(self.cloud_reload_btn)
+
+        model_btn_row.addStretch()
+        model_settings_layout.addLayout(model_btn_row)
+
+        # 後方互換: model_combo (hidden)
+        self.model_label = QLabel(t('desktop.cloudAI.soloModelLabel'))
+        self.model_combo = NoScrollComboBox()
+        for model_def in CLAUDE_MODELS:
+            display = t(model_def["i18n_display"]) if model_def.get("i18n_display") else model_def["display_name"]
+            self.model_combo.addItem(display, userData=model_def["id"])
+        self.model_combo.addItem(t('desktop.cloudAI.modelCodex53'), userData="gpt-5.3-codex")
+        self.model_combo.setVisible(False)
+        self.model_label.setVisible(False)
+
+        # タイムアウト
+        timeout_row = QHBoxLayout()
+        self.solo_timeout_label = QLabel(t('desktop.cloudAI.soloTimeoutLabel'))
+        self.solo_timeout_spin = NoScrollSpinBox()
+        self.solo_timeout_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.solo_timeout_spin.setRange(10, 120)
+        self.solo_timeout_spin.setValue(30)
+        self.solo_timeout_spin.setSingleStep(10)
+        self.solo_timeout_spin.setStyleSheet(SPINBOX_STYLE)
+        self.solo_timeout_spin.setSuffix(t('common.timeoutSuffix'))
+        self.solo_timeout_spin.setToolTip(t('common.timeoutTip'))
+        timeout_row.addWidget(self.solo_timeout_label)
+        timeout_row.addWidget(self.solo_timeout_spin)
+        timeout_row.addStretch()
+        model_settings_layout.addLayout(timeout_row)
+
+        model_settings_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
+
+        self.model_settings_group.setLayout(model_settings_layout)
+        scroll_layout.addWidget(self.model_settings_group)
+
+        # === ⚙️ 実行オプション (旧ツールバー行2から移設) ===
+        self.mcp_options_group = QGroupBox(t('desktop.cloudAI.mcpAndOptionsGroup'))
+        mcp_options_layout = QVBoxLayout()
+
+        # v11.0.0: MCP checkbox removed (MCP設定セクションで詳細に設定可能)
+        self.mcp_checkbox = QCheckBox()
+        self.mcp_checkbox.setChecked(True)
+        self.mcp_checkbox.setVisible(False)
+
+        self.diff_checkbox = QCheckBox(t('desktop.cloudAI.diffCheckLabel'))
+        self.diff_checkbox.setChecked(True)
+        self.diff_checkbox.setToolTip(t('desktop.cloudAI.diffCheckboxTooltip'))
+        mcp_options_layout.addWidget(self.diff_checkbox)
+
+        self.context_checkbox = QCheckBox(t('desktop.cloudAI.autoContextLabel'))
+        self.context_checkbox.setChecked(True)
+        self.context_checkbox.setToolTip(t('desktop.cloudAI.contextCheckboxTooltip'))
+        mcp_options_layout.addWidget(self.context_checkbox)
+
+        self.permission_skip_checkbox = QCheckBox(t('desktop.cloudAI.permissionLabel'))
+        self.permission_skip_checkbox.setChecked(True)
+        self.permission_skip_checkbox.setToolTip(t('desktop.cloudAI.permissionSkipTooltip'))
+        mcp_options_layout.addWidget(self.permission_skip_checkbox)
+
+        # v10.1.0: Browser Use チェックボックス
+        self.browser_use_checkbox = QCheckBox(t('desktop.cloudAI.browserUseLabel'))
+        self.browser_use_checkbox.setChecked(False)
+        self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
+        try:
+            import browser_use  # noqa: F401
+            self._browser_use_available = True
+        except ImportError:
+            self._browser_use_available = False
+            self.browser_use_checkbox.setEnabled(False)
+            self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseNotInstalled'))
+        mcp_options_layout.addWidget(self.browser_use_checkbox)
+        mcp_options_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
+
+        self.mcp_options_group.setLayout(mcp_options_layout)
+        scroll_layout.addWidget(self.mcp_options_group)
 
         # === Ollama設定 ===
-        self.ollama_group = QGroupBox(t('desktop.soloAI.ollamaSettingsGroup'))
-        ollama_group = self.ollama_group
-        ollama_layout = QVBoxLayout(ollama_group)
+        self.ollama_group = QGroupBox(t('desktop.cloudAI.ollamaSettingsGroup'))
+        ollama_layout = QVBoxLayout(self.ollama_group)
 
         # Ollama URL
         ollama_url_layout = QHBoxLayout()
-        self.ollama_url_label = QLabel(t('desktop.soloAI.hostUrlLabel'))
+        self.ollama_url_label = QLabel(t('desktop.cloudAI.hostUrlLabel'))
         ollama_url_layout.addWidget(self.ollama_url_label)
         self.settings_ollama_url = QLineEdit("http://localhost:11434")
         ollama_url_layout.addWidget(self.settings_ollama_url)
-        self.ollama_test_btn = QPushButton(t('desktop.soloAI.connTestBtn'))
+        self.ollama_test_btn = QPushButton(t('desktop.cloudAI.connTestBtn'))
         self.ollama_test_btn.clicked.connect(self._test_ollama_settings)
         ollama_url_layout.addWidget(self.ollama_test_btn)
         ollama_layout.addLayout(ollama_url_layout)
 
-        # Ollamaモデル (v3.9.4: 初期状態空、モデル一覧更新に名称変更、スクロール無効)
+        # Ollamaモデル
         ollama_model_layout = QHBoxLayout()
-        self.ollama_model_label = QLabel(t('desktop.soloAI.useModelLabel'))
+        self.ollama_model_label = QLabel(t('desktop.cloudAI.useModelLabel'))
         ollama_model_layout.addWidget(self.ollama_model_label)
-        self.settings_ollama_model = QComboBox()
-        self.settings_ollama_model.setEditable(False)  # v3.9.4: プルダウンのみ
-        # v3.9.4: 初期状態は空（モデル一覧更新ボタンを押すまで）
-        self.settings_ollama_model.setPlaceholderText(t('desktop.soloAI.ollamaModelPlaceholder'))
-        # v3.9.4: スクロールで変更されないようにフォーカスポリシーを設定
+        self.settings_ollama_model = NoScrollComboBox()
+        self.settings_ollama_model.setEditable(False)
+        self.settings_ollama_model.setPlaceholderText(t('desktop.cloudAI.ollamaModelPlaceholder'))
         self.settings_ollama_model.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.settings_ollama_model.installEventFilter(self)
         ollama_model_layout.addWidget(self.settings_ollama_model)
-        self.refresh_models_btn = QPushButton(t('desktop.soloAI.refreshModelsBtn'))  # v3.9.4: 名称変更
-        refresh_models_btn = self.refresh_models_btn
-        refresh_models_btn.clicked.connect(self._refresh_ollama_models_settings)
-        ollama_model_layout.addWidget(refresh_models_btn)
+        self.refresh_models_btn = QPushButton(t('desktop.cloudAI.refreshModelsBtn'))
+        self.refresh_models_btn.clicked.connect(self._refresh_ollama_models_settings)
+        ollama_model_layout.addWidget(self.refresh_models_btn)
         ollama_layout.addLayout(ollama_model_layout)
 
         # ステータス
-        self.settings_ollama_status = QLabel(t('desktop.soloAI.ollamaStatusInit'))
+        self.settings_ollama_status = QLabel(t('desktop.cloudAI.ollamaStatusInit'))
         self.settings_ollama_status.setStyleSheet("color: #888;")
         ollama_layout.addWidget(self.settings_ollama_status)
 
-        scroll_layout.addWidget(ollama_group)
+        scroll_layout.addWidget(self.ollama_group)
+        self.ollama_group.setVisible(False)
 
-        # v8.1.0: MCPサーバー管理・Claudeモデル設定は一般設定タブに移設
+        # === v10.1.0: Claude CLI 連携セクション ===
+        self.cli_section_group = QGroupBox(t('desktop.cloudAI.cliSection'))
+        cli_section_layout = QFormLayout()
+        cli_version_layout = QHBoxLayout()
+        self.cli_version_label = QLabel("")
+        self.cli_version_label.setStyleSheet("color: #9ca3af; font-size: 9pt;")
+        cli_version_layout.addWidget(self.cli_version_label)
+        self.cli_version_check_btn = QPushButton(t('common.confirm'))
+        self.cli_version_check_btn.clicked.connect(self._check_cli_version_detail)
+        cli_version_layout.addWidget(self.cli_version_check_btn)
+        cli_version_layout.addStretch()
+        cli_section_layout.addRow("Claude CLI:", cli_version_layout)
+        self.cli_section_group.setLayout(cli_section_layout)
+        scroll_layout.addWidget(self.cli_section_group)
+        self._check_cli_version_detail()
 
-        # 保存ボタン
-        save_btn_layout = QHBoxLayout()
-        save_btn_layout.addStretch()
-        self.save_settings_btn = QPushButton(t('desktop.soloAI.saveSettingsBtnLabel'))
-        save_settings_btn = self.save_settings_btn
-        save_settings_btn.setToolTip(t('desktop.soloAI.saveBtnTooltip'))
-        save_settings_btn.clicked.connect(self._save_claude_settings)
-        save_btn_layout.addWidget(save_settings_btn)
-        scroll_layout.addLayout(save_btn_layout)
+        # === v10.1.0: Codex CLI 連携セクション ===
+        self.codex_section_group = QGroupBox(t('desktop.cloudAI.codexSection'))
+        codex_section_layout = QFormLayout()
+        codex_status_layout = QHBoxLayout()
+        self.codex_version_label = QLabel("")
+        self.codex_version_label.setStyleSheet("color: #9ca3af; font-size: 9pt;")
+        codex_status_layout.addWidget(self.codex_version_label)
+        self.codex_check_btn = QPushButton(t('common.confirm'))
+        self.codex_check_btn.clicked.connect(self._check_codex_version)
+        codex_status_layout.addWidget(self.codex_check_btn)
+        codex_status_layout.addStretch()
+        codex_section_layout.addRow("Codex CLI:", codex_status_layout)
+        self.codex_section_group.setLayout(codex_section_layout)
+        scroll_layout.addWidget(self.codex_section_group)
+        self._check_codex_version()
+
+        # === v11.0.0: MCP Settings for cloudAI ===
+        self.cloudai_mcp_group = QGroupBox(t('desktop.cloudAI.mcpSettings'))
+        cloudai_mcp_layout = QVBoxLayout()
+        self.cloudai_mcp_filesystem = QCheckBox(t('desktop.settings.mcpFilesystem'))
+        self.cloudai_mcp_git = QCheckBox(t('desktop.settings.mcpGit'))
+        self.cloudai_mcp_brave = QCheckBox(t('desktop.settings.mcpBrave'))
+        cloudai_mcp_layout.addWidget(self.cloudai_mcp_filesystem)
+        cloudai_mcp_layout.addWidget(self.cloudai_mcp_git)
+        cloudai_mcp_layout.addWidget(self.cloudai_mcp_brave)
+        cloudai_mcp_layout.addWidget(create_section_save_button(self._save_cloudai_mcp_settings))
+        self.cloudai_mcp_group.setLayout(cloudai_mcp_layout)
+        scroll_layout.addWidget(self.cloudai_mcp_group)
+
+        # v11.0.0: Bottom save button removed — per-section save buttons used instead
 
         scroll_layout.addStretch()
         scroll.setWidget(scroll_content)
         settings_layout.addWidget(scroll)
+
+        # 保存済み設定を復元
+        self._load_claude_settings()
+
+        # 認証状態の初期更新
+        self._update_auth_status()
 
         return settings_widget
 
     def _check_cli_status(self):
         """CLI状態を確認"""
         cli_available, cli_msg = check_claude_cli_available()
-        self.cli_status_label.setText(f"{t('desktop.soloAI.cliEnabled') if cli_available else t('desktop.soloAI.cliDisabled')}")
+        self.cli_status_label.setText(f"{t('desktop.cloudAI.cliEnabled') if cli_available else t('desktop.cloudAI.cliDisabled')}")
         self.cli_status_label.setToolTip(cli_msg)
         if cli_available:
-            QMessageBox.information(self, t('desktop.soloAI.cliAvailableTitle'), t('desktop.soloAI.cliAvailableMsg', msg=cli_msg))
+            QMessageBox.information(self, t('desktop.cloudAI.cliAvailableTitle'), t('desktop.cloudAI.cliAvailableMsg', msg=cli_msg))
         else:
-            QMessageBox.warning(self, t('desktop.soloAI.cliAvailableTitle'), t('desktop.soloAI.cliUnavailableMsg', msg=cli_msg))
+            QMessageBox.warning(self, t('desktop.cloudAI.cliAvailableTitle'), t('desktop.cloudAI.cliUnavailableMsg', msg=cli_msg))
+
+    def _check_cli_version_detail(self):
+        """v10.1.0: Claude CLI バージョン詳細表示"""
+        try:
+            from ..utils.subprocess_utils import run_hidden
+            result = run_hidden(
+                ["claude", "--version"],
+                capture_output=True, text=True, timeout=10,
+                encoding='utf-8', errors='replace'
+            )
+            version_str = (result.stdout or "").strip()
+            if result.returncode == 0 and version_str:
+                self.cli_version_label.setText(f"✓ {version_str}")
+                self.cli_version_label.setStyleSheet("color: #10b981; font-size: 9pt;")
+            else:
+                self.cli_version_label.setText("✗ Not found")
+                self.cli_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+        except Exception:
+            self.cli_version_label.setText("✗ Not found")
+            self.cli_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+
+    def _check_codex_version(self):
+        """v11.0.0: Codex CLI バージョン確認（Windows .cmd対応）"""
+        self.codex_version_label.setText("⏳ checking...")
+        self.codex_version_label.setStyleSheet("color: #f59e0b; font-size: 9pt;")
+        self.codex_check_btn.setEnabled(False)
+        # 短い遅延でバックグラウンド実行→結果をUI反映
+        QTimer.singleShot(50, self._do_codex_check)
+
+    def _do_codex_check(self):
+        """Codex CLIを実際にチェック（QTimer経由でUIスレッドで実行）"""
+        try:
+            from ..backends.codex_cli_backend import check_codex_cli_available
+            available, msg = check_codex_cli_available()
+            if available:
+                display = msg.replace("Codex CLI found: ", "✓ ").split("(")[0].strip()
+                self.codex_version_label.setText(display)
+                self.codex_version_label.setStyleSheet("color: #10b981; font-size: 9pt;")
+            else:
+                self.codex_version_label.setText("✗ Not found")
+                self.codex_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+        except Exception:
+            self.codex_version_label.setText("✗ Not found")
+            self.codex_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+        self.codex_check_btn.setEnabled(True)
+
+    def _open_manage_models_from_cloud(self):
+        """v10.1.0: cloudAI設定からManageModelsDialogを開く"""
+        try:
+            if self.main_window and hasattr(self.main_window, 'helix_tab'):
+                helix_tab = self.main_window.helix_tab
+                if hasattr(helix_tab, '_open_manage_models_dialog'):
+                    helix_tab._open_manage_models_dialog()
+                    return
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, "mixAI Phase",
+                t('desktop.cloudAI.mixaiPhaseOpenMixTab')
+            )
+        except Exception as e:
+            logger.warning(f"ManageModelsDialog open failed: {e}")
 
     def _test_ollama_settings(self):
         """Ollama接続テスト（設定タブ用）"""
@@ -902,10 +1255,10 @@ class ClaudeTab(QWidget):
             client = ollama.Client(host=url)
             response = client.list()
             model_count = len(response.get('models', []) if isinstance(response, dict) else getattr(response, 'models', []))
-            self.settings_ollama_status.setText(t('desktop.soloAI.ollamaConnSuccess', count=model_count))
+            self.settings_ollama_status.setText(t('desktop.cloudAI.ollamaConnSuccess', count=model_count))
             self.settings_ollama_status.setStyleSheet("color: #22c55e;")
         except Exception as e:
-            self.settings_ollama_status.setText(t('desktop.soloAI.ollamaConnFailed', error=str(e)[:30]))
+            self.settings_ollama_status.setText(t('desktop.cloudAI.ollamaConnFailed', error=str(e)[:30]))
             self.settings_ollama_status.setStyleSheet("color: #ef4444;")
 
     # ========================================
@@ -916,10 +1269,10 @@ class ClaudeTab(QWidget):
         """API接続テスト (v6.0.0: 廃止 - CLI専用化)"""
         # v6.0.0: API認証は廃止されました
         if hasattr(self, 'api_test_status'):
-            self.api_test_status.setText(t('desktop.soloAI.apiDeprecatedStatus'))
+            self.api_test_status.setText(t('desktop.cloudAI.apiDeprecatedStatus'))
             self.api_test_status.setStyleSheet("color: #fbbf24;")
             self.api_test_status.setToolTip(
-                t('desktop.soloAI.apiDeprecatedDialogMsg')
+                t('desktop.cloudAI.apiDeprecatedDialogMsg')
             )
 
     def _run_unified_model_test(self):
@@ -929,14 +1282,14 @@ class ClaudeTab(QWidget):
 
         auth_mode = self.auth_mode_combo.currentIndex()  # 0: CLI, 1: API, 2: Ollama
         auth_names = ["CLI (Max/Pro)", "API", "Ollama"]
-        auth_name = auth_names[auth_mode] if auth_mode < len(auth_names) else t('desktop.soloAI.unknownAuth')
+        auth_name = auth_names[auth_mode] if auth_mode < len(auth_names) else t('desktop.cloudAI.unknownAuth')
 
         try:
             if auth_mode == 0:
                 # CLI モード
                 cli_available, _ = check_claude_cli_available()
                 if not cli_available:
-                    QMessageBox.warning(self, t('desktop.soloAI.testFailedTitle'), t('desktop.soloAI.testFailedCliMsg'))
+                    QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'), t('desktop.cloudAI.testFailedCliMsg'))
                     return
 
                 # CLI テスト（簡易）
@@ -952,16 +1305,16 @@ class ClaudeTab(QWidget):
                 if result.returncode == 0:
                     self._save_last_test_success("CLI", latency)
                     QMessageBox.information(
-                        self, t('desktop.soloAI.testSuccessTitle'),
-                        t('desktop.soloAI.testResultMsg', auth_name=auth_name, latency=f"{latency:.2f}")
+                        self, t('desktop.cloudAI.testSuccessTitle'),
+                        t('desktop.cloudAI.testResultMsg', auth_name=auth_name, latency=f"{latency:.2f}")
                         + f"\nCLI Version: {result.stdout.strip()}"
                     )
                 else:
-                    QMessageBox.warning(self, t('desktop.soloAI.testFailedTitle'), t('desktop.soloAI.testFailedCliError', error=result.stderr))
+                    QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'), t('desktop.cloudAI.testFailedCliError', error=result.stderr))
 
             elif auth_mode == 1:
                 # API モード (v8.1.0: 廃止済み)
-                QMessageBox.warning(self, t('desktop.soloAI.apiDeprecatedTitle'), t('desktop.soloAI.apiDeprecatedFullMsg'))
+                QMessageBox.warning(self, t('desktop.cloudAI.apiDeprecatedTitle'), t('desktop.cloudAI.apiDeprecatedFullMsg'))
 
             else:
                 # Ollama モード
@@ -982,13 +1335,13 @@ class ClaudeTab(QWidget):
 
                 self._save_last_test_success("Ollama", latency)
                 QMessageBox.information(
-                    self, t('desktop.soloAI.testSuccessTitle'),
-                    t('desktop.soloAI.testResultMsgShort', auth_name=auth_name, model=model, latency=f"{latency:.2f}")
+                    self, t('desktop.cloudAI.testSuccessTitle'),
+                    t('desktop.cloudAI.testResultMsgShort', auth_name=auth_name, model=model, latency=f"{latency:.2f}")
                 )
 
         except Exception as e:
             logger.error(f"[Unified Model Test] Error: {e}")
-            QMessageBox.warning(self, t('desktop.soloAI.testFailedTitle'), t('desktop.soloAI.testFailedAuth', auth=auth_name, error=str(e)))
+            QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'), t('desktop.cloudAI.testFailedAuth', auth=auth_name, error=str(e)))
 
     def _load_last_test_success(self):
         """最終テスト成功情報を読み込み (v3.9.2)"""
@@ -1006,7 +1359,7 @@ class ClaudeTab(QWidget):
                         timestamp = last_test.get("timestamp", "")
                         latency = last_test.get("latency", 0)
                         self.last_test_success_label.setText(
-                            t('desktop.soloAI.lastTestSuccessLabel', auth=auth, timestamp=timestamp, latency=f"{latency:.2f}")
+                            t('desktop.cloudAI.lastTestSuccessLabel', auth=auth, timestamp=timestamp, latency=f"{latency:.2f}")
                         )
         except Exception:
             pass
@@ -1037,7 +1390,7 @@ class ClaudeTab(QWidget):
                 json.dump(data, f, indent=2, ensure_ascii=False)
 
             self.last_test_success_label.setText(
-                t('desktop.soloAI.lastTestSuccessLabel', auth=auth_type, timestamp=timestamp, latency=f"{latency:.2f}")
+                t('desktop.cloudAI.lastTestSuccessLabel', auth=auth_type, timestamp=timestamp, latency=f"{latency:.2f}")
             )
         except Exception:
             pass
@@ -1062,18 +1415,18 @@ class ClaudeTab(QWidget):
 
             self.settings_ollama_model.clear()
             self.settings_ollama_model.addItems(model_names)
-            self.settings_ollama_status.setText(t('desktop.soloAI.modelListSuccess', count=len(model_names)))
+            self.settings_ollama_status.setText(t('desktop.cloudAI.modelListSuccess', count=len(model_names)))
             self.settings_ollama_status.setStyleSheet("color: #22c55e;")
         except Exception as e:
-            self.settings_ollama_status.setText(t('desktop.soloAI.modelListFailed', error=str(e)[:30]))
+            self.settings_ollama_status.setText(t('desktop.cloudAI.modelListFailed', error=str(e)[:30]))
             self.settings_ollama_status.setStyleSheet("color: #ef4444;")
 
     def _populate_mcp_servers(self):
         """MCPサーバーリストを初期化"""
         servers = [
-            ("filesystem", t('desktop.soloAI.mcpFilesystem'), True),
+            ("filesystem", t('desktop.cloudAI.mcpFilesystem'), True),
             ("git", "🔀 Git", True),
-            ("brave-search", t('desktop.soloAI.mcpBraveSearch'), False),
+            ("brave-search", t('desktop.cloudAI.mcpBraveSearch'), False),
             ("github", "🐙 GitHub", False),
             ("slack", "💬 Slack", False),
         ]
@@ -1090,31 +1443,138 @@ class ClaudeTab(QWidget):
             item = self.mcp_server_list.item(i)
             item.setCheckState(Qt.CheckState.Checked if enabled else Qt.CheckState.Unchecked)
 
+    def _load_claude_settings(self):
+        """保存済みのClaude設定を読み込んでUIに反映 (v9.6)"""
+        import json
+        from pathlib import Path
+        config_path = Path(__file__).parent.parent.parent / "config" / "claude_settings.json"
+        if not config_path.exists():
+            return
+        try:
+            with open(config_path, 'r', encoding='utf-8') as f:
+                settings = json.load(f)
+            if 'ollama_url' in settings and hasattr(self, 'settings_ollama_url'):
+                self.settings_ollama_url.setText(settings['ollama_url'])
+            if 'auth_mode' in settings and hasattr(self, 'auth_mode_combo'):
+                self.auth_mode_combo.blockSignals(True)
+                self.auth_mode_combo.setCurrentIndex(int(settings['auth_mode']))
+                self.auth_mode_combo.blockSignals(False)
+            if 'model_index' in settings and hasattr(self, 'model_combo'):
+                self.model_combo.setCurrentIndex(int(settings['model_index']))
+            # v11.0.0: effort_level is now a hidden setting in config.json (effort_combo removed)
+            if 'timeout_minutes' in settings and hasattr(self, 'solo_timeout_spin'):
+                self.solo_timeout_spin.setValue(int(settings['timeout_minutes']))
+            if 'mcp_enabled' in settings and hasattr(self, 'mcp_checkbox'):
+                self.mcp_checkbox.setChecked(bool(settings['mcp_enabled']))
+            if 'diff_enabled' in settings and hasattr(self, 'diff_checkbox'):
+                self.diff_checkbox.setChecked(bool(settings['diff_enabled']))
+            if 'auto_context' in settings and hasattr(self, 'context_checkbox'):
+                self.context_checkbox.setChecked(bool(settings['auto_context']))
+            if 'permission_skip' in settings and hasattr(self, 'permission_skip_checkbox'):
+                self.permission_skip_checkbox.setChecked(bool(settings['permission_skip']))
+            # v10.1.0: browser_use_enabled (旧 search_mode / search_max_tokens は廃止)
+            if 'browser_use_enabled' in settings and hasattr(self, 'browser_use_checkbox'):
+                self.browser_use_checkbox.setChecked(bool(settings['browser_use_enabled']))
+        except Exception as e:
+            logger.debug(f"claude_settings.json load failed: {e}")
+
+    def _update_effort_visibility(self, index=None):
+        """v11.0.0: effort_combo removed - no-op for backward compatibility"""
+        pass
+
+    def _get_effort_from_config(self) -> str:
+        """v11.0.0: config.json から effort_level を読み取る（UI削除後の隠し設定）"""
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                return config.get("effort_level", "high")
+        except Exception:
+            pass
+        return "high"
+
+    def _save_all_cloudai_settings(self):
+        """v11.0.0: Save all cloudAI settings"""
+        self._save_claude_settings()
+
     def _save_claude_settings(self):
-        """Claude設定を保存 (v6.0.0: API認証設定削除)"""
+        """Claude設定を保存 (v9.9.2: 差分ダイアログ廃止、即時保存)"""
         import json
         from pathlib import Path
 
-        # v6.0.0: API Key設定を削除（CLI専用化）
-
-        # 設定ファイルに保存
         config_path = Path(__file__).parent.parent.parent / "config" / "claude_settings.json"
         config_path.parent.mkdir(exist_ok=True)
 
         settings = {
             "ollama_url": self.settings_ollama_url.text().strip(),
             "ollama_model": self.settings_ollama_model.currentText(),
+            "auth_mode": self.auth_mode_combo.currentIndex(),
+            "model_index": self.model_combo.currentIndex(),
+            # v11.0.0: effort_level is now a hidden config.json setting
+            "effort_level": self._get_effort_from_config(),
+            "timeout_minutes": self.solo_timeout_spin.value() if hasattr(self, 'solo_timeout_spin') else 30,
+            "mcp_enabled": self.mcp_checkbox.isChecked(),
+            "diff_enabled": self.diff_checkbox.isChecked(),
+            "auto_context": self.context_checkbox.isChecked(),
+            "permission_skip": self.permission_skip_checkbox.isChecked(),
+            # v10.1.0: browser_use_enabled (旧 search_mode / search_max_tokens は廃止)
+            "browser_use_enabled": self.browser_use_checkbox.isChecked() if hasattr(self, 'browser_use_checkbox') else False,
         }
-        # v8.1.0: default_model/timeout/mcp_servers は一般設定タブで管理
 
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(settings, f, indent=2, ensure_ascii=False)
 
-        QMessageBox.information(self, t('desktop.soloAI.saveCompleteTitle'), t('desktop.soloAI.saveCompleteMsg'))
-        self.statusChanged.emit(t('desktop.soloAI.savedStatus'))
+        self.statusChanged.emit(t('desktop.cloudAI.savedStatus'))
+        # v9.9.1: timer-based button feedback（settings_cortex_tab.py と統一）
+        btn = self.sender()
+        if btn:
+            original_text = btn.text()
+            btn.setText(t('desktop.cloudAI.saveCompleteMsg'))
+            btn.setEnabled(False)
+            QTimer.singleShot(2000, lambda b=btn, orig=original_text: (
+                b.setText(orig), b.setEnabled(True)
+            ))
+
+    def _save_cloudai_mcp_settings(self):
+        """v11.0.0: cloudAI MCP設定を ~/.claude/settings.json に保存"""
+        import json
+        from pathlib import Path
+        settings_path = Path.home() / ".claude" / "settings.json"
+        try:
+            settings = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    settings = json.load(f)
+
+            # MCP servers configuration
+            mcp_servers = settings.get("mcpServers", {})
+            if hasattr(self, 'cloudai_mcp_filesystem') and self.cloudai_mcp_filesystem.isChecked():
+                mcp_servers["filesystem"] = {"enabled": True}
+            elif "filesystem" in mcp_servers:
+                mcp_servers["filesystem"]["enabled"] = False
+            if hasattr(self, 'cloudai_mcp_git') and self.cloudai_mcp_git.isChecked():
+                mcp_servers["git"] = {"enabled": True}
+            elif "git" in mcp_servers:
+                mcp_servers["git"]["enabled"] = False
+            if hasattr(self, 'cloudai_mcp_brave') and self.cloudai_mcp_brave.isChecked():
+                mcp_servers["brave-search"] = {"enabled": True}
+            elif "brave-search" in mcp_servers:
+                mcp_servers["brave-search"]["enabled"] = False
+
+            settings["mcpServers"] = mcp_servers
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, indent=2, ensure_ascii=False)
+            logger.info("[ClaudeTab] Saved cloudAI MCP settings")
+            self.statusChanged.emit(t('desktop.cloudAI.savedStatus'))
+        except Exception as e:
+            logger.error(f"Failed to save MCP settings: {e}")
 
     def _create_workflow_bar(self) -> QFrame:
-        """v8.0.0: ステータスバーを作成（旧ステージUI→SoloAIStatusBarに置換）"""
+        """v8.0.0: ステータスバーを作成（旧ステージUI→CloudAIStatusBarに置換）"""
         frame = QFrame()
         frame.setObjectName("workflowFrame")
         frame.setStyleSheet("#workflowFrame { background-color: #1a1a2e; }")
@@ -1122,10 +1582,66 @@ class ClaudeTab(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # v8.0.0: SoloAIStatusBar（旧S0-S5ステージUIを置換）
-        self.solo_status_bar = SoloAIStatusBar()
+        # v8.0.0: CloudAIStatusBar（旧S0-S5ステージUIを置換）
+        self.solo_status_bar = CloudAIStatusBar()
         self.solo_status_bar.new_session_clicked.connect(self._on_new_session)
-        layout.addWidget(self.solo_status_bar)
+
+        # v11.0.0: Header title label
+        self.cloud_header_title = QLabel(t('desktop.cloudAI.headerTitle'))
+        self.cloud_header_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.cloud_header_title.setStyleSheet("color: #e0e0e0; margin-right: 12px;")
+
+        # v11.0.0: Model label
+        self.cloud_model_label = QLabel(t('desktop.cloudAI.modelLabel'))
+        self.cloud_model_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-right: 4px;")
+
+        # v11.0.0: Model selector in chat header
+        self.cloud_model_combo = NoScrollComboBox()
+        self.cloud_model_combo.setStyleSheet("""
+            QComboBox {
+                background: #1a1a2e; color: #e0e0e0;
+                border: 1px solid #3d3d3d; border-radius: 4px;
+                padding: 3px 8px; font-size: 11px; min-width: 160px;
+            }
+            QComboBox:hover { border-color: #00d4ff; }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #1a1a2e; color: #e0e0e0;
+                selection-background-color: #0078d4;
+            }
+        """)
+        self._load_cloud_models_to_combo(self.cloud_model_combo)
+        self.cloud_model_combo.currentIndexChanged.connect(self._on_cloud_model_changed)
+
+        # v11.0.0: Refresh button
+        self.cloud_refresh_btn = QPushButton(t('desktop.cloudAI.refreshBtn'))
+        self.cloud_refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cloud_refresh_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9ca3af;
+                border: 1px solid #3d3d3d; border-radius: 4px;
+                padding: 4px 10px; font-size: 11px;
+            }
+            QPushButton:hover { color: #e0e0e0; border-color: #00d4ff; }
+        """)
+        self.cloud_refresh_btn.clicked.connect(lambda: self._load_cloud_models_to_combo(self.cloud_model_combo))
+
+        # v11.0.0: 後方互換用 (hidden)
+        self.advanced_settings_btn = QPushButton()
+        self.advanced_settings_btn.setVisible(False)
+        self.new_session_btn = QPushButton()
+        self.new_session_btn.setVisible(False)
+        self.history_btn = QPushButton()
+        self.history_btn.setVisible(False)
+
+        # v11.0.0: Header layout [Title] [Model:] [▼ combo] [🔄 Refresh]
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.cloud_header_title)
+        status_row.addWidget(self.cloud_model_label)
+        status_row.addWidget(self.cloud_model_combo)
+        status_row.addWidget(self.cloud_refresh_btn)
+        status_row.addStretch()
+        layout.addLayout(status_row)
 
         # 互換用: phase_label, progress_bar, prev_btn, next_btn等を
         # 非表示の属性として保持（既存コードの参照を壊さないため）
@@ -1153,11 +1669,211 @@ class ClaudeTab(QWidget):
 
         return frame
 
+    def _load_cloud_models_to_combo(self, combo):
+        """v11.0.0: cloud_models.json からモデル一覧を読み込みコンボに設定"""
+        combo.clear()
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                for model in data.get("models", []):
+                    combo.addItem(model["name"], model["model_id"])
+        except Exception as e:
+            logger.warning(f"Failed to load cloud models: {e}")
+            # Fallback
+            from ..utils.constants import CLAUDE_MODELS
+            for m in CLAUDE_MODELS:
+                combo.addItem(m["display_name"], m["id"])
+
+    def _on_cloud_model_changed(self, index: int):
+        """v11.0.0: ヘッダーのモデル選択変更時に設定タブのmodel_comboも同期"""
+        if not hasattr(self, 'cloud_model_combo') or not hasattr(self, 'model_combo'):
+            return
+        model_id = self.cloud_model_combo.currentData()
+        if model_id:
+            # 設定タブのmodel_comboで同じmodel_idを探して同期
+            for i in range(self.model_combo.count()):
+                if self.model_combo.itemData(i) == model_id:
+                    self.model_combo.blockSignals(True)
+                    self.model_combo.setCurrentIndex(i)
+                    self.model_combo.blockSignals(False)
+                    break
+            logger.info(f"[ClaudeTab] Cloud model changed to: {model_id}")
+
+    def _refresh_cloud_model_list(self):
+        """v11.0.0: cloud_models.json からリストウィジェットを更新"""
+        if not hasattr(self, 'cloud_model_list'):
+            return
+        self.cloud_model_list.clear()
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                for i, model in enumerate(data.get("models", []), 1):
+                    self.cloud_model_list.addItem(
+                        f"{i}. {model['name']}  |  {model.get('command', '')}"
+                    )
+        except Exception as e:
+            logger.warning(f"Failed to refresh cloud model list: {e}")
+
+    def _on_add_cloud_model(self):
+        """v11.0.0: モデル追加ダイアログ"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t('desktop.cloudAI.addModelTitle'))
+        dialog.setMinimumWidth(400)
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel(t('desktop.cloudAI.addModelName')))
+        name_input = QLineEdit()
+        name_input.setPlaceholderText("例: Claude Opus 4.6")
+        layout.addWidget(name_input)
+
+        layout.addWidget(QLabel(t('desktop.cloudAI.addModelCommand')))
+        cmd_input = QLineEdit()
+        cmd_input.setPlaceholderText("例: claude --model claude-opus-4-6")
+        layout.addWidget(cmd_input)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            name = name_input.text().strip()
+            command = cmd_input.text().strip()
+            if not name or not command:
+                return
+            try:
+                from pathlib import Path
+                import json
+                config_path = Path("config/cloud_models.json")
+                data = {"models": []}
+                if config_path.exists():
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                # model_id をコマンドから推定
+                model_id = command.split("--model")[-1].strip().split()[0] if "--model" in command else name.lower().replace(" ", "-")
+                data["models"].append({
+                    "name": name, "model_id": model_id,
+                    "command": command, "builtin": False
+                })
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                self._refresh_cloud_model_list()
+                self._load_cloud_models_to_combo(self.cloud_model_combo)
+                self.statusChanged.emit(f"Model added: {name}")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", str(e))
+
+    def _on_delete_cloud_model(self):
+        """v11.0.0: 選択モデルを削除"""
+        row = self.cloud_model_list.currentRow()
+        if row < 0:
+            return
+        from PyQt6.QtWidgets import QMessageBox as MB
+        reply = MB.question(self, t('desktop.cloudAI.deleteModelConfirm'),
+                           t('desktop.cloudAI.deleteModelConfirm'),
+                           MB.StandardButton.Yes | MB.StandardButton.No)
+        if reply != MB.StandardButton.Yes:
+            return
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                models = data.get("models", [])
+                if 0 <= row < len(models):
+                    removed = models.pop(row)
+                    with open(config_path, 'w', encoding='utf-8') as f:
+                        json.dump(data, f, indent=2, ensure_ascii=False)
+                    self._refresh_cloud_model_list()
+                    self._load_cloud_models_to_combo(self.cloud_model_combo)
+                    self.statusChanged.emit(f"Model removed: {removed.get('name', '')}")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
+
+    def _on_edit_cloud_models_json(self):
+        """v11.0.0: cloud_models.json をテキスト編集ダイアログで開く"""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QTextEdit, QDialogButtonBox
+        dialog = QDialog(self)
+        dialog.setWindowTitle(t('desktop.cloudAI.editJsonTitle'))
+        dialog.setMinimumSize(500, 400)
+        layout = QVBoxLayout(dialog)
+
+        editor = QTextEdit()
+        editor.setStyleSheet("QTextEdit { background: #0d0d1f; color: #e0e0e0; font-family: monospace; font-size: 11px; }")
+        try:
+            from pathlib import Path
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                editor.setPlainText(config_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+        layout.addWidget(editor)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                import json
+                from pathlib import Path
+                text = editor.toPlainText()
+                json.loads(text)  # validate
+                Path("config/cloud_models.json").write_text(text, encoding='utf-8')
+                self._refresh_cloud_model_list()
+                self._load_cloud_models_to_combo(self.cloud_model_combo)
+                self.statusChanged.emit("cloud_models.json updated")
+            except json.JSONDecodeError as e:
+                QMessageBox.warning(self, "JSON Error", f"Invalid JSON: {e}")
+            except Exception as e:
+                QMessageBox.warning(self, "Error", str(e))
+
+    def _on_reload_cloud_models(self):
+        """v11.0.0: モデルリストとコンボを再読み込み"""
+        self._refresh_cloud_model_list()
+        self._load_cloud_models_to_combo(self.cloud_model_combo)
+        self.statusChanged.emit("Cloud models reloaded")
+
+    def _open_claude_code_settings(self):
+        """v11.0.0: ~/.claude/settings.json をOSデフォルトエディタで開く"""
+        import platform, subprocess, os
+        from pathlib import Path
+        settings_path = Path.home() / ".claude" / "settings.json"
+        if not settings_path.exists():
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            import json
+            default = {"effortLevel": "high", "permissions": {}, "env": {}}
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(default, f, indent=2, ensure_ascii=False)
+        try:
+            if platform.system() == "Windows":
+                os.startfile(str(settings_path))
+            elif platform.system() == "Darwin":
+                subprocess.run(["open", str(settings_path)])
+            else:
+                subprocess.run(["xdg-open", str(settings_path)])
+        except Exception as e:
+            logger.error(f"Failed to open settings: {e}")
+            QMessageBox.warning(self, t('common.error'),
+                                t('desktop.cloudAI.settingsOpenFailed', error=str(e)))
+
     def _create_approval_panel(self) -> QGroupBox:
         """S3承認チェックリストパネルを作成（Phase 1.2）"""
         from ..security.risk_gate import ApprovalScope
 
-        self.approval_group = QGroupBox(t('desktop.soloAI.approvalScopesGroup'))
+        self.approval_group = QGroupBox(t('desktop.cloudAI.approvalScopesGroup'))
         group = self.approval_group
         group.setStyleSheet("""
             QGroupBox {
@@ -1180,7 +1896,7 @@ class ClaudeTab(QWidget):
 
         # 説明ラベル
         self.approval_desc_label = QLabel(
-            t('desktop.soloAI.approvalPanelDesc')
+            t('desktop.cloudAI.approvalPanelDesc')
         )
         desc_label = self.approval_desc_label
         desc_label.setStyleSheet("color: #b0b0b0; font-size: 9pt; font-weight: normal;")
@@ -1211,13 +1927,13 @@ class ClaudeTab(QWidget):
         button_layout = QHBoxLayout()
         button_layout.addStretch()
 
-        self.approve_all_btn = QPushButton(t('desktop.soloAI.approveAllBtnLabel'))
+        self.approve_all_btn = QPushButton(t('desktop.cloudAI.approveAllBtnLabel'))
         all_btn = self.approve_all_btn
         all_btn.setMaximumWidth(100)
         all_btn.clicked.connect(self._approve_all_scopes)
         button_layout.addWidget(all_btn)
 
-        self.revoke_all_btn = QPushButton(t('desktop.soloAI.revokeAllBtnLabel'))
+        self.revoke_all_btn = QPushButton(t('desktop.cloudAI.revokeAllBtnLabel'))
         none_btn = self.revoke_all_btn
         none_btn.setMaximumWidth(100)
         none_btn.clicked.connect(self._revoke_all_scopes)
@@ -1227,109 +1943,7 @@ class ClaudeTab(QWidget):
 
         return group
 
-    def _create_toolbar(self) -> QFrame:
-        """v8.0.0: オプションバー（2行レイアウト）を作成"""
-        toolbar = QFrame()
-        toolbar.setStyleSheet("""
-            QFrame {
-                background-color: #0f0f1a;
-                border-bottom: 1px solid #2a2a3e;
-            }
-            QLabel { color: #888; font-size: 11px; }
-            QComboBox { font-size: 11px; max-height: 24px; }
-            QCheckBox { font-size: 11px; color: #ccc; spacing: 4px; }
-        """)
-        main_layout = QVBoxLayout(toolbar)
-        main_layout.setContentsMargins(10, 4, 10, 4)
-        main_layout.setSpacing(2)
-
-        # === 行1: 認証 | モデル | 思考 ===
-        row1 = QHBoxLayout()
-        row1.setSpacing(8)
-
-        self.auth_label = QLabel(t('desktop.soloAI.authLabel2'))
-        row1.addWidget(self.auth_label)
-        self.auth_mode_combo = QComboBox()
-        self.auth_mode_combo.addItems([
-            t('desktop.soloAI.authCliOption'),
-            t('desktop.soloAI.authApiOption'),
-            t('desktop.soloAI.authOllamaOption'),
-        ])
-        self.auth_mode_combo.setToolTip(
-            t('desktop.soloAI.authComboTooltipFull')
-        )
-        self.auth_mode_combo.currentIndexChanged.connect(self._on_auth_mode_changed)
-        row1.addWidget(self.auth_mode_combo)
-
-        self.auth_status_label = QLabel("")
-        self.auth_status_label.setStyleSheet("font-size: 9pt; margin-left: 3px;")
-        row1.addWidget(self.auth_status_label)
-        self._update_auth_status()
-
-        sep1 = QLabel("|")
-        sep1.setStyleSheet("color: #333; font-size: 12px;")
-        row1.addWidget(sep1)
-
-        self.model_label = QLabel(t('desktop.soloAI.modelLabel2'))
-        row1.addWidget(self.model_label)
-        self.model_combo = QComboBox()
-        for model_def in CLAUDE_MODELS:
-            self.model_combo.addItem(model_def["display_name"], userData=model_def["id"])
-        tooltip_lines = t('desktop.soloAI.modelTooltipHtml')
-        for model_def in CLAUDE_MODELS:
-            tooltip_lines += f"<b>{model_def['display_name']}:</b> {model_def['description']}<br>"
-        self.model_combo.setToolTip(t('desktop.soloAI.modelReadonlyTooltip'))
-        row1.addWidget(self.model_combo)
-
-        sep2 = QLabel("|")
-        sep2.setStyleSheet("color: #333; font-size: 12px;")
-        row1.addWidget(sep2)
-
-        self.thinking_label = QLabel(t('desktop.soloAI.thinkingLabel2'))
-        row1.addWidget(self.thinking_label)
-        self.thinking_combo = QComboBox()
-        self.thinking_combo.addItems(["OFF", "Standard", "Deep"])
-        self.thinking_combo.setToolTip(t('desktop.soloAI.thinkingShortTooltip'))
-        row1.addWidget(self.thinking_combo)
-
-        row1.addStretch()
-        main_layout.addLayout(row1)
-
-        # === 行2: MCP | 差分表示 | 自動コンテキスト | 許可 | 新規セッション ===
-        row2 = QHBoxLayout()
-        row2.setSpacing(10)
-
-        self.mcp_checkbox = QCheckBox("MCP")
-        self.mcp_checkbox.setChecked(True)
-        self.mcp_checkbox.setToolTip(t('desktop.soloAI.mcpCheckboxTooltip'))
-        row2.addWidget(self.mcp_checkbox)
-
-        self.diff_checkbox = QCheckBox(t('desktop.soloAI.diffCheckLabel'))
-        self.diff_checkbox.setChecked(True)
-        self.diff_checkbox.setToolTip(t('desktop.soloAI.diffCheckboxTooltip'))
-        row2.addWidget(self.diff_checkbox)
-
-        self.context_checkbox = QCheckBox(t('desktop.soloAI.autoContextLabel'))
-        self.context_checkbox.setChecked(True)
-        self.context_checkbox.setToolTip(t('desktop.soloAI.contextCheckboxTooltip'))
-        row2.addWidget(self.context_checkbox)
-
-        self.permission_skip_checkbox = QCheckBox(t('desktop.soloAI.permissionLabel'))
-        self.permission_skip_checkbox.setChecked(True)
-        self.permission_skip_checkbox.setToolTip(t('desktop.soloAI.permissionSkipTooltip'))
-        self.permission_skip_checkbox.setStyleSheet("""
-            QCheckBox { padding: 2px 6px; border-radius: 3px; }
-            QCheckBox:checked { background-color: #2d7d46; color: white; }
-        """)
-        row2.addWidget(self.permission_skip_checkbox)
-
-        row2.addStretch()
-
-        # v8.3.2: Row 2の新規セッションボタンを削除（SoloAIStatusBar側に統一）
-
-        main_layout.addLayout(row2)
-
-        return toolbar
+    # _create_toolbar() は v9.6 で廃止（設定タブへ移動）
 
     def _create_input_area(self) -> QFrame:
         """入力エリアを作成 (v3.4.0: 会話継続UIを追加, v5.1: 添付ファイルバー追加)"""
@@ -1350,18 +1964,19 @@ class ClaudeTab(QWidget):
         left_layout.setSpacing(5)
 
         # v5.1: 添付ファイルバー（入力フィールドの上に表示）
-        self.attachment_bar = SoloAIAttachmentBar()
+        self.attachment_bar = CloudAIAttachmentBar()
         self.attachment_bar.attachments_changed.connect(self._on_attachments_changed)
         left_layout.addWidget(self.attachment_bar)
 
-        # 入力フィールド
-        self.input_field = QTextEdit()
-        self.input_field.setPlaceholderText(t('desktop.soloAI.inputPlaceholder'))
+        # 入力フィールド (CloudAITextInput: 上下キーカーソル移動対応)
+        self.input_field = CloudAITextInput()
+        self.input_field.setPlaceholderText(t('desktop.cloudAI.inputPlaceholder'))
         self.input_field.setFont(QFont("Yu Gothic UI", 11))
         self.input_field.setMinimumHeight(40)
         self.input_field.setMaximumHeight(150)
         self.input_field.setStyleSheet("border: none; background-color: #252526;")
         self.input_field.setAcceptDrops(True)
+        self.input_field.send_requested.connect(self._on_send)
         left_layout.addWidget(self.input_field)
 
         # ボタン行
@@ -1369,35 +1984,62 @@ class ClaudeTab(QWidget):
         btn_layout.setContentsMargins(0, 5, 0, 0)
 
         self.attach_btn = QPushButton("📎 " + t('common.attach'))
-        self.attach_btn.setToolTip(t('desktop.soloAI.attachTooltip'))
+        self.attach_btn.setFixedHeight(32)
+        self.attach_btn.setToolTip(t('desktop.cloudAI.attachTooltip'))
         btn_layout.addWidget(self.attach_btn)
 
-        # v3.1.0: 履歴から引用ボタン
-        self.citation_btn = QPushButton(t('desktop.soloAI.citationBtnLabel'))
-        self.citation_btn.setToolTip(t('desktop.soloAI.citationTooltip'))
-        btn_layout.addWidget(self.citation_btn)
+        # v11.0.0: 履歴から引用ボタン → 削除(Historyタブで代替)、後方互換用
+        self.citation_btn = QPushButton()
+        self.citation_btn.setVisible(False)
 
-        # v3.6.0: スニペットボタン（ClaudeCodeから移植）→ v3.7.0: プルダウンメニュー形式に変更
+        # v3.6.0: スニペットボタン（追加機能統合済み）
         from PyQt6.QtWidgets import QMenu
-        self.snippet_btn = QPushButton(t('desktop.soloAI.snippetBtnLabel'))
-        self.snippet_btn.setToolTip(t('desktop.soloAI.snippetTooltip'))
-        self.snippet_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.snippet_btn.customContextMenuRequested.connect(self._on_snippet_context_menu)
+        self.snippet_btn = QPushButton(t('desktop.cloudAI.snippetBtnLabel'))
+        self.snippet_btn.setFixedHeight(32)
+        self.snippet_btn.setToolTip(t('desktop.cloudAI.snippetTooltip'))
         btn_layout.addWidget(self.snippet_btn)
 
-        # v5.1.1: スニペット管理ボタン（追加・編集・削除）
-        self.snippet_add_btn = QPushButton(t('desktop.soloAI.snippetAddBtnLabel'))
-        self.snippet_add_btn.setToolTip(t('desktop.soloAI.snippetAddTooltip'))
-        self.snippet_add_btn.setMaximumWidth(60)
-        self.snippet_add_btn.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.snippet_add_btn.customContextMenuRequested.connect(self._on_snippet_context_menu)
-        btn_layout.addWidget(self.snippet_add_btn)
+        # v11.0.0: 追加ボタン → 削除(スニペットメニュー内に統合)、後方互換用
+        self.snippet_add_btn = QPushButton()
+        self.snippet_add_btn.setVisible(False)
+
+        # v11.0.0: BIBLE toggle button (Phase 4) - 高さ統一
+        self.bible_btn = QPushButton("📖 BIBLE")
+        self.bible_btn.setCheckable(True)
+        self.bible_btn.setChecked(False)
+        self.bible_btn.setFixedHeight(32)
+        self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
+        self.bible_btn.setStyleSheet("""
+            QPushButton { background: transparent; color: #ffa500;
+                border: 1px solid #ffa500; border-radius: 4px;
+                padding: 4px 12px; font-size: 11px; }
+            QPushButton:checked { background: rgba(255, 165, 0, 0.2);
+                border: 2px solid #ffa500; font-weight: bold; }
+            QPushButton:hover { background: rgba(255, 165, 0, 0.1); }
+        """)
+        btn_layout.addWidget(self.bible_btn)
 
         btn_layout.addStretch()
 
+        # v11.0.0: Continue Send button (session retention)
+        self.continue_send_btn_main = QPushButton(t('desktop.cloudAI.continueSendMain'))
+        self.continue_send_btn_main.setToolTip(t('desktop.cloudAI.continueSendMainTooltip'))
+        self.continue_send_btn_main.setEnabled(False)
+        self.continue_send_btn_main.setStyleSheet("""
+            QPushButton {
+                background: #1a3a2a; color: #00ff88;
+                border: 1px solid #00ff88; border-radius: 4px;
+                padding: 6px 16px; font-weight: bold;
+            }
+            QPushButton:hover { background: #2a4a3a; }
+            QPushButton:disabled { background: #1a1a2e; color: #555; border-color: #333; }
+        """)
+        self.continue_send_btn_main.clicked.connect(self._on_continue_send_main)
+        btn_layout.addWidget(self.continue_send_btn_main)
+
         self.send_btn = QPushButton(t('common.send') + " ▶")
         self.send_btn.setDefault(True)
-        self.send_btn.setToolTip(t('desktop.soloAI.sendTooltip'))
+        self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
         btn_layout.addWidget(self.send_btn)
 
         left_layout.addLayout(btn_layout)
@@ -1418,21 +2060,21 @@ class ClaudeTab(QWidget):
         continue_layout.setSpacing(6)
 
         # ヘッダー
-        self.continue_header = QLabel(t('desktop.soloAI.conversationContinueLabel'))
+        self.continue_header = QLabel(t('desktop.cloudAI.conversationContinueLabel'))
         continue_header = self.continue_header
         continue_header.setStyleSheet("color: #4fc3f7; font-weight: bold; font-size: 11px;")
         continue_layout.addWidget(continue_header)
 
         # 説明
-        self.continue_desc = QLabel(t('desktop.soloAI.continueDesc'))
+        self.continue_desc = QLabel(t('desktop.cloudAI.continueDesc'))
         continue_desc = self.continue_desc
         continue_desc.setStyleSheet("color: #888; font-size: 10px;")
         continue_desc.setWordWrap(True)
         continue_layout.addWidget(continue_desc)
 
-        # 継続入力フィールド
-        self.continue_input = QTextEdit()
-        self.continue_input.setPlaceholderText(t('desktop.soloAI.continuePlaceholder'))
+        # 継続入力フィールド (v9.6: CloudAIContinueInput - 上/下キーでカーソル先頭/末尾へ)
+        self.continue_input = CloudAIContinueInput()
+        self.continue_input.setPlaceholderText(t('desktop.cloudAI.continuePlaceholder'))
         self.continue_input.setMaximumHeight(50)
         self.continue_input.setStyleSheet("""
             QTextEdit {
@@ -1454,9 +2096,9 @@ class ClaudeTab(QWidget):
         quick_btn_layout.setSpacing(4)
 
         # 「はい」ボタン
-        self.quick_yes_btn = QPushButton(t('desktop.soloAI.quickYesLabel'))
+        self.quick_yes_btn = QPushButton(t('desktop.cloudAI.quickYesLabel'))
         self.quick_yes_btn.setMaximumHeight(24)
-        self.quick_yes_btn.setToolTip(t('desktop.soloAI.quickYesTooltip'))
+        self.quick_yes_btn.setToolTip(t('desktop.cloudAI.quickYesTooltip'))
         self.quick_yes_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2d8b4e;
@@ -1474,9 +2116,9 @@ class ClaudeTab(QWidget):
         quick_btn_layout.addWidget(self.quick_yes_btn)
 
         # 「続行」ボタン
-        self.quick_continue_btn = QPushButton(t('desktop.soloAI.continueBtn'))
+        self.quick_continue_btn = QPushButton(t('desktop.cloudAI.continueBtn'))
         self.quick_continue_btn.setMaximumHeight(24)
-        self.quick_continue_btn.setToolTip(t('desktop.soloAI.quickContinueTooltip'))
+        self.quick_continue_btn.setToolTip(t('desktop.cloudAI.quickContinueTooltip'))
         self.quick_continue_btn.setStyleSheet("""
             QPushButton {
                 background-color: #0066aa;
@@ -1494,9 +2136,9 @@ class ClaudeTab(QWidget):
         quick_btn_layout.addWidget(self.quick_continue_btn)
 
         # 「実行」ボタン
-        self.quick_exec_btn = QPushButton(t('desktop.soloAI.execBtn'))
+        self.quick_exec_btn = QPushButton(t('desktop.cloudAI.execBtn'))
         self.quick_exec_btn.setMaximumHeight(24)
-        self.quick_exec_btn.setToolTip(t('desktop.soloAI.quickExecTooltip'))
+        self.quick_exec_btn.setToolTip(t('desktop.cloudAI.quickExecTooltip'))
         self.quick_exec_btn.setStyleSheet("""
             QPushButton {
                 background-color: #6c5ce7;
@@ -1516,8 +2158,8 @@ class ClaudeTab(QWidget):
         continue_layout.addLayout(quick_btn_layout)
 
         # 送信ボタン
-        self.continue_send_btn = QPushButton(t('desktop.soloAI.sendBtnLabel'))
-        self.continue_send_btn.setToolTip(t('desktop.soloAI.continueSendTooltip'))
+        self.continue_send_btn = QPushButton(t('desktop.cloudAI.sendBtnLabel'))
+        self.continue_send_btn.setToolTip(t('desktop.cloudAI.continueSendTooltip'))
         self.continue_send_btn.setMaximumHeight(28)
         self.continue_send_btn.setStyleSheet("""
             QPushButton {
@@ -1543,7 +2185,7 @@ class ClaudeTab(QWidget):
     def _connect_signals(self):
         """シグナルを接続"""
         self.send_btn.clicked.connect(self._on_send)
-        # v8.3.2: new_session_btn削除 → SoloAIStatusBar.new_session_clicked で接続済み
+        # v8.3.2: new_session_btn削除 → CloudAIStatusBar.new_session_clicked で接続済み
 
         # v5.1: ファイル添付ボタン
         self.attach_btn.clicked.connect(self._on_attach_file)
@@ -1562,115 +2204,233 @@ class ClaudeTab(QWidget):
         self.risk_approval_btn.clicked.connect(self._on_toggle_approval_panel)
 
         # v3.4.0: 会話継続ボタン
-        self.quick_yes_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.soloAI.quickYesMsg')))
-        self.quick_continue_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.soloAI.quickContinueMsg')))
-        self.quick_exec_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.soloAI.quickExecMsg')))
+        self.quick_yes_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.cloudAI.quickYesMsg')))
+        self.quick_continue_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.cloudAI.quickContinueMsg')))
+        self.quick_exec_btn.clicked.connect(lambda: self._send_continue_message(t('desktop.cloudAI.quickExecMsg')))
         self.continue_send_btn.clicked.connect(self._send_continue_from_input)
 
         # TODO: self.input_field の Ctrl+Enter ショートカットを接続
 
+    # =========================================================================
+    # v9.7.0: Chat History integration
+    # =========================================================================
+
+    def _toggle_history_panel(self):
+        """チャット履歴パネルの表示切替"""
+        if self.main_window and hasattr(self.main_window, 'toggle_chat_history'):
+            self.main_window.toggle_chat_history(tab="cloudAI")
+
+    def _save_chat_to_history(self, role: str, content: str):
+        """チャットメッセージを履歴に保存"""
+        if not self._chat_store:
+            return
+        try:
+            if not self._active_chat_id:
+                chat = self._chat_store.create_chat(tab="cloudAI")
+                self._active_chat_id = chat["id"]
+            self._chat_store.add_message(self._active_chat_id, role, content)
+            # 最初のメッセージでタイトル自動生成
+            chat = self._chat_store.get_chat(self._active_chat_id)
+            if chat and chat.get("message_count", 0) == 1:
+                self._chat_store.auto_generate_title(self._active_chat_id)
+            # 履歴パネルをリフレッシュ
+            if self.main_window and hasattr(self.main_window, 'chat_history_panel'):
+                self.main_window.chat_history_panel.refresh_chat_list()
+        except Exception as e:
+            logger.debug(f"Failed to save chat to history: {e}")
+
+    def load_chat_from_history(self, chat_id: str):
+        """チャット履歴からチャットを読み込んで表示"""
+        if not self._chat_store:
+            return
+        try:
+            chat = self._chat_store.get_chat(chat_id)
+            if not chat:
+                return
+            messages = self._chat_store.get_messages(chat_id)
+            self._active_chat_id = chat_id
+            self.chat_display.clear()
+            for msg in messages:
+                if msg["role"] == "user":
+                    self.chat_display.append(f'<div style="background:#1a2a3e; border-left:3px solid #00d4ff; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
+                elif msg["role"] == "assistant":
+                    self.chat_display.append(f'<div style="background:#1a1a2e; border-left:3px solid #00ff88; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
+            self.statusChanged.emit(t('desktop.cloudAI.chatLoaded', title=chat.get("title", "")))
+        except Exception as e:
+            logger.warning(f"Failed to load chat from history: {e}")
+
     def retranslateUi(self):
         """言語変更時に全UIテキストを再適用"""
         # === Sub tabs ===
-        self.sub_tabs.setTabText(0, t('desktop.soloAI.chatSubTab'))
-        self.sub_tabs.setTabText(1, t('desktop.soloAI.settingsSubTab'))
+        self.sub_tabs.setTabText(0, t('desktop.cloudAI.chatSubTab'))
+        self.sub_tabs.setTabText(1, t('desktop.cloudAI.settingsSubTab'))
 
         # === Settings tab - GroupBox titles ===
-        self.api_group.setTitle(t('desktop.soloAI.cliAuthGroup'))
-        self.ollama_group.setTitle(t('desktop.soloAI.ollamaSettingsGroup'))
-        self.approval_group.setTitle(t('desktop.soloAI.approvalScopesGroup'))
+        self.api_group.setTitle(t('desktop.cloudAI.authGroup'))
+        self.model_settings_group.setTitle(t('desktop.cloudAI.modelSettingsGroup'))
+        self.mcp_options_group.setTitle(t('desktop.cloudAI.mcpAndOptionsGroup'))
+        self.ollama_group.setTitle(t('desktop.cloudAI.ollamaSettingsGroup'))
+        self.approval_group.setTitle(t('desktop.cloudAI.approvalScopesGroup'))
 
-        # === Settings tab - CLI auth section ===
-        cli_available, _ = check_claude_cli_available()
-        self.cli_status_label.setText(
-            t('desktop.soloAI.cliEnabled') if cli_available else t('desktop.soloAI.cliDisabled')
-        )
-        self.cli_check_btn.setText(t('common.confirm'))
-        self.unified_test_btn.setText(t('desktop.soloAI.testBtnLabel'))
-        self.unified_test_btn.setToolTip(t('desktop.soloAI.testBtnTooltip'))
-
-        # === Settings tab - Ollama section ===
-        self.ollama_url_label.setText(t('desktop.soloAI.hostUrlLabel'))
-        self.ollama_test_btn.setText(t('desktop.soloAI.connTestBtn'))
-        self.ollama_model_label.setText(t('desktop.soloAI.useModelLabel'))
-        self.settings_ollama_model.setPlaceholderText(t('desktop.soloAI.ollamaModelPlaceholder'))
-        self.refresh_models_btn.setText(t('desktop.soloAI.refreshModelsBtn'))
-
-        # === Settings tab - Save button ===
-        self.save_settings_btn.setText(t('desktop.soloAI.saveSettingsBtnLabel'))
-        self.save_settings_btn.setToolTip(t('desktop.soloAI.saveBtnTooltip'))
-
-        # === Toolbar row 1: Auth / Model / Thinking ===
-        self.auth_label.setText(t('desktop.soloAI.authLabel2'))
-
-        # auth_mode_combo items (preserve selection)
+        # === Settings tab - Auth section ===
+        self.auth_label.setText(t('desktop.cloudAI.authLabel2'))
         old_auth_idx = self.auth_mode_combo.currentIndex()
         self.auth_mode_combo.blockSignals(True)
         self.auth_mode_combo.clear()
         self.auth_mode_combo.addItems([
-            t('desktop.soloAI.authCliOption'),
-            t('desktop.soloAI.authApiOption'),
-            t('desktop.soloAI.authOllamaOption'),
+            t('desktop.cloudAI.authCliOption'),
+            t('desktop.cloudAI.authApiOption'),
+            t('desktop.cloudAI.authOllamaOption'),
         ])
         self.auth_mode_combo.setCurrentIndex(old_auth_idx)
         self.auth_mode_combo.blockSignals(False)
-        self.auth_mode_combo.setToolTip(t('desktop.soloAI.authComboTooltipFull'))
+        self.auth_mode_combo.setToolTip(t('desktop.cloudAI.authComboTooltipFull'))
 
-        self.model_label.setText(t('desktop.soloAI.modelLabel2'))
-        self.model_combo.setToolTip(t('desktop.soloAI.modelReadonlyTooltip'))
+        cli_available, _ = check_claude_cli_available()
+        self.cli_status_label.setText(
+            t('desktop.cloudAI.cliEnabled') if cli_available else t('desktop.cloudAI.cliDisabled')
+        )
+        self.cli_check_btn.setText(t('common.confirm'))
+        self.unified_test_btn.setText(t('desktop.cloudAI.testBtnLabel'))
+        self.unified_test_btn.setToolTip(t('desktop.cloudAI.testBtnTooltip'))
 
-        self.thinking_label.setText(t('desktop.soloAI.thinkingLabel2'))
-        self.thinking_combo.setToolTip(t('desktop.soloAI.thinkingShortTooltip'))
+        # === Settings tab - Model settings section ===
+        self.model_label.setText(t('desktop.cloudAI.soloModelLabel'))
+        self.model_combo.setToolTip(t('desktop.cloudAI.modelReadonlyTooltip'))
+        # v9.8.1: Refresh model combo display names for i18n
+        if hasattr(self, 'model_combo'):
+            for i in range(self.model_combo.count()):
+                model_id = self.model_combo.itemData(i)
+                if model_id == "gpt-5.3-codex":
+                    # v9.9.2: Codex is not in CLAUDE_MODELS, translate separately
+                    self.model_combo.setItemText(i, t('desktop.cloudAI.modelCodex53'))
+                    continue
+                model_def = get_claude_model_by_id(model_id)
+                if model_def and model_def.get("i18n_display"):
+                    self.model_combo.setItemText(i, t(model_def["i18n_display"]))
+        # v11.0.0: effort_combo removed (hidden setting in config.json)
+        self.solo_timeout_label.setText(t('desktop.cloudAI.soloTimeoutLabel'))
+        # v9.8.1: Refresh timeout suffix for i18n
+        if hasattr(self, 'solo_timeout_spin'):
+            self.solo_timeout_spin.setSuffix(t('common.timeoutSuffix'))
+        # v10.1.0: Browser Use checkbox (旧 search_mode_combo は削除)
+        if hasattr(self, 'browser_use_checkbox'):
+            self.browser_use_checkbox.setText(t('desktop.cloudAI.browserUseLabel'))
+            if self._browser_use_available:
+                self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
+            else:
+                self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseNotInstalled'))
 
-        # === Toolbar row 2: Checkboxes ===
-        self.mcp_checkbox.setToolTip(t('desktop.soloAI.mcpCheckboxTooltip'))
-        self.diff_checkbox.setText(t('desktop.soloAI.diffCheckLabel'))
-        self.diff_checkbox.setToolTip(t('desktop.soloAI.diffCheckboxTooltip'))
-        self.context_checkbox.setText(t('desktop.soloAI.autoContextLabel'))
-        self.context_checkbox.setToolTip(t('desktop.soloAI.contextCheckboxTooltip'))
-        self.permission_skip_checkbox.setText(t('desktop.soloAI.permissionLabel'))
-        self.permission_skip_checkbox.setToolTip(t('desktop.soloAI.permissionSkipTooltip'))
+        # === Settings tab - MCP & options section ===
+        self.mcp_checkbox.setText(t('desktop.cloudAI.soloMcpLabel'))
+        self.mcp_checkbox.setToolTip(t('desktop.cloudAI.mcpCheckboxTooltip'))
+        self.diff_checkbox.setText(t('desktop.cloudAI.diffCheckLabel'))
+        self.diff_checkbox.setToolTip(t('desktop.cloudAI.diffCheckboxTooltip'))
+        self.context_checkbox.setText(t('desktop.cloudAI.autoContextLabel'))
+        self.context_checkbox.setToolTip(t('desktop.cloudAI.contextCheckboxTooltip'))
+        self.permission_skip_checkbox.setText(t('desktop.cloudAI.permissionLabel'))
+        self.permission_skip_checkbox.setToolTip(t('desktop.cloudAI.permissionSkipTooltip'))
+
+        # === Settings tab - Ollama section ===
+        self.ollama_url_label.setText(t('desktop.cloudAI.hostUrlLabel'))
+        self.ollama_test_btn.setText(t('desktop.cloudAI.connTestBtn'))
+        self.ollama_model_label.setText(t('desktop.cloudAI.useModelLabel'))
+        self.settings_ollama_model.setPlaceholderText(t('desktop.cloudAI.ollamaModelPlaceholder'))
+        self.refresh_models_btn.setText(t('desktop.cloudAI.refreshModelsBtn'))
+
+        # === Settings tab - v10.1.0 cloudAI sections ===
+        if hasattr(self, 'cli_section_group'):
+            self.cli_section_group.setTitle(t('desktop.cloudAI.cliSection'))
+        if hasattr(self, 'codex_section_group'):
+            self.codex_section_group.setTitle(t('desktop.cloudAI.codexSection'))
+        # v11.0.0: mixai_phase_group removed
+
+        # v11.0.0: Bottom save button removed — per-section save buttons used instead
 
         # === Input area ===
-        self.input_field.setPlaceholderText(t('desktop.soloAI.inputPlaceholder'))
+        self.input_field.setPlaceholderText(t('desktop.cloudAI.inputPlaceholder'))
         self.attach_btn.setText("📎 " + t('common.attach'))
-        self.attach_btn.setToolTip(t('desktop.soloAI.attachTooltip'))
-        self.citation_btn.setText(t('desktop.soloAI.citationBtnLabel'))
-        self.citation_btn.setToolTip(t('desktop.soloAI.citationTooltip'))
-        self.snippet_btn.setText(t('desktop.soloAI.snippetBtnLabel'))
-        self.snippet_btn.setToolTip(t('desktop.soloAI.snippetTooltip'))
-        self.snippet_add_btn.setText(t('desktop.soloAI.snippetAddBtnLabel'))
-        self.snippet_add_btn.setToolTip(t('desktop.soloAI.snippetAddTooltip'))
+        self.attach_btn.setToolTip(t('desktop.cloudAI.attachTooltip'))
+        self.snippet_btn.setText(t('desktop.cloudAI.snippetBtnLabel'))
+        self.snippet_btn.setToolTip(t('desktop.cloudAI.snippetTooltip'))
         self.send_btn.setText(t('common.send') + " ▶")
-        self.send_btn.setToolTip(t('desktop.soloAI.sendTooltip'))
+        self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
+        # v11.0.0: BIBLE toggle button
+        if hasattr(self, 'bible_btn'):
+            self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
+        # v11.0.0: Header title + model label
+        if hasattr(self, 'cloud_header_title'):
+            self.cloud_header_title.setText(t('desktop.cloudAI.headerTitle'))
+        if hasattr(self, 'cloud_model_label'):
+            self.cloud_model_label.setText(t('desktop.cloudAI.modelLabel'))
+        if hasattr(self, 'cloud_refresh_btn'):
+            self.cloud_refresh_btn.setText(t('desktop.cloudAI.refreshBtn'))
+
+        # === 登録済みモデル管理ボタン (設定タブ) ===
+        if hasattr(self, 'cloud_model_list_label'):
+            self.cloud_model_list_label.setText(t('desktop.cloudAI.registeredModels'))
+        if hasattr(self, 'cloud_add_model_btn'):
+            self.cloud_add_model_btn.setText(t('desktop.cloudAI.addModelBtn'))
+        if hasattr(self, 'cloud_del_model_btn'):
+            self.cloud_del_model_btn.setText(t('desktop.cloudAI.deleteModelBtn'))
+        if hasattr(self, 'cloud_edit_json_btn'):
+            self.cloud_edit_json_btn.setText(t('desktop.cloudAI.editJsonBtn'))
+        if hasattr(self, 'cloud_reload_btn'):
+            self.cloud_reload_btn.setText(t('desktop.cloudAI.reloadModelsBtn'))
 
         # === Continue area ===
-        self.continue_header.setText(t('desktop.soloAI.conversationContinueLabel'))
-        self.continue_desc.setText(t('desktop.soloAI.continueDesc'))
-        self.continue_input.setPlaceholderText(t('desktop.soloAI.continuePlaceholder'))
-        self.quick_yes_btn.setText(t('desktop.soloAI.quickYesLabel'))
-        self.quick_yes_btn.setToolTip(t('desktop.soloAI.quickYesTooltip'))
-        self.quick_continue_btn.setText(t('desktop.soloAI.continueBtn'))
-        self.quick_continue_btn.setToolTip(t('desktop.soloAI.quickContinueTooltip'))
-        self.quick_exec_btn.setText(t('desktop.soloAI.execBtn'))
-        self.quick_exec_btn.setToolTip(t('desktop.soloAI.quickExecTooltip'))
-        self.continue_send_btn.setText(t('desktop.soloAI.sendBtnLabel'))
-        self.continue_send_btn.setToolTip(t('desktop.soloAI.continueSendTooltip'))
+        self.continue_header.setText(t('desktop.cloudAI.conversationContinueLabel'))
+        self.continue_desc.setText(t('desktop.cloudAI.continueDesc'))
+        self.continue_input.setPlaceholderText(t('desktop.cloudAI.continuePlaceholder'))
+        self.quick_yes_btn.setText(t('desktop.cloudAI.quickYesLabel'))
+        self.quick_yes_btn.setToolTip(t('desktop.cloudAI.quickYesTooltip'))
+        self.quick_continue_btn.setText(t('desktop.cloudAI.continueBtn'))
+        self.quick_continue_btn.setToolTip(t('desktop.cloudAI.quickContinueTooltip'))
+        self.quick_exec_btn.setText(t('desktop.cloudAI.execBtn'))
+        self.quick_exec_btn.setToolTip(t('desktop.cloudAI.quickExecTooltip'))
+        self.continue_send_btn.setText(t('desktop.cloudAI.sendBtnLabel'))
+        self.continue_send_btn.setToolTip(t('desktop.cloudAI.continueSendTooltip'))
 
         # === Approval panel ===
-        self.approval_desc_label.setText(t('desktop.soloAI.approvalPanelDesc'))
-        self.approve_all_btn.setText(t('desktop.soloAI.approveAllBtnLabel'))
-        self.revoke_all_btn.setText(t('desktop.soloAI.revokeAllBtnLabel'))
+        self.approval_desc_label.setText(t('desktop.cloudAI.approvalPanelDesc'))
+        self.approve_all_btn.setText(t('desktop.cloudAI.approveAllBtnLabel'))
+        self.revoke_all_btn.setText(t('desktop.cloudAI.revokeAllBtnLabel'))
 
         # risk_approval_btn - dynamic text based on panel visibility
         if self.approval_panel.isVisible():
-            self.risk_approval_btn.setText(t('desktop.soloAI.riskApprovalClose'))
+            self.risk_approval_btn.setText(t('desktop.cloudAI.riskApprovalClose'))
         else:
-            self.risk_approval_btn.setText(t('desktop.soloAI.riskApprovalOpen'))
+            self.risk_approval_btn.setText(t('desktop.cloudAI.riskApprovalOpen'))
+
+        # v11.0.0: Chat header buttons
+        if hasattr(self, 'advanced_settings_btn'):
+            self.advanced_settings_btn.setText(t('desktop.cloudAI.advancedSettings'))
+            self.advanced_settings_btn.setToolTip(t('desktop.cloudAI.advancedSettingsTooltip'))
+        if hasattr(self, 'new_session_btn'):
+            self.new_session_btn.setText(t('desktop.cloudAI.newSessionBtn'))
+            self.new_session_btn.setToolTip(t('desktop.cloudAI.newSessionBtnTip'))
+        # v11.0.0: Continue Send button
+        if hasattr(self, 'continue_send_btn_main'):
+            # Only update text if no session is active
+            if not hasattr(self, '_claude_session_id') or self._claude_session_id is None:
+                self.continue_send_btn_main.setText(t('desktop.cloudAI.continueSendMain'))
+            self.continue_send_btn_main.setToolTip(t('desktop.cloudAI.continueSendMainTooltip'))
+        # v11.0.0: MCP settings retranslation
+        if hasattr(self, 'cloudai_mcp_group'):
+            self.cloudai_mcp_group.setTitle(t('desktop.cloudAI.mcpSettings'))
+        if hasattr(self, 'cloudai_mcp_filesystem'):
+            self.cloudai_mcp_filesystem.setText(t('desktop.settings.mcpFilesystem'))
+        if hasattr(self, 'cloudai_mcp_git'):
+            self.cloudai_mcp_git.setText(t('desktop.settings.mcpGit'))
+        if hasattr(self, 'cloudai_mcp_brave'):
+            self.cloudai_mcp_brave.setText(t('desktop.settings.mcpBrave'))
 
         # Child widget retranslation
         if hasattr(self, 'solo_status_bar') and hasattr(self.solo_status_bar, 'retranslateUi'):
             self.solo_status_bar.retranslateUi()
+        # v10.1.0: monitor widget retranslation
+        if hasattr(self, 'monitor_widget') and hasattr(self.monitor_widget, 'retranslateUi'):
+            self.monitor_widget.retranslateUi()
 
     def _on_send(self):
         """送信ボタン押下時"""
@@ -1687,8 +2447,8 @@ class ClaudeTab(QWidget):
             if not can_send:
                 QMessageBox.warning(
                     self,
-                    t('desktop.soloAI.sendBlockTitle'),
-                    f"{guard_message}\n\n{t('desktop.soloAI.proceedWorkflowRetry')}"
+                    t('desktop.cloudAI.sendBlockTitle'),
+                    f"{guard_message}\n\n{t('desktop.cloudAI.proceedWorkflowRetry')}"
                 )
                 return
 
@@ -1724,20 +2484,120 @@ class ClaudeTab(QWidget):
             # UIにエラー表示
             QMessageBox.critical(
                 self,
-                t('desktop.soloAI.sendErrorTitle'),
-                t('desktop.soloAI.sendErrorMsg', error=error_msg)
+                t('desktop.cloudAI.sendErrorTitle'),
+                t('desktop.cloudAI.sendErrorMsg', error=error_msg)
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.sendError', error=type(e).__name__))
+            self.statusChanged.emit(t('desktop.cloudAI.sendError', error=type(e).__name__))
 
     def _on_new_session(self):
         """新規セッション開始"""
+        self._active_chat_id = None
         self.chat_display.clear()
-        self.statusChanged.emit(t('desktop.soloAI.newSessionStarted'))
-        self.chat_display.setPlaceholderText(t('desktop.soloAI.chatReady'))
+        self.statusChanged.emit(t('desktop.cloudAI.newSessionStarted'))
+        self.chat_display.setPlaceholderText(t('desktop.cloudAI.chatReady'))
         # v5.1: 添付ファイルもクリア
         self.attachment_bar.clear_all()
         self._attached_files.clear()
+        # v10.1.0: モニターリセット
+        if hasattr(self, 'monitor_widget'):
+            self.monitor_widget.reset()
+        # v11.0.0: Reset session for Continue Send
+        self._claude_session_id = None
+        if hasattr(self, 'continue_send_btn_main'):
+            self.continue_send_btn_main.setEnabled(False)
+            self.continue_send_btn_main.setText(t('desktop.cloudAI.continueSendMain'))
+
+    def _on_continue_send_main(self):
+        """v11.0.0: Continue send with session retention"""
+        message = self.input_field.toPlainText().strip()
+        if not message:
+            return
+        # Reuse existing send logic but with resume_session_id
+        self._send_message_with_session(message)
+        self.input_field.clear()
+
+    def _send_message_with_session(self, message: str):
+        """v11.0.0: Send message while retaining the CLI session (--resume)"""
+        if not self._claude_session_id:
+            logger.warning("[ClaudeTab] No session to resume, falling back to normal send")
+            self._send_message(message)
+            return
+
+        import logging
+        logger_local = logging.getLogger(__name__)
+
+        # Display user message
+        self.chat_display.append(
+            f"<div style='{USER_MESSAGE_STYLE}'>"
+            f"<b style='color:#00d4ff;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
+            f"{message.replace(chr(10), '<br>')}"
+            f"</div>"
+        )
+        self._pending_user_message = message
+
+        # Get model from header combo
+        selected_model = self.cloud_model_combo.currentData() or self.model_combo.currentData() or ""
+
+        # v11.0.0: Read effort from config
+        effort_level = self._get_effort_from_config()
+        from ..utils.constants import EffortLevel
+        if not EffortLevel.is_opus_46(selected_model):
+            effort_level = "default"
+
+        import os
+        working_dir = os.getcwd()
+        skip_permissions = self.permission_skip_checkbox.isChecked()
+
+        self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions, model=selected_model)
+
+        self.statusChanged.emit(t('desktop.cloudAI.cliGenerating'))
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        self.chat_display.append(
+            f"<div style='color: #888; font-size: 9pt;'>"
+            f"[CLI Mode --resume {self._claude_session_id[:8]}...] effort={effort_level}"
+            f"</div>"
+        )
+
+        self._cli_worker = CLIWorkerThread(
+            backend=self._cli_backend,
+            prompt=message,
+            model=selected_model,
+            working_dir=working_dir,
+            effort_level=effort_level,
+            resume_session_id=self._claude_session_id
+        )
+        self._cli_worker.chunkReceived.connect(self._on_cli_chunk)
+        self._cli_worker.completed.connect(self._on_cli_response)
+        self._cli_worker.errorOccurred.connect(self._on_cli_error)
+        self._cli_worker.start()
+
+        if hasattr(self, 'monitor_widget'):
+            self.monitor_widget.start_model(selected_model or "Claude CLI", "CLI --resume")
+
+        logger_local.info(f"[ClaudeTab] Sent with --resume session: {self._claude_session_id[:8]}...")
+
+    def _on_session_captured(self, session_id: str):
+        """v11.0.0: Session ID received from CLI"""
+        self._claude_session_id = session_id
+        if hasattr(self, 'continue_send_btn_main'):
+            self.continue_send_btn_main.setEnabled(True)
+            short_id = session_id[:8]
+            self.continue_send_btn_main.setText(
+                f"{t('desktop.cloudAI.continueSendMain')} ({short_id}...)"
+            )
+        logger.info(f"[ClaudeTab] Session captured: {session_id}")
+
+    def _on_stall_detected(self, message: str):
+        """v10.1.0: ストール検出時のステータスバー通知"""
+        self.statusChanged.emit(message)
+
+    def _auto_scroll_chat(self):
+        """v10.1.0: チャット表示のオートスクロール（新メッセージ追加時に最下部へ）"""
+        scrollbar = self.chat_display.verticalScrollBar()
+        scrollbar.setValue(scrollbar.maximum())
 
     # =========================================================================
     # v5.1: ファイル添付関連メソッド
@@ -1750,8 +2610,8 @@ class ClaudeTab(QWidget):
         logger = logging.getLogger(__name__)
 
         files, _ = QFileDialog.getOpenFileNames(
-            self, t('desktop.soloAI.selectFileTitle'), "",
-            t('desktop.soloAI.fileFilterAll')
+            self, t('desktop.cloudAI.selectFileTitle'), "",
+            t('desktop.cloudAI.fileFilterAll')
         )
         if files:
             self.attachment_bar.add_files(files)
@@ -1783,15 +2643,15 @@ class ClaudeTab(QWidget):
                     new_text = citation_text
 
                 self.input_field.setPlainText(new_text)
-                self.statusChanged.emit(t('desktop.soloAI.citationInserted'))
+                self.statusChanged.emit(t('desktop.cloudAI.citationInserted'))
                 logger.info("[ClaudeTab] Citation inserted from history")
 
         except Exception as e:
             logger.error(f"[ClaudeTab._on_citation] Error: {e}", exc_info=True)
             QMessageBox.warning(
                 self,
-                t('desktop.soloAI.citationErrorTitle'),
-                t('desktop.soloAI.citationErrorMsg', error=str(e))
+                t('desktop.cloudAI.citationErrorTitle'),
+                t('desktop.cloudAI.citationErrorMsg', error=str(e))
             )
 
     def _get_snippet_manager(self):
@@ -1831,7 +2691,7 @@ class ClaudeTab(QWidget):
             menu = QMenu(self)
 
             if not snippets:
-                no_snippet_action = menu.addAction(t('desktop.soloAI.noSnippetsMsg'))
+                no_snippet_action = menu.addAction(t('desktop.cloudAI.noSnippetsMsg'))
                 no_snippet_action.setEnabled(False)
             else:
                 # カテゴリでグループ化
@@ -1843,7 +2703,7 @@ class ClaudeTab(QWidget):
                     cat_menu = menu.addMenu(f"📁 {category}")
                     cat_snippets = snippet_manager.get_by_category(category)
                     for snippet in cat_snippets:
-                        action = cat_menu.addAction(snippet.get("name", t('desktop.soloAI.untitled')))
+                        action = cat_menu.addAction(snippet.get("name", t('desktop.cloudAI.untitled')))
                         action.setData(snippet)
                         action.triggered.connect(lambda checked, s=snippet: self._insert_snippet(s))
 
@@ -1852,12 +2712,16 @@ class ClaudeTab(QWidget):
                     if categories:
                         menu.addSeparator()
                     for snippet in uncategorized:
-                        action = menu.addAction(f"📋 {snippet.get('name', t('desktop.soloAI.untitled'))}")
+                        action = menu.addAction(f"📋 {snippet.get('name', t('desktop.cloudAI.untitled'))}")
                         action.setData(snippet)
                         action.triggered.connect(lambda checked, s=snippet: self._insert_snippet(s))
 
             menu.addSeparator()
-            open_folder_action = menu.addAction(t('desktop.soloAI.openUnipetFolder'))
+            # v11.0.0: 追加アクションをメニュー内に統合
+            add_action = menu.addAction(t('desktop.cloudAI.snippetAddBtnLabel'))
+            add_action.triggered.connect(self._on_snippet_add)
+
+            open_folder_action = menu.addAction(t('desktop.cloudAI.openUnipetFolder'))
             open_folder_action.triggered.connect(lambda: snippet_manager.open_unipet_folder())
 
             # ボタンの下に表示
@@ -1866,7 +2730,7 @@ class ClaudeTab(QWidget):
 
         except Exception as e:
             logger.error(f"[ClaudeTab._on_snippet_menu] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, t('common.error'), t('desktop.soloAI.snippetMenuError', error=str(e)))
+            QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetMenuError', error=str(e)))
 
     def _insert_snippet(self, snippet: dict):
         """スニペットを入力欄に挿入 (v3.7.0)"""
@@ -1874,7 +2738,7 @@ class ClaudeTab(QWidget):
         logger = logging.getLogger(__name__)
 
         content = snippet.get("content", "")
-        name = snippet.get("name", t('desktop.soloAI.untitled'))
+        name = snippet.get("name", t('desktop.cloudAI.untitled'))
 
         current_text = self.input_field.toPlainText()
         if current_text:
@@ -1883,7 +2747,7 @@ class ClaudeTab(QWidget):
             new_text = content
 
         self.input_field.setPlainText(new_text)
-        self.statusChanged.emit(t('desktop.soloAI.snippetInserted', name=name))
+        self.statusChanged.emit(t('desktop.cloudAI.snippetInserted', name=name))
         logger.info(f"[ClaudeTab] Snippet inserted: {name}")
 
     def _on_snippet_add(self):
@@ -1894,29 +2758,29 @@ class ClaudeTab(QWidget):
 
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle(t('desktop.soloAI.snippetAddDialogTitle'))
+            dialog.setWindowTitle(t('desktop.cloudAI.snippetAddDialogTitle'))
             dialog.setMinimumWidth(400)
             layout = QVBoxLayout(dialog)
 
             # 名前入力
-            name_label = QLabel(t('desktop.soloAI.snippetNameLabel'))
+            name_label = QLabel(t('desktop.cloudAI.snippetNameLabel'))
             layout.addWidget(name_label)
             name_input = QLineEdit()
-            name_input.setPlaceholderText(t('desktop.soloAI.snippetNamePlaceholder'))
+            name_input.setPlaceholderText(t('desktop.cloudAI.snippetNamePlaceholder'))
             layout.addWidget(name_input)
 
             # カテゴリ入力
-            cat_label = QLabel(t('desktop.soloAI.snippetCategoryLabel'))
+            cat_label = QLabel(t('desktop.cloudAI.snippetCategoryLabel'))
             layout.addWidget(cat_label)
             cat_input = QLineEdit()
-            cat_input.setPlaceholderText(t('desktop.soloAI.snippetCategoryPlaceholder'))
+            cat_input.setPlaceholderText(t('desktop.cloudAI.snippetCategoryPlaceholder'))
             layout.addWidget(cat_input)
 
             # 内容入力
-            content_label = QLabel(t('desktop.soloAI.snippetContentLabel'))
+            content_label = QLabel(t('desktop.cloudAI.snippetContentLabel'))
             layout.addWidget(content_label)
             content_input = QTextEdit()
-            content_input.setPlaceholderText(t('desktop.soloAI.snippetContentPlaceholder'))
+            content_input.setPlaceholderText(t('desktop.cloudAI.snippetContentPlaceholder'))
             content_input.setMinimumHeight(150)
             layout.addWidget(content_input)
 
@@ -1931,19 +2795,19 @@ class ClaudeTab(QWidget):
                 content = content_input.toPlainText().strip()
 
                 if not name or not content:
-                    QMessageBox.warning(self, t('desktop.soloAI.inputError'), t('desktop.soloAI.nameContentRequired'))
+                    QMessageBox.warning(self, t('desktop.cloudAI.inputError'), t('desktop.cloudAI.nameContentRequired'))
                     return
 
                 category = cat_input.text().strip()
                 snippet_manager = self._get_snippet_manager()
                 snippet_manager.add(name=name, content=content, category=category)
 
-                self.statusChanged.emit(t('desktop.soloAI.snippetAdded', name=name))
+                self.statusChanged.emit(t('desktop.cloudAI.snippetAdded', name=name))
                 logger.info(f"[ClaudeTab] Snippet added: {name}")
 
         except Exception as e:
             logger.error(f"[ClaudeTab._on_snippet_add] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, t('common.error'), t('desktop.soloAI.snippetAddError', error=str(e)))
+            QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetAddError', error=str(e)))
 
     def _on_snippet_context_menu(self, pos):
         """スニペット右クリックメニュー（編集・削除）(v5.2.0: ユニペット削除対応)"""
@@ -1961,25 +2825,25 @@ class ClaudeTab(QWidget):
             menu = QMenu(self)
 
             # 編集メニュー
-            edit_menu = menu.addMenu(t('desktop.soloAI.editMenuItem'))
+            edit_menu = menu.addMenu(t('desktop.cloudAI.editMenuItem'))
             for snippet in snippets:
-                action = edit_menu.addAction(snippet.get("name", t('desktop.soloAI.untitled')))
+                action = edit_menu.addAction(snippet.get("name", t('desktop.cloudAI.untitled')))
                 action.triggered.connect(lambda checked, s=snippet: self._edit_snippet(s))
 
             # 削除メニュー (v5.2.0: ユニペットも削除可能に)
-            delete_menu = menu.addMenu(t('desktop.soloAI.deleteMenuItem'))
+            delete_menu = menu.addMenu(t('desktop.cloudAI.deleteMenuItem'))
             for snippet in snippets:
                 source = snippet.get("source", "json")
                 if source == "unipet":
-                    action = delete_menu.addAction(f"🗂️ {snippet.get('name', t('desktop.soloAI.untitled'))} {t('desktop.soloAI.fileDeleteSuffix')}")
+                    action = delete_menu.addAction(f"🗂️ {snippet.get('name', t('desktop.cloudAI.untitled'))} {t('desktop.cloudAI.fileDeleteSuffix')}")
                     action.triggered.connect(lambda checked, s=snippet: self._delete_snippet(s))
                 else:
-                    action = delete_menu.addAction(snippet.get("name", t('desktop.soloAI.untitled')))
+                    action = delete_menu.addAction(snippet.get("name", t('desktop.cloudAI.untitled')))
                     action.triggered.connect(lambda checked, s=snippet: self._delete_snippet(s))
 
             menu.addSeparator()
-            reload_action = menu.addAction(t('desktop.soloAI.reloadMenuItem'))
-            reload_action.triggered.connect(lambda: (self._get_snippet_manager().reload(), self.statusChanged.emit(t('desktop.soloAI.snippetReloaded'))))
+            reload_action = menu.addAction(t('desktop.cloudAI.reloadMenuItem'))
+            reload_action.triggered.connect(lambda: (self._get_snippet_manager().reload(), self.statusChanged.emit(t('desktop.cloudAI.snippetReloaded'))))
 
             menu.exec(self.snippet_btn.mapToGlobal(pos))
 
@@ -1994,24 +2858,24 @@ class ClaudeTab(QWidget):
 
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle(t('desktop.soloAI.snippetEditDialogTitle', name=snippet.get('name', t('desktop.soloAI.untitled'))))
+            dialog.setWindowTitle(t('desktop.cloudAI.snippetEditDialogTitle', name=snippet.get('name', t('desktop.cloudAI.untitled'))))
             dialog.setMinimumWidth(400)
             layout = QVBoxLayout(dialog)
 
             # 名前入力
-            name_label = QLabel(t('desktop.soloAI.snippetNameLabel'))
+            name_label = QLabel(t('desktop.cloudAI.snippetNameLabel'))
             layout.addWidget(name_label)
             name_input = QLineEdit(snippet.get("name", ""))
             layout.addWidget(name_input)
 
             # カテゴリ入力
-            cat_label = QLabel(t('desktop.soloAI.categoryLabel2'))
+            cat_label = QLabel(t('desktop.cloudAI.categoryLabel2'))
             layout.addWidget(cat_label)
             cat_input = QLineEdit(snippet.get("category", ""))
             layout.addWidget(cat_input)
 
             # 内容入力
-            content_label = QLabel(t('desktop.soloAI.snippetContentLabel'))
+            content_label = QLabel(t('desktop.cloudAI.snippetContentLabel'))
             layout.addWidget(content_label)
             content_input = QTextEdit()
             content_input.setPlainText(snippet.get("content", ""))
@@ -2032,12 +2896,12 @@ class ClaudeTab(QWidget):
                     content=content_input.toPlainText().strip(),
                     category=cat_input.text().strip()
                 )
-                self.statusChanged.emit(t('desktop.soloAI.snippetUpdated', name=name_input.text()))
+                self.statusChanged.emit(t('desktop.cloudAI.snippetUpdated', name=name_input.text()))
                 logger.info(f"[ClaudeTab] Snippet updated: {name_input.text()}")
 
         except Exception as e:
             logger.error(f"[ClaudeTab._edit_snippet] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, t('common.error'), t('desktop.soloAI.snippetEditError', error=str(e)))
+            QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetEditError', error=str(e)))
 
     def _delete_snippet(self, snippet: dict):
         """スニペット削除 (v5.2.0: ユニペットファイル削除対応)"""
@@ -2045,18 +2909,18 @@ class ClaudeTab(QWidget):
         logger = logging.getLogger(__name__)
 
         try:
-            name = snippet.get("name", t('desktop.soloAI.untitled'))
+            name = snippet.get("name", t('desktop.cloudAI.untitled'))
             is_unipet = snippet.get("source") == "unipet"
 
             # ユニペットの場合は警告を追加
             if is_unipet:
                 file_path = snippet.get("file_path", "")
-                msg = t('desktop.soloAI.deleteUnipetConfirm', name=name, file_path=file_path)
+                msg = t('desktop.cloudAI.deleteUnipetConfirm', name=name, file_path=file_path)
             else:
-                msg = t('desktop.soloAI.deleteSnippetConfirm', name=name)
+                msg = t('desktop.cloudAI.deleteSnippetConfirm', name=name)
 
             reply = QMessageBox.question(
-                self, t('desktop.soloAI.confirmTitle'),
+                self, t('desktop.cloudAI.confirmTitle'),
                 msg,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
@@ -2065,14 +2929,14 @@ class ClaudeTab(QWidget):
                 snippet_manager = self._get_snippet_manager()
                 # ユニペットの場合はdelete_file=Trueを渡す
                 if snippet_manager.delete(snippet.get("id"), delete_file=is_unipet):
-                    self.statusChanged.emit(t('desktop.soloAI.snippetDeleted', name=name))
+                    self.statusChanged.emit(t('desktop.cloudAI.snippetDeleted', name=name))
                     logger.info(f"[ClaudeTab] Snippet deleted: {name}")
                 else:
-                    QMessageBox.warning(self, t('desktop.soloAI.deleteFailed'), t('desktop.soloAI.snippetDeleteError'))
+                    QMessageBox.warning(self, t('desktop.cloudAI.deleteFailed'), t('desktop.cloudAI.snippetDeleteError'))
 
         except Exception as e:
             logger.error(f"[ClaudeTab._delete_snippet] Error: {e}", exc_info=True)
-            QMessageBox.warning(self, t('common.error'), t('desktop.soloAI.snippetDeleteGenericError', error=str(e)))
+            QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetDeleteGenericError', error=str(e)))
 
     def _send_message(self, message: str):
         """メッセージを送信 (Phase 2.0: Backend経由)"""
@@ -2085,8 +2949,8 @@ class ClaudeTab(QWidget):
             if rag_lock and rag_lock.is_locked:
                 from PyQt6.QtWidgets import QMessageBox
                 QMessageBox.information(
-                    self, t('desktop.soloAI.ragBuildTitle'),
-                    t('desktop.soloAI.ragBuildInProgressMsg')
+                    self, t('desktop.cloudAI.ragBuildTitle'),
+                    t('desktop.cloudAI.ragBuildInProgressMsg')
                 )
                 return
 
@@ -2141,13 +3005,13 @@ class ClaudeTab(QWidget):
                 self.workflow_state
             )
 
-            # v8.1.0: 記憶コンテキスト注入 (soloAI)
+            # v8.1.0: 記憶コンテキスト注入 (cloudAI)
             if self._memory_manager:
                 try:
                     memory_ctx = self._memory_manager.build_context_for_solo(message)
                     if memory_ctx:
                         processed_message = f"<memory_context>\n{memory_ctx}\n</memory_context>\n\n{processed_message}"
-                        logger.info("[ClaudeTab._send_message] Memory context injected for soloAI")
+                        logger.info("[ClaudeTab._send_message] Memory context injected for cloudAI")
                 except Exception as mem_err:
                     logger.warning(f"[ClaudeTab._send_message] Memory context injection failed: {mem_err}")
 
@@ -2180,20 +3044,20 @@ class ClaudeTab(QWidget):
             # UIにエラー表示
             QMessageBox.critical(
                 self,
-                t('desktop.soloAI.preSubmitErrorTitle'),
-                t('desktop.soloAI.preSubmitCheckError', error=f"{type(e).__name__}: {str(e)}")
+                t('desktop.cloudAI.preSubmitErrorTitle'),
+                t('desktop.cloudAI.preSubmitCheckError', error=f"{type(e).__name__}: {str(e)}")
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.sendPrepError', error=type(e).__name__))
+            self.statusChanged.emit(t('desktop.cloudAI.sendPrepError', error=type(e).__name__))
             return
 
         try:
             # テンプレが付与された場合は通知
             if template_applied:
-                self.statusChanged.emit(t('desktop.soloAI.templateApplied', name=template_name))
+                self.statusChanged.emit(t('desktop.cloudAI.templateApplied', name=template_name))
                 self.chat_display.append(
                     f"<div style='color: #ffa500; font-size: 9pt;'>"
-                    f"{t('desktop.soloAI.templateAppliedMsg', template=template_name)}"
+                    f"{t('desktop.cloudAI.templateAppliedMsg', template=template_name)}"
                     f"</div>"
                 )
 
@@ -2210,7 +3074,7 @@ class ClaudeTab(QWidget):
                 attachment_html = f'<div style="margin-bottom:6px;">{file_chips}</div>'
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#00d4ff;'>{t('desktop.soloAI.userPrefix')}</b><br>"
+                f"<b style='color:#00d4ff;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
                 f"{attachment_html}"
                 f"{message.replace(chr(10), '<br>')}"
                 f"</div>"
@@ -2219,9 +3083,41 @@ class ClaudeTab(QWidget):
             # 履歴保存用に元のメッセージを保持
             self._pending_user_message = message
 
+            # v11.0.0: JSONL logging (user message)
+            try:
+                from ..utils.chat_logger import get_chat_logger
+                chat_logger = get_chat_logger()
+                chat_logger.log_message(
+                    tab="cloudAI",
+                    model=self.model_combo.currentData() or "unknown",
+                    role="user",
+                    content=message[:2000],
+                )
+            except Exception:
+                pass
+
             # v3.2.0: 認証モードに応じてバックエンド選択
             # v3.9.2: Ollamaモード時は設定タブのモデルを強制使用
             auth_mode = self.auth_mode_combo.currentIndex()  # 0: CLI, 1: API, 2: Ollama
+
+            # v9.9.1: GPT-5.3-Codex (CLI) モード
+            selected_model_id = self.model_combo.currentData() or ""
+            if selected_model_id == "gpt-5.3-codex":
+                # v10.1.0: Browser Use が有効な場合は事前にページ内容を取得
+                if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
+                    processed_message = self._prepend_browser_use_results(processed_message)
+                self._send_via_codex(processed_message, session_id)
+                return
+
+            # v10.1.0: Browser Use 事前収集（チェックボックス化）
+            if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
+                processed_message = self._prepend_browser_use_results(processed_message)
+
+            # v11.0.0: BIBLE context injection (Phase 4)
+            if hasattr(self, 'bible_btn') and self.bible_btn.isChecked():
+                from ..mixins.bible_context_mixin import BibleContextMixin
+                mixin = BibleContextMixin()
+                processed_message = mixin._inject_bible_to_prompt(processed_message)
 
             if auth_mode == 0 and hasattr(self, '_use_cli_mode') and self._use_cli_mode:
                 # === CLIモード (Max/Proプラン) ===
@@ -2272,7 +3168,7 @@ class ClaudeTab(QWidget):
                 self.routing_executor.update_approval_state(approval_snapshot_dict)
 
                 # ステータス表示
-                self.statusChanged.emit(t('desktop.soloAI.aiGenerating'))
+                self.statusChanged.emit(t('desktop.cloudAI.aiGenerating'))
 
                 # RoutingExecutor経由で送信（スレッドで非同期実行）
                 self.executor_thread = RoutingExecutorThread(
@@ -2312,13 +3208,143 @@ class ClaudeTab(QWidget):
             # UIにエラー表示
             self.chat_display.append(
                 f"<div style='color: #ef4444; margin-top: 10px;'>"
-                f"<b>{t('desktop.soloAI.sendErrorHtml')}</b><br>"
+                f"<b>{t('desktop.cloudAI.sendErrorHtml')}</b><br>"
                 f"{error_msg}<br><br>"
-                f"{t('desktop.soloAI.crashLogDetail')}"
+                f"{t('desktop.cloudAI.crashLogDetail')}"
                 f"</div>"
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.sendError', error=type(e).__name__))
+            self.statusChanged.emit(t('desktop.cloudAI.sendError', error=type(e).__name__))
+
+    # =========================================================================
+    # v9.9.1: Codex CLI モード
+    # =========================================================================
+
+    _codex_response_ready = pyqtSignal(str, str)   # (response_text, session_id)
+    _codex_error_ready = pyqtSignal(str)            # (error_message)
+
+    def _send_via_codex(self, prompt: str, session_id: str):
+        """v9.9.1: GPT-5.3-Codex CLI経由で送信 (v11.0.0: Windows .cmd対応)"""
+        import threading
+
+        # Codex CLI可用性チェック（v11.0.0: check_codex_cli_available使用）
+        from ..backends.codex_cli_backend import check_codex_cli_available
+        codex_available, _ = check_codex_cli_available()
+
+        if not codex_available:
+            self.chat_display.append(
+                f"<div style='{AI_MESSAGE_STYLE}'>"
+                f"<b style='color:#ef4444;'>{t('desktop.cloudAI.codexUnavailableTitle')}</b><br>"
+                f"{t('desktop.cloudAI.codexUnavailableMsg')}"
+                f"</div>"
+            )
+            self.statusChanged.emit(t('desktop.cloudAI.codexUnavailable'))
+            if hasattr(self, 'solo_status_bar'):
+                self.solo_status_bar.set_status("error")
+            return
+
+        self.statusChanged.emit(t('desktop.cloudAI.codexGenerating'))
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        gpt_effort = "default"
+        import os
+        working_dir = os.getcwd()
+        timeout_sec = self.solo_timeout_spin.value() * 60 if hasattr(self, 'solo_timeout_spin') else 600
+
+        # シグナルが未接続の場合は接続
+        try:
+            self._codex_response_ready.disconnect()
+        except Exception:
+            pass
+        try:
+            self._codex_error_ready.disconnect()
+        except Exception:
+            pass
+        self._codex_response_ready.connect(self._on_codex_response)
+        self._codex_error_ready.connect(self._on_codex_error)
+        self._codex_current_session_id = session_id
+
+        def _run():
+            try:
+                from ..backends.codex_cli_backend import run_codex_cli
+                output = run_codex_cli(prompt, effort=gpt_effort, run_cwd=working_dir, timeout=timeout_sec)
+                self._codex_response_ready.emit(output, session_id)
+            except Exception as e:
+                self._codex_error_ready.emit(str(e))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _on_codex_response(self, response_text: str, session_id: str):
+        """v9.9.1: Codex CLI応答処理"""
+        rendered = markdown_to_html(response_text)
+        self.chat_display.append(
+            f"<div style='{AI_MESSAGE_STYLE}'>"
+            f"<b style='color:#f59e0b;'>GPT-5.3-Codex (CLI):</b><br>"
+            f"{rendered}"
+            f"</div>"
+        )
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("idle")
+        self.statusChanged.emit(t('desktop.cloudAI.codexComplete'))
+
+    def _on_codex_error(self, error_msg: str):
+        """v9.9.1: Codex CLIエラー処理"""
+        self.chat_display.append(
+            f"<div style='{AI_MESSAGE_STYLE}'>"
+            f"<b style='color:#ef4444;'>Codex Error:</b><br>"
+            f"{error_msg[:500]}"
+            f"</div>"
+        )
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("error")
+        self.statusChanged.emit(t('desktop.cloudAI.codexError'))
+
+    def _prepend_browser_use_results(self, prompt: str) -> str:
+        """v10.0.0: Browser Use ライブラリで事前取得した結果をプロンプトに注入
+
+        トークン削減ロジック:
+        - HTML/Markdownタグを除去してプレーンテキスト化
+        - 合計上限: config search_max_tokens (デフォルト2000トークン≈6000文字)
+        - 上限超過時は先頭からトリムし省略マーカー付与
+        """
+        try:
+            import re
+            urls = re.findall(r'https?://[^\s\'"<>]+', prompt)
+            if not urls:
+                return prompt
+            from browser_use import Browser
+            results = []
+            browser = Browser()
+
+            # configから上限取得（デフォルト: 2000トークン ≈ 6000文字）
+            max_chars = getattr(self, '_search_max_chars', 6000)
+
+            for url in urls[:3]:
+                try:
+                    content = browser.get_text(url, timeout=15)
+                    if content:
+                        # HTML/Markdownタグ除去
+                        clean = re.sub(r'<[^>]+>', '', content)
+                        clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
+                        clean = re.sub(r'#{1,6}\s*', '', clean)
+                        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
+                        results.append(f"[{url}]\n{clean}")
+                except Exception:
+                    pass
+            if results:
+                combined = "\n\n".join(results)
+                # トークン上限クリッピング
+                if len(combined) > max_chars:
+                    combined = combined[:max_chars] + "\n\n... [truncated]"
+                return f"<browser_results>\n{combined}\n</browser_results>\n\n{prompt}"
+        except ImportError:
+            logger.debug("browser_use not installed, skipping Browser Use fetch")
+        except Exception as e:
+            logger.warning(f"Browser Use fetch failed: {e}")
+        return prompt
+
+    # =========================================================================
 
     def _send_via_cli(self, prompt: str, session_id: str, phase: str):
         """
@@ -2334,14 +3360,14 @@ class ClaudeTab(QWidget):
         logger = logging.getLogger(__name__)
 
         if not self._cli_backend or not self._cli_backend.is_available():
-            error_msg = t('desktop.soloAI.cliUnavailableInstructions')
+            error_msg = t('desktop.cloudAI.cliUnavailableInstructions')
             self.chat_display.append(
                 f"<div style='color: #ef4444; margin-top: 10px;'>"
-                f"<b>{t('desktop.soloAI.cliUnavailableHtml')}</b><br>"
+                f"<b>{t('desktop.cloudAI.cliUnavailableHtml')}</b><br>"
                 f"{error_msg}"
                 f"</div>"
             )
-            self.statusChanged.emit(t('desktop.soloAI.cliUnavailable'))
+            self.statusChanged.emit(t('desktop.cloudAI.cliUnavailable'))
             logger.error(f"[ClaudeTab._send_via_cli] CLI not available: {self._cli_backend.get_availability_message() if self._cli_backend else 'Backend is None'}")
             return
 
@@ -2353,35 +3379,31 @@ class ClaudeTab(QWidget):
         self._cli_session_id = session_id
         self._cli_phase = phase
 
-        # v3.9.5: 思考モードの設定
-        # Note: 全Claudeモデルでextended thinkingをサポート
-        # エラー発生時は自動的にOFFにフォールバック
-        thinking_text = self.thinking_combo.currentText()
-        thinking_level = "none"
+        # v11.0.0: Read effort from config.json (hidden setting)
+        effort_level = self._get_effort_from_config()
 
-        if thinking_text == "Standard":
-            thinking_level = "light"
-        elif thinking_text == "Deep":
-            thinking_level = "deep"
+        # Opus 4.6以外の場合はeffortを無効化
+        from ..utils.constants import EffortLevel
+        if not EffortLevel.is_opus_46(selected_model):
+            effort_level = "default"
 
-        # 思考モード有効時の情報ログ
-        if thinking_level != "none":
-            logger.info(f"[ClaudeTab._send_via_cli] Thinking mode: {thinking_text} (level={thinking_level})")
+        if effort_level != "default":
+            logger.info(f"[ClaudeTab._send_via_cli] Effort level: {effort_level}")
 
         # 作業ディレクトリを取得（プロジェクトディレクトリ）
         import os
         working_dir = os.getcwd()
 
         # ステータス表示
-        self.statusChanged.emit(t('desktop.soloAI.cliGenerating'))
-        # v8.0.0: SoloAIStatusBar更新
+        self.statusChanged.emit(t('desktop.cloudAI.cliGenerating'))
+        # v8.0.0: CloudAIStatusBar更新
         if hasattr(self, 'solo_status_bar'):
             self.solo_status_bar.set_status("running")
 
         # 認証モード情報をチャットに表示
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
-            f"{t('desktop.soloAI.cliModeInfo', thinking=thinking_text)}"
+            f"[CLI Mode] effort={effort_level}"
             f"</div>"
         )
 
@@ -2389,7 +3411,7 @@ class ClaudeTab(QWidget):
         skip_permissions = self.permission_skip_checkbox.isChecked()
 
         # v7.1.0: selected_model は currentData() で取得済み
-        logger.info(f"[ClaudeTab._send_via_cli] Starting CLI request: model={selected_model}, thinking={thinking_level}, working_dir={working_dir}, skip_permissions={skip_permissions}")
+        logger.info(f"[ClaudeTab._send_via_cli] Starting CLI request: model={selected_model}, effort={effort_level}, working_dir={working_dir}, skip_permissions={skip_permissions}")
 
         # CLIバックエンドへの参照を取得 (v3.5.0: 権限スキップ設定, v3.9.4: モデル選択を渡す)
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions, model=selected_model)
@@ -2400,12 +3422,16 @@ class ClaudeTab(QWidget):
             prompt=prompt,
             model=selected_model,  # v3.9.4: モデルを渡す
             working_dir=working_dir,
-            thinking_level=thinking_level
+            effort_level=effort_level
         )
         self._cli_worker.chunkReceived.connect(self._on_cli_chunk)
         self._cli_worker.completed.connect(self._on_cli_response)
         self._cli_worker.errorOccurred.connect(self._on_cli_error)
         self._cli_worker.start()
+
+        # v10.1.0: モニター開始
+        if hasattr(self, 'monitor_widget'):
+            self.monitor_widget.start_model(selected_model or "Claude CLI", "CLI")
 
     def _on_cli_chunk(self, chunk: str):
         """CLIストリーミングチャンク受信時"""
@@ -2432,6 +3458,10 @@ class ClaudeTab(QWidget):
                 f"</div>"
             )
 
+            # v11.0.0: Capture session ID for Continue Send
+            if response.metadata and response.metadata.get("session_id"):
+                self._on_session_captured(response.metadata["session_id"])
+
             logger.info(
                 f"[ClaudeTab._on_cli_response] CLI response: "
                 f"duration={response.duration_ms:.2f}ms, tokens={response.tokens_used}"
@@ -2439,8 +3469,22 @@ class ClaudeTab(QWidget):
 
             # コスト表示（Max/Proプランは基本無料、Extra Usage超過時のみ課金）
             self.statusChanged.emit(
-                t('desktop.soloAI.cliResponseComplete', duration=f"{response.duration_ms:.0f}")
+                t('desktop.cloudAI.cliResponseComplete', duration=f"{response.duration_ms:.0f}")
             )
+
+            # v11.0.0: JSONL logging (assistant response)
+            try:
+                from ..utils.chat_logger import get_chat_logger
+                chat_logger = get_chat_logger()
+                chat_logger.log_message(
+                    tab="cloudAI",
+                    model=self.model_combo.currentData() or "unknown",
+                    role="assistant",
+                    content=response.response_text[:2000],
+                    duration_ms=response.duration_ms,
+                )
+            except Exception:
+                pass
 
             # v3.2.0: チャット履歴を保存
             if self._pending_user_message:
@@ -2455,7 +3499,7 @@ class ClaudeTab(QWidget):
                             "tokens": response.tokens_used,
                             "cost_est": 0.0,  # Max/Proプランは基本無料
                             "source_tab": "ClaudeTab",
-                            "auth_mode": t('desktop.soloAI.authModeCli')
+                            "auth_mode": t('desktop.cloudAI.authModeCli')
                         }
                     )
                     logger.info(f"[ClaudeTab._on_cli_response] Chat history saved: entry_id={entry.id}")
@@ -2463,7 +3507,7 @@ class ClaudeTab(QWidget):
                 except Exception as hist_error:
                     logger.error(f"[ClaudeTab._on_cli_response] Failed to save chat history: {hist_error}", exc_info=True)
 
-            # v8.1.0: Memory Risk Gate (soloAI CLI応答後)
+            # v8.1.0: Memory Risk Gate (cloudAI CLI応答後)
             if self._memory_manager and hasattr(self, '_last_user_query'):
                 try:
                     import asyncio
@@ -2475,7 +3519,7 @@ class ClaudeTab(QWidget):
                         )
                     )
                     loop.close()
-                    logger.info("[ClaudeTab._on_cli_response] Memory Risk Gate completed (soloAI-CLI)")
+                    logger.info("[ClaudeTab._on_cli_response] Memory Risk Gate completed (cloudAI-CLI)")
                     # v8.3.1: RAPTOR非同期トリガー (QThread)
                     self._raptor_worker = RaptorWorker(
                         self._memory_manager, session_id,
@@ -2505,17 +3549,29 @@ class ClaudeTab(QWidget):
                 except Exception as mem_err:
                     logger.warning(f"[ClaudeTab._on_cli_response] Memory Risk Gate failed: {mem_err}")
 
-            # v8.0.0: SoloAIStatusBar - 完了
+            # v8.0.0: CloudAIStatusBar - 完了
             if hasattr(self, 'solo_status_bar'):
                 self.solo_status_bar.set_status("completed")
+
+            # v10.1.0: モニター完了
+            if hasattr(self, 'monitor_widget'):
+                self.monitor_widget.finish_model(
+                    self._cli_selected_model if hasattr(self, '_cli_selected_model') else "Claude CLI",
+                    success=True)
 
         else:
             # 失敗時: エラーメッセージを表示
             error_type = response.error_type or "CLIError"
             error_text = response.response_text.lower()
-            # v8.0.0: SoloAIStatusBar - エラー
+            # v8.0.0: CloudAIStatusBar - エラー
             if hasattr(self, 'solo_status_bar'):
                 self.solo_status_bar.set_status("error")
+
+            # v10.1.0: モニターエラー
+            if hasattr(self, 'monitor_widget'):
+                self.monitor_widget.finish_model(
+                    self._cli_selected_model if hasattr(self, '_cli_selected_model') else "Claude CLI",
+                    success=False)
 
             # v3.9.2 E: Haiku使用時のモデル不正/権限不足エラーを検出してフォールバック
             haiku_errors = ["model not found", "permission denied", "unauthorized", "not available", "unsupported model"]
@@ -2531,42 +3587,37 @@ class ClaudeTab(QWidget):
 
                 self.chat_display.append(
                     f"<div style='color: #ffa500; margin-top: 10px;'>"
-                    f"<b>{t('desktop.soloAI.haikuUnavailableHtml')}</b><br>"
-                    f"{t('desktop.soloAI.modelNotAvailableMsg').replace(chr(10), '<br>')}"
+                    f"<b>{t('desktop.cloudAI.haikuUnavailableHtml')}</b><br>"
+                    f"{t('desktop.cloudAI.modelNotAvailableMsg').replace(chr(10), '<br>')}"
                     f"</div>"
                 )
 
-                self.statusChanged.emit(t('desktop.soloAI.fallbackSonnet'))
+                self.statusChanged.emit(t('desktop.cloudAI.fallbackSonnet'))
 
                 # 再送信
                 if hasattr(self, '_cli_prompt') and self._cli_prompt:
                     self._send_via_cli(self._cli_prompt, self._cli_session_id, self._cli_phase)
                 return
 
-            # v3.9.5: thinkingパラメータエラーを検出してフォールバック（パターン拡張）
-            thinking_errors = [
-                "thinking", "extended thinking", "not supported", "invalid parameter",
-                "--think", "think hard", "ultrathink", "unsupported flag",
-                "unknown option", "unrecognized option", "invalid option"
+            # v9.8.0: effortレベルエラーを検出してフォールバック
+            effort_errors = [
+                "effort", "CLAUDE_CODE_EFFORT_LEVEL", "unsupported",
+                "unknown option", "invalid parameter", "not supported"
             ]
-            is_thinking_error = any(err in error_text for err in thinking_errors)
+            is_effort_error = any(err in error_text for err in effort_errors)
 
-            if is_thinking_error and self.thinking_combo.currentIndex() != 0:
-                logger.warning(f"[ClaudeTab._on_cli_response] Thinking error detected: {error_text[:100]}")
+            if is_effort_error and self._get_effort_from_config() != "default":
+                logger.warning(f"[ClaudeTab._on_cli_response] Effort error detected: {error_text[:100]}")
 
-                # 思考モードをOFFに戻す
-                self.thinking_combo.blockSignals(True)
-                self.thinking_combo.setCurrentIndex(0)  # OFF
-                self.thinking_combo.blockSignals(False)
-
+                # v11.0.0: effort is now in config.json; log a warning
                 self.chat_display.append(
                     f"<div style='color: #ffa500; margin-top: 10px;'>"
-                    f"<b>{t('desktop.soloAI.thinkingErrorHtml')}</b><br>"
-                    f"{t('desktop.soloAI.thinkingErrorMsg').replace(chr(10), '<br>')}"
+                    f"<b>⚠️ Effort Error:</b><br>"
+                    f"{t('desktop.cloudAI.effortFallbackWarn')}"
                     f"</div>"
                 )
 
-                self.statusChanged.emit(t('desktop.soloAI.retryThinkingOff'))
+                self.statusChanged.emit(t('desktop.cloudAI.effortFallbackWarn'))
 
                 # 再送信
                 if hasattr(self, '_cli_prompt') and self._cli_prompt:
@@ -2578,7 +3629,7 @@ class ClaudeTab(QWidget):
 
             self.chat_display.append(
                 f"<div style='color: #ef4444; margin-top: 10px;'>"
-                f"<b>{t('desktop.soloAI.cliErrorHtml', error_type=error_type)}</b><br>"
+                f"<b>{t('desktop.cloudAI.cliErrorHtml', error_type=error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"
             )
@@ -2588,7 +3639,7 @@ class ClaudeTab(QWidget):
                 f"duration={response.duration_ms:.2f}ms"
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.cliError', error=error_type))
+            self.statusChanged.emit(t('desktop.cloudAI.cliError', error=error_type))
 
     def _on_cli_error(self, error_msg: str):
         """CLI実行エラー発生時"""
@@ -2599,12 +3650,18 @@ class ClaudeTab(QWidget):
 
         self.chat_display.append(
             f"<div style='color: #ef4444; margin-top: 10px;'>"
-            f"<b>{t('desktop.soloAI.cliExecErrorHtml')}</b><br>"
+            f"<b>{t('desktop.cloudAI.cliExecErrorHtml')}</b><br>"
             f"{error_msg}"
             f"</div>"
         )
 
-        self.statusChanged.emit(t('desktop.soloAI.cliError', error=error_msg[:50]))
+        self.statusChanged.emit(t('desktop.cloudAI.cliError', error=error_msg[:50]))
+
+        # v10.1.0: モニターエラー
+        if hasattr(self, 'monitor_widget'):
+            self.monitor_widget.finish_model(
+                self._cli_selected_model if hasattr(self, '_cli_selected_model') else "Claude CLI",
+                success=False)
 
     # ========================================
     # v3.9.2: Ollama直接送信 (C-1: 送信先固定化)
@@ -2630,17 +3687,17 @@ class ClaudeTab(QWidget):
 
         # ステータス表示（実効モデルを表示）
         mcp_status = " + MCP" if mcp_enabled else ""
-        self.statusChanged.emit(t('desktop.soloAI.ollamaGenerating', model=ollama_model, mcp=mcp_status))
+        self.statusChanged.emit(t('desktop.cloudAI.ollamaGenerating', model=ollama_model, mcp=mcp_status))
 
         # 認証モード情報をチャットに表示
         mcp_tools = []
         if mcp_enabled:
             if mcp_settings.get("filesystem"):
-                mcp_tools.append(t('desktop.soloAI.fileOps'))
+                mcp_tools.append(t('desktop.cloudAI.fileOps'))
             if mcp_settings.get("brave-search"):
-                mcp_tools.append(t('desktop.soloAI.webSearch'))
+                mcp_tools.append(t('desktop.cloudAI.webSearch'))
 
-        tools_text = t('desktop.soloAI.toolsPrefix', tools=', '.join(mcp_tools)) if mcp_tools else ""
+        tools_text = t('desktop.cloudAI.toolsPrefix', tools=', '.join(mcp_tools)) if mcp_tools else ""
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
             f"[Ollama Mode] Local: {ollama_model} ({ollama_url}){tools_text}"
@@ -2698,7 +3755,7 @@ class ClaudeTab(QWidget):
         logger.info(f"[ClaudeTab._on_ollama_tool_executed] {tool_name}: {status}")
 
         # ステータス更新（簡潔に）
-        self.statusChanged.emit(t('desktop.soloAI.toolExecution', tool=tool_name, status=status))
+        self.statusChanged.emit(t('desktop.cloudAI.toolExecution', tool=tool_name, status=status))
 
     def _on_ollama_response(self, response_text: str, duration_ms: float):
         """Ollama応答受信時 (v3.9.2)"""
@@ -2718,7 +3775,7 @@ class ClaudeTab(QWidget):
 
         logger.info(f"[ClaudeTab._on_ollama_response] Ollama response: duration={duration_ms:.2f}ms")
 
-        self.statusChanged.emit(t('desktop.soloAI.ollamaComplete', duration=f"{duration_ms:.0f}", model=ollama_model))
+        self.statusChanged.emit(t('desktop.cloudAI.ollamaComplete', duration=f"{duration_ms:.0f}", model=ollama_model))
 
         # チャット履歴を保存
         if self._pending_user_message:
@@ -2734,7 +3791,7 @@ class ClaudeTab(QWidget):
                         "tokens": 0,
                         "cost_est": 0.0,
                         "source_tab": "ClaudeTab",
-                        "auth_mode": t('desktop.soloAI.authModeOllama')
+                        "auth_mode": t('desktop.cloudAI.authModeOllama')
                     }
                 )
                 logger.info(f"[ClaudeTab._on_ollama_response] Chat history saved: entry_id={entry.id}")
@@ -2752,12 +3809,12 @@ class ClaudeTab(QWidget):
 
         self.chat_display.append(
             f"<div style='color: #ef4444; margin-top: 10px;'>"
-            f"<b>{t('desktop.soloAI.ollamaErrorHtml')}</b><br>"
+            f"<b>{t('desktop.cloudAI.ollamaErrorHtml')}</b><br>"
             f"{error_msg}"
             f"</div>"
         )
 
-        self.statusChanged.emit(t('desktop.soloAI.ollamaError', error=error_msg[:50]))
+        self.statusChanged.emit(t('desktop.cloudAI.ollamaError', error=error_msg[:50]))
 
     def _update_backend_from_ui(self):
         """UIのモデル選択からBackendを更新 (v7.1.0: CLAUDE_MODELS対応)"""
@@ -2839,14 +3896,14 @@ class ClaudeTab(QWidget):
             )
 
             self.statusChanged.emit(
-                t('desktop.soloAI.responseCompleteStatus', duration=f"{response.duration_ms:.0f}", cost=f"{response.cost_est:.6f}")
+                t('desktop.cloudAI.responseCompleteStatus', duration=f"{response.duration_ms:.0f}", cost=f"{response.cost_est:.6f}")
             )
 
         else:
             # 失敗時: エラーメッセージを表示
             self.chat_display.append(
                 f"<div style='color: #ef4444; margin-top: 10px;'>"
-                f"<b>{t('desktop.soloAI.errorHtml', error_type=response.error_type)}</b><br>"
+                f"<b>{t('desktop.cloudAI.errorHtml', error_type=response.error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"
             )
@@ -2856,7 +3913,7 @@ class ClaudeTab(QWidget):
                 f"duration={response.duration_ms:.2f}ms"
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.errorStatus', error=response.error_type))
+            self.statusChanged.emit(t('desktop.cloudAI.errorStatus', error=response.error_type))
 
     def _on_executor_response(self, response: BackendResponse, execution_info: dict):
         """RoutingExecutor からの応答を処理 (Phase 2.x: CP1-CP10統合)"""
@@ -2868,7 +3925,6 @@ class ClaudeTab(QWidget):
         selected_backend = execution_info.get("selected_backend", "unknown")
         reason_codes = execution_info.get("reason_codes", [])
         fallback_chain = execution_info.get("fallback_chain", [])
-        preset_name = execution_info.get("preset_name")
         prompt_pack = execution_info.get("prompt_pack")
         policy_blocked = execution_info.get("policy_blocked", False)
         budget_status = execution_info.get("budget_status")
@@ -2877,7 +3933,6 @@ class ClaudeTab(QWidget):
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
             f"[Task: {task_type}] → Backend: {selected_backend}"
-            f"{' (Preset: ' + preset_name + ')' if preset_name else ''}"
             f"{' [PromptPack: ' + prompt_pack + ']' if prompt_pack else ''}"
             f"</div>"
         )
@@ -2920,7 +3975,7 @@ class ClaudeTab(QWidget):
             )
 
             self.statusChanged.emit(
-                t('desktop.soloAI.responseCompleteStatus', duration=f"{response.duration_ms:.0f}", cost=f"{response.cost_est:.6f}")
+                t('desktop.cloudAI.responseCompleteStatus', duration=f"{response.duration_ms:.0f}", cost=f"{response.cost_est:.6f}")
             )
 
             # v1.0.1: チャット履歴を保存（強化版）
@@ -2949,7 +4004,7 @@ class ClaudeTab(QWidget):
             else:
                 logger.warning("[ClaudeTab] No pending user message to save")
 
-            # v8.1.0: Memory Risk Gate (soloAI API応答後)
+            # v8.1.0: Memory Risk Gate (cloudAI API応答後)
             if self._memory_manager and hasattr(self, '_last_user_query'):
                 try:
                     import asyncio
@@ -2961,7 +4016,7 @@ class ClaudeTab(QWidget):
                         )
                     )
                     loop.close()
-                    logger.info("[ClaudeTab._on_executor_response] Memory Risk Gate completed (soloAI-API)")
+                    logger.info("[ClaudeTab._on_executor_response] Memory Risk Gate completed (cloudAI-API)")
                     # v8.3.1: RAPTOR非同期トリガー (QThread)
                     self._raptor_worker = RaptorWorker(
                         self._memory_manager, session_id,
@@ -2980,29 +4035,29 @@ class ClaudeTab(QWidget):
                 # ポリシーブロック
                 self.chat_display.append(
                     f"<div style='color: #f59e0b; margin-top: 10px;'>"
-                    f"<b>{t('desktop.soloAI.policyBlockHtml')}</b><br>"
+                    f"<b>{t('desktop.cloudAI.policyBlockHtml')}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}<br><br>"
-                    f"{t('desktop.soloAI.getApprovalRetry')}"
+                    f"{t('desktop.cloudAI.getApprovalRetry')}"
                     f"</div>"
                 )
-                self.statusChanged.emit(t('desktop.soloAI.policyBlock'))
+                self.statusChanged.emit(t('desktop.cloudAI.policyBlock'))
 
             elif error_type == "BudgetExceeded":
                 # 予算超過
                 self.chat_display.append(
                     f"<div style='color: #ef4444; margin-top: 10px;'>"
-                    f"<b>{t('desktop.soloAI.budgetExceededHtml')}</b><br>"
+                    f"<b>{t('desktop.cloudAI.budgetExceededHtml')}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}<br><br>"
-                    f"{t('desktop.soloAI.checkBudgetMsg')}"
+                    f"{t('desktop.cloudAI.checkBudgetMsg')}"
                     f"</div>"
                 )
-                self.statusChanged.emit(t('desktop.soloAI.budgetExceeded'))
+                self.statusChanged.emit(t('desktop.cloudAI.budgetExceeded'))
 
             else:
                 # その他のエラー
                 self.chat_display.append(
                     f"<div style='color: #ef4444; margin-top: 10px;'>"
-                    f"<b>{t('desktop.soloAI.errorHtml', error_type=error_type)}</b><br>"
+                    f"<b>{t('desktop.cloudAI.errorHtml', error_type=error_type)}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}"
                     f"</div>"
                 )
@@ -3012,7 +4067,7 @@ class ClaudeTab(QWidget):
                     f"duration={response.duration_ms:.2f}ms"
                 )
 
-                self.statusChanged.emit(t('desktop.soloAI.errorStatus', error=error_type))
+                self.statusChanged.emit(t('desktop.cloudAI.errorStatus', error=error_type))
 
     def show_diff(self, file_path: str, old_content: str, new_content: str):
         """
@@ -3051,9 +4106,9 @@ class ClaudeTab(QWidget):
         can_next, next_msg = self.workflow_state.can_transition_next()
         self.next_btn.setEnabled(can_next)
         if not can_next:
-            self.next_btn.setToolTip(t('desktop.soloAI.nextDisabledTooltip', msg=next_msg))
+            self.next_btn.setToolTip(t('desktop.cloudAI.nextDisabledTooltip', msg=next_msg))
         else:
-            self.next_btn.setToolTip(t('desktop.soloAI.nextEnabledTooltip'))
+            self.next_btn.setToolTip(t('desktop.cloudAI.nextEnabledTooltip'))
 
         # S3承認UI の表示/非表示（Phase 1.2）
         if self.workflow_state.current_phase == WorkflowPhase.S3_RISK_GATE:
@@ -3093,11 +4148,11 @@ class ClaudeTab(QWidget):
             if self.main_window:
                 self.main_window.notify_workflow_state_changed()
 
-            self.statusChanged.emit(t('desktop.soloAI.phaseBack', phase=self.workflow_state.get_current_phase_info()['name']))
+            self.statusChanged.emit(t('desktop.cloudAI.phaseBack', phase=self.workflow_state.get_current_phase_info()['name']))
         except WorkflowTransitionError as e:
             self.workflow_logger.log_blocked(old_phase, str(e))
             self.history_manager.phase_blocked(old_phase, str(e))
-            QMessageBox.warning(self, t('desktop.soloAI.phaseTransitionError'), str(e))
+            QMessageBox.warning(self, t('desktop.cloudAI.phaseTransitionError'), str(e))
 
     def _on_next_phase(self):
         """次の工程に進む"""
@@ -3127,18 +4182,18 @@ class ClaudeTab(QWidget):
             if self.main_window:
                 self.main_window.notify_workflow_state_changed()
 
-            self.statusChanged.emit(t('desktop.soloAI.phaseForward', phase=self.workflow_state.get_current_phase_info()['name']))
+            self.statusChanged.emit(t('desktop.cloudAI.phaseForward', phase=self.workflow_state.get_current_phase_info()['name']))
         except WorkflowTransitionError as e:
             self.workflow_logger.log_blocked(old_phase, str(e))
             self.history_manager.phase_blocked(old_phase, str(e))
-            QMessageBox.warning(self, t('desktop.soloAI.phaseTransitionError'), str(e))
+            QMessageBox.warning(self, t('desktop.cloudAI.phaseTransitionError'), str(e))
 
     def _on_reset_workflow(self):
         """工程をリセット"""
         reply = QMessageBox.question(
             self,
-            t('desktop.soloAI.workflowResetTitle'),
-            t('desktop.soloAI.resetWorkflowConfirm'),
+            t('desktop.cloudAI.workflowResetTitle'),
+            t('desktop.cloudAI.resetWorkflowConfirm'),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -3160,7 +4215,7 @@ class ClaudeTab(QWidget):
             if self.main_window:
                 self.main_window.notify_workflow_state_changed()
 
-            self.statusChanged.emit(t('desktop.soloAI.phaseResetDone'))
+            self.statusChanged.emit(t('desktop.cloudAI.phaseResetDone'))
 
     def _on_risk_approval_changed(self, state):
         """S3承認チェックボックスの状態変更"""
@@ -3192,9 +4247,9 @@ class ClaudeTab(QWidget):
             self.main_window.notify_workflow_state_changed()
 
         if is_checked:
-            self.statusChanged.emit(t('desktop.soloAI.dangerApproved'))
+            self.statusChanged.emit(t('desktop.cloudAI.dangerApproved'))
         else:
-            self.statusChanged.emit(t('desktop.soloAI.approvalCancelled'))
+            self.statusChanged.emit(t('desktop.cloudAI.approvalCancelled'))
 
     def _check_send_guard(self) -> tuple[bool, str]:
         """
@@ -3216,13 +4271,13 @@ class ClaudeTab(QWidget):
         if current == WorkflowPhase.S4_IMPLEMENT:
             # ただし、S3の承認が必要
             if not self.workflow_state.get_flag("risk_approved"):
-                return False, t('desktop.soloAI.s3ApprovalRequired')
+                return False, t('desktop.cloudAI.s3ApprovalRequired')
             return True, ""
 
         # S5〜S7: 実装は完了しているので、基本的にブロック
         # （ただし、テンプレ付与などで対応可能）
         if current in [WorkflowPhase.S5_VERIFY, WorkflowPhase.S6_REVIEW, WorkflowPhase.S7_RELEASE]:
-            return True, t('desktop.soloAI.verificationPhaseMsg')
+            return True, t('desktop.cloudAI.verificationPhaseMsg')
 
         return True, ""
 
@@ -3235,9 +4290,9 @@ class ClaudeTab(QWidget):
         self.approval_panel.setVisible(not self.approval_panel.isVisible())
 
         if self.approval_panel.isVisible():
-            self.risk_approval_btn.setText(t('desktop.soloAI.riskApprovalClose'))
+            self.risk_approval_btn.setText(t('desktop.cloudAI.riskApprovalClose'))
         else:
-            self.risk_approval_btn.setText(t('desktop.soloAI.riskApprovalOpen'))
+            self.risk_approval_btn.setText(t('desktop.cloudAI.riskApprovalOpen'))
 
         self._update_approval_status_label()
 
@@ -3326,7 +4381,7 @@ class ClaudeTab(QWidget):
         if self.main_window:
             self.main_window.notify_workflow_state_changed()
 
-        self.statusChanged.emit(t('desktop.soloAI.allScopesApproved'))
+        self.statusChanged.emit(t('desktop.cloudAI.allScopesApproved'))
 
     def _revoke_all_scopes(self):
         """全てのスコープの承認を取り消し"""
@@ -3359,17 +4414,17 @@ class ClaudeTab(QWidget):
         if self.main_window:
             self.main_window.notify_workflow_state_changed()
 
-        self.statusChanged.emit(t('desktop.soloAI.allScopesRejected'))
+        self.statusChanged.emit(t('desktop.cloudAI.allScopesRejected'))
 
     def _update_approval_status_label(self):
         """承認状態ラベルを更新"""
         approved_scopes = self.approval_state.get_approved_scopes()
 
         if len(approved_scopes) == 0:
-            self.approval_status_label.setText(t('desktop.soloAI.scopeUnapproved'))
+            self.approval_status_label.setText(t('desktop.cloudAI.scopeUnapproved'))
             self.approval_status_label.setStyleSheet("color: #ef4444; font-weight: bold;")
         else:
-            self.approval_status_label.setText(t('desktop.soloAI.scopeApprovedCount', count=len(approved_scopes)))
+            self.approval_status_label.setText(t('desktop.cloudAI.scopeApprovedCount', count=len(approved_scopes)))
             self.approval_status_label.setStyleSheet("color: #22c55e; font-weight: bold;")
 
     # ===================
@@ -3397,8 +4452,8 @@ class ClaudeTab(QWidget):
         if auth_mode != 0 or not hasattr(self, '_use_cli_mode') or not self._use_cli_mode:
             QMessageBox.information(
                 self,
-                t('desktop.soloAI.conversationContinueTitle'),
-                t('desktop.soloAI.continueModeCLIOnly')
+                t('desktop.cloudAI.conversationContinueTitle'),
+                t('desktop.cloudAI.continueModeCLIOnly')
             )
             return
 
@@ -3406,8 +4461,8 @@ class ClaudeTab(QWidget):
         if not self._cli_backend or not self._cli_backend.is_available():
             QMessageBox.warning(
                 self,
-                t('desktop.soloAI.cliUnavailableTitle2'),
-                t('desktop.soloAI.cliLoginRequired')
+                t('desktop.cloudAI.cliUnavailableTitle2'),
+                t('desktop.cloudAI.cliLoginRequired')
             )
             return
 
@@ -3415,24 +4470,24 @@ class ClaudeTab(QWidget):
 
         # チャットに表示
         self.chat_display.append(
-            f"<div style='color: #4fc3f7;'><b>{t('desktop.soloAI.continueMessageHtml')}</b> {message}</div>"
+            f"<div style='color: #4fc3f7;'><b>{t('desktop.cloudAI.continueMessageHtml')}</b> {message}</div>"
         )
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
-            f"{t('desktop.soloAI.continueModeActive')}"
+            f"{t('desktop.cloudAI.continueModeActive')}"
             f"</div>"
         )
 
         # ステータス表示
-        self.statusChanged.emit(t('desktop.soloAI.continuationProcessing'))
+        self.statusChanged.emit(t('desktop.cloudAI.continuationProcessing'))
 
-        # 思考モード設定
-        thinking_text = self.thinking_combo.currentText()
-        thinking_level = "none"
-        if thinking_text == "Standard":
-            thinking_level = "light"
-        elif thinking_text == "Deep":
-            thinking_level = "deep"
+        # v11.0.0: effort from config.json (hidden setting)
+        effort_level = self._get_effort_from_config()
+        # Opus 4.6以外はeffort無効
+        from ..utils.constants import EffortLevel
+        model_id = self.model_combo.currentData() or ""
+        if not EffortLevel.is_opus_46(model_id):
+            effort_level = "default"
 
         # 作業ディレクトリを取得
         import os
@@ -3441,9 +4496,9 @@ class ClaudeTab(QWidget):
         # v3.5.0: 権限スキップ設定を取得
         skip_permissions = self.permission_skip_checkbox.isChecked()
 
-        # CLIバックエンドを取得 (v3.5.0: 権限スキップ設定を渡す)
+        # CLIバックエンドを取得
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions)
-        self._cli_backend.thinking_level = thinking_level
+        self._cli_backend.effort_level = effort_level
 
         # BackendRequestを作成（use_continue フラグを設定）
         session_id = self.session_manager.get_current_session_id() or "continue_session"
@@ -3462,14 +4517,14 @@ class ClaudeTab(QWidget):
         )
 
         # 履歴保存用
-        self._pending_user_message = t('desktop.soloAI.continuePendingPrefix', message=message)
+        self._pending_user_message = t('desktop.cloudAI.continuePendingPrefix', message=message)
 
         # CLIWorkerThreadで非同期実行
         self._cli_worker = CLIWorkerThread(
             backend=self._cli_backend,
             prompt=message,
             working_dir=working_dir,
-            thinking_level=thinking_level
+            effort_level=effort_level
         )
         # CLIWorkerでは直接コマンドを実行するため、send_continueを使用するには
         # 別のアプローチが必要。ここではsend_continueを呼び出す専用スレッドを使用。
@@ -3493,7 +4548,7 @@ class ClaudeTab(QWidget):
             QMessageBox.information(
                 self,
                 t('common.input'),
-                t('desktop.soloAI.enterMessagePrompt')
+                t('desktop.cloudAI.enterMessagePrompt')
             )
 
     def _on_continue_response(self, response: BackendResponse):
@@ -3511,7 +4566,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>{t('desktop.soloAI.cliContinueLabel')}</b><br>"
+                f"<b style='color:#00ff88;'>{t('desktop.cloudAI.cliContinueLabel')}</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -3522,7 +4577,7 @@ class ClaudeTab(QWidget):
             )
 
             self.statusChanged.emit(
-                t('desktop.soloAI.continueCompleteStatus', duration=f"{response.duration_ms:.0f}")
+                t('desktop.cloudAI.continueCompleteStatus', duration=f"{response.duration_ms:.0f}")
             )
 
             # チャット履歴を保存
@@ -3550,7 +4605,7 @@ class ClaudeTab(QWidget):
 
             self.chat_display.append(
                 f"<div style='color: #ef4444; margin-top: 10px;'>"
-                f"<b>{t('desktop.soloAI.continueErrorHtml', error_type=error_type)}</b><br>"
+                f"<b>{t('desktop.cloudAI.continueErrorHtml', error_type=error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"
             )
@@ -3559,7 +4614,7 @@ class ClaudeTab(QWidget):
                 f"[ClaudeTab._on_continue_response] Continue error: type={error_type}"
             )
 
-            self.statusChanged.emit(t('desktop.soloAI.continuationError', error=error_type))
+            self.statusChanged.emit(t('desktop.cloudAI.continuationError', error=error_type))
 
 
 # --- v3.4.0: 会話継続用ワーカースレッド ---
@@ -3585,7 +4640,7 @@ class ContinueWorkerThread(QThread):
             logger.error(f"[ContinueWorkerThread] Error: {e}", exc_info=True)
             error_response = BackendResponse(
                 success=False,
-                response_text=t('desktop.soloAI.continueErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
+                response_text=t('desktop.cloudAI.continueErrorMsg', error=f"{type(e).__name__}: {str(e)}"),
                 error_type=type(e).__name__,
                 duration_ms=0,
                 tokens_used=0,

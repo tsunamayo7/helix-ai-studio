@@ -16,28 +16,81 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QGroupBox, QSpinBox, QScrollArea, QFrame, QFileDialog,
     QMessageBox, QSplitter, QTreeWidget, QTreeWidgetItem,
-    QProgressBar, QTextEdit, QApplication,
+    QProgressBar, QTextEdit, QApplication, QTabWidget, QComboBox,
+    QCheckBox, QDialog, QDialogButtonBox, QListWidget, QListWidgetItem,
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QThread
+from PyQt6.QtGui import QFont, QColor
 
 from ..utils.constants import (
     INFORMATION_FOLDER, SUPPORTED_DOC_EXTENSIONS,
     DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP, MAX_FILE_SIZE_MB,
     RAG_DEFAULT_TIME_LIMIT, RAG_MIN_TIME_LIMIT, RAG_MAX_TIME_LIMIT,
     RAG_TIME_STEP, RAG_CHUNK_STEP, RAG_OVERLAP_STEP,
+    CLAUDE_MODELS,
 )
 from ..utils.styles import (
     COLORS, SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN,
     DANGER_BTN, PROGRESS_BAR_STYLE, SPINBOX_STYLE, COMBO_BOX_STYLE,
+    SCROLLBAR_STYLE,
 )
 from ..rag.rag_builder import RAGBuilder, RAGBuildLock
 from ..rag.diff_detector import DiffDetector
 from ..rag.document_cleanup import DocumentCleanupManager
 from ..widgets.rag_progress_widget import RAGProgressWidget
 from ..utils.i18n import t
+from ..memory.model_config import get_exec_llm, get_quality_llm, get_embedding_model
+from ..widgets.section_save_button import create_section_save_button
+from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
 
 logger = logging.getLogger(__name__)
+
+
+class RAGChatWorkerThread(QThread):
+    """v11.0.0: RAGチャット用ワーカースレッド - RAG設定タブのCloudモデルを使用"""
+    completed = pyqtSignal(str)
+    errorOccurred = pyqtSignal(str)
+
+    def __init__(self, messages: list, rag_context: str,
+                 model_id: str = "claude-sonnet-4-6", parent=None):
+        super().__init__(parent)
+        self._messages = messages
+        self._rag_context = rag_context
+        self._model_id = model_id
+
+    def run(self):
+        try:
+            from ..backends.claude_cli_backend import find_claude_command
+            from ..utils.subprocess_utils import popen_hidden
+            claude_cmd = find_claude_command()
+            system_prompt = (
+                "あなたはRAGナレッジベースのアシスタントです。"
+                "ユーザーの質問に対して、提供された知識ベースの内容を基に回答してください。\n"
+            )
+            if self._rag_context:
+                system_prompt += f"\n{self._rag_context}\n"
+            history_parts = []
+            for msg in self._messages:
+                role = "Human" if msg["role"] == "user" else "Assistant"
+                history_parts.append(f"{role}: {msg['content']}")
+            full_prompt = system_prompt + "\n\n" + "\n\n".join(history_parts)
+            model_flag = ["--model", self._model_id] if self._model_id else []
+            proc = popen_hidden(
+                [claude_cmd, '-p'] + model_flag,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True,
+            )
+            stdout, stderr = proc.communicate(input=full_prompt, timeout=180)
+            if proc.returncode == 0:
+                self.completed.emit(stdout.strip())
+            else:
+                self.errorOccurred.emit(
+                    stderr.strip() or f"Claude CLIエラー (code {proc.returncode})"
+                )
+        except Exception as e:
+            self.errorOccurred.emit(str(e))
+
+
 
 
 class InformationCollectionTab(QWidget):
@@ -56,6 +109,9 @@ class InformationCollectionTab(QWidget):
         self.cleanup_manager = DocumentCleanupManager(
             information_folder=self._folder_path
         )
+        # v11.0.0: RAGチャット
+        self._rag_chat_messages: list = []
+        self._rag_chat_worker: RAGChatWorkerThread = None
 
         self._init_ui()
         self._load_rag_settings()
@@ -82,12 +138,222 @@ class InformationCollectionTab(QWidget):
         return folder
 
     def _init_ui(self):
-        """UIを初期化"""
+        """UIを初期化（v10.1.0: 2タブ構成）"""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 8, 12, 8)
-        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(0)
 
-        # スクロールエリア
+        # QTabWidget（実行 / 設定）
+        self.sub_tab_widget = QTabWidget()
+        self.sub_tab_widget.setStyleSheet(f"""
+            QTabWidget::pane {{
+                border: none;
+                background-color: {COLORS['bg_dark']};
+            }}
+            QTabBar::tab {{
+                background-color: {COLORS['bg_card']};
+                color: {COLORS['text_secondary']};
+                padding: 8px 20px;
+                border: 1px solid {COLORS['border']};
+                border-bottom: none;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                margin-right: 2px;
+                font-size: 12px;
+            }}
+            QTabBar::tab:selected {{
+                background-color: {COLORS['bg_dark']};
+                color: {COLORS['accent_cyan']};
+                font-weight: bold;
+            }}
+            QTabBar::tab:hover:!selected {{
+                color: {COLORS['text_primary']};
+            }}
+        """)
+
+        # ── v11.0.0: チャットサブタブ（新設：cloudAI風チャットUI） ──
+        self.sub_tab_widget.addTab(
+            self._create_rag_chat_sub_tab(), t('desktop.infoTab.chatSubTab')
+        )
+
+        # ── 構築サブタブ（旧:実行） ──
+        self.sub_tab_widget.addTab(
+            self._create_exec_sub_tab(), t('desktop.infoTab.buildSubTab')
+        )
+
+        # ── 設定サブタブ ──
+        self.sub_tab_widget.addTab(
+            self._create_settings_sub_tab(), t('desktop.infoTab.settingsSubTab')
+        )
+
+        main_layout.addWidget(self.sub_tab_widget)
+
+    # =========================================================================
+    # サブタブ生成
+    # =========================================================================
+
+    def _create_rag_chat_sub_tab(self) -> QWidget:
+        """v11.0.0: RAGチャットサブタブ（CloudAI風チャットUI）"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        # ── ステータスバー ──
+        self.rag_chat_status = QLabel(t('desktop.infoTab.ragStatusReady'))
+        self.rag_chat_status.setStyleSheet(
+            "QLabel { background-color: #1a1a2e; color: #4fc3f7; padding: 6px 12px; "
+            "border: 1px solid #2a2a3e; border-radius: 4px; font-weight: bold; }"
+        )
+        self.rag_chat_status.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        layout.addWidget(self.rag_chat_status)
+
+        # ── チャット表示エリア ──
+        self.rag_chat_display = QTextEdit()
+        self.rag_chat_display.setReadOnly(True)
+        self.rag_chat_display.setPlaceholderText(t('desktop.infoTab.ragChatPlaceholder'))
+        self.rag_chat_display.setStyleSheet(
+            f"QTextEdit {{ background-color: {COLORS['bg_dark']}; border: none; "
+            f"padding: 10px; color: {COLORS['text_primary']}; }}" + SCROLLBAR_STYLE
+        )
+        layout.addWidget(self.rag_chat_display, stretch=1)
+
+        # ── 進捗ウィジェット（構築中のみ表示） ──
+        self.rag_progress_widget = RAGProgressWidget()
+        self.rag_progress_widget.setVisible(False)
+        layout.addWidget(self.rag_progress_widget)
+
+        # ── 入力エリア（左: メイン入力 / 右: 会話継続） ──
+        input_splitter = QSplitter(Qt.Orientation.Horizontal)
+        input_splitter.setStyleSheet(
+            f"QSplitter {{ background: {COLORS['bg_dark']}; }}"
+            "QSplitter::handle { background: #2a2a3e; width: 3px; }"
+        )
+        input_splitter.setFixedHeight(140)
+
+        # --- 左パネル: メイン入力 (cloudAIと同レイアウト: テキストエリア上・ボタン下) ---
+        left_panel = QFrame()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(8, 4, 4, 4)
+        left_layout.setSpacing(4)
+
+        # テキスト入力エリア (上部)
+        self.rag_chat_input = QTextEdit()
+        self.rag_chat_input.setPlaceholderText(t('desktop.infoTab.ragChatInputPlaceholder'))
+        self.rag_chat_input.setStyleSheet(
+            f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
+            f"border: 1px solid #333; border-radius: 4px; padding: 8px; }}" + SCROLLBAR_STYLE
+        )
+        left_layout.addWidget(self.rag_chat_input, stretch=1)
+
+        # ボタン行（アクション）cloudAI同様に下部配置・高さ32px
+        action_row = QHBoxLayout()
+        action_row.setSpacing(4)
+        action_row.setContentsMargins(0, 2, 0, 0)
+
+        self.rag_add_files_btn = QPushButton(t('desktop.infoTab.ragAddFilesBtn'))
+        self.rag_add_files_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_add_files_btn.setFixedHeight(32)
+        self.rag_add_files_btn.setToolTip(t('desktop.infoTab.ragAddFilesTooltip'))
+        self.rag_add_files_btn.clicked.connect(self._on_rag_add_files)
+        action_row.addWidget(self.rag_add_files_btn)
+
+        self.rag_build_btn = QPushButton(t('desktop.infoTab.ragBuildBtn'))
+        self.rag_build_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_build_btn.setFixedHeight(32)
+        self.rag_build_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
+        self.rag_build_btn.clicked.connect(self._on_rag_build_click)
+        action_row.addWidget(self.rag_build_btn)
+
+        self.rag_build_stop_btn = QPushButton(t('desktop.infoTab.ragBuildStopBtn'))
+        self.rag_build_stop_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_build_stop_btn.setFixedHeight(32)
+        self.rag_build_stop_btn.setEnabled(False)
+        self.rag_build_stop_btn.clicked.connect(self._on_rag_build_stop_click)
+        action_row.addWidget(self.rag_build_stop_btn)
+
+        self.rag_delete_btn = QPushButton(t('desktop.infoTab.ragDeleteBtn'))
+        self.rag_delete_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_delete_btn.setFixedHeight(32)
+        self.rag_delete_btn.setToolTip(t('desktop.infoTab.ragDeleteTooltip'))
+        self.rag_delete_btn.clicked.connect(self._on_rag_delete_click)
+        action_row.addWidget(self.rag_delete_btn)
+
+        action_row.addStretch()
+
+        self.rag_chat_send_btn = QPushButton(t('desktop.infoTab.ragSendBtn'))
+        self.rag_chat_send_btn.setStyleSheet(PRIMARY_BTN)
+        self.rag_chat_send_btn.setFixedHeight(32)
+        self.rag_chat_send_btn.clicked.connect(self._on_rag_chat_send)
+        action_row.addWidget(self.rag_chat_send_btn)
+
+        left_layout.addLayout(action_row)
+
+        input_splitter.addWidget(left_panel)
+
+        # --- 右パネル: 会話継続 ---
+        right_panel = QFrame()
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(4, 4, 8, 4)
+        right_layout.setSpacing(4)
+
+        self.rag_continue_label = QLabel(t('desktop.infoTab.ragContinueLabel'))
+        self.rag_continue_label.setStyleSheet(
+            f"color: {COLORS['text_secondary']}; font-size: 10px; font-weight: bold;"
+        )
+        right_layout.addWidget(self.rag_continue_label)
+
+        self.rag_continue_input = QTextEdit()
+        self.rag_continue_input.setPlaceholderText(t('desktop.infoTab.ragContinuePlaceholder'))
+        self.rag_continue_input.setStyleSheet(
+            f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
+            f"border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 11px; }}"
+            + SCROLLBAR_STYLE
+        )
+        right_layout.addWidget(self.rag_continue_input, stretch=1)
+
+        quick_row = QHBoxLayout()
+        quick_row.setSpacing(3)
+        self.rag_quick_yes_btn = QPushButton(t('desktop.infoTab.ragQuickYes'))
+        self.rag_quick_yes_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_quick_yes_btn.setFixedHeight(24)
+        self.rag_quick_yes_btn.clicked.connect(self._on_rag_quick_yes)
+        quick_row.addWidget(self.rag_quick_yes_btn)
+
+        self.rag_quick_continue_btn = QPushButton(t('desktop.infoTab.ragQuickContinue'))
+        self.rag_quick_continue_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_quick_continue_btn.setFixedHeight(24)
+        self.rag_quick_continue_btn.clicked.connect(self._on_rag_quick_continue)
+        quick_row.addWidget(self.rag_quick_continue_btn)
+
+        self.rag_quick_exec_btn = QPushButton(t('desktop.infoTab.ragQuickExec'))
+        self.rag_quick_exec_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_quick_exec_btn.setFixedHeight(24)
+        self.rag_quick_exec_btn.clicked.connect(self._on_rag_quick_exec)
+        quick_row.addWidget(self.rag_quick_exec_btn)
+
+        quick_row.addStretch()
+        right_layout.addLayout(quick_row)
+
+        self.rag_continue_send_btn = QPushButton(t('desktop.infoTab.ragContinueSend'))
+        self.rag_continue_send_btn.setStyleSheet(PRIMARY_BTN)
+        self.rag_continue_send_btn.setFixedHeight(32)
+        self.rag_continue_send_btn.clicked.connect(self._on_rag_continue_send)
+        right_layout.addWidget(self.rag_continue_send_btn)
+
+        input_splitter.addWidget(right_panel)
+        input_splitter.setSizes([600, 300])
+
+        layout.addWidget(input_splitter)
+        return tab
+
+    def _create_exec_sub_tab(self) -> QWidget:
+        """v11.0.0: 構築サブタブ（読み取り専用）: ファイル一覧 + 統計のみ"""
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 8, 0, 0)
+        tab_layout.setSpacing(0)
+
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -100,37 +366,66 @@ class InformationCollectionTab(QWidget):
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setContentsMargins(8, 0, 8, 8)
         content_layout.setSpacing(10)
 
-        # 1. 情報収集フォルダセクション
+        # ── 表示セクションのみ追加 ──
         content_layout.addWidget(self._create_folder_section())
-
-        # 2. RAG構築設定セクション
-        content_layout.addWidget(self._create_settings_section())
-
-        # 3. プランセクション
-        content_layout.addWidget(self._create_plan_section())
-
-        # 4. 実行制御セクション
-        content_layout.addWidget(self._create_execution_section())
-
-        # 5. RAG統計セクション
         content_layout.addWidget(self._create_stats_section())
 
-        # 6. データ管理セクション
-        content_layout.addWidget(self._create_data_management_section())
+        # ── 非表示でウィジェット参照を保持（後方互換） ──
+        _plan_widget = self._create_plan_section()
+        _plan_widget.setVisible(False)
+        content_layout.addWidget(_plan_widget)
+
+        _exec_widget = self._create_execution_section()
+        _exec_widget.setVisible(False)
+        content_layout.addWidget(_exec_widget)
+
+        _data_widget = self._create_data_management_section()
+        _data_widget.setVisible(False)
+        content_layout.addWidget(_data_widget)
 
         content_layout.addStretch()
         scroll.setWidget(content)
-        main_layout.addWidget(scroll)
+        tab_layout.addWidget(scroll)
+        return tab
+
+    def _create_settings_sub_tab(self) -> QWidget:
+        """設定サブタブ: モデル選択, 時間設定, チャンク設定, 保存"""
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 8, 0, 0)
+        tab_layout.setSpacing(0)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(f"""
+            QScrollArea {{
+                border: none;
+                background-color: {COLORS['bg_dark']};
+            }}
+        """)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(8, 8, 8, 8)
+        content_layout.setSpacing(10)
+
+        content_layout.addWidget(self._create_settings_section())
+
+        content_layout.addStretch()
+        scroll.setWidget(content)
+        tab_layout.addWidget(scroll)
+        return tab
 
     # =========================================================================
     # セクション生成
     # =========================================================================
 
     def _create_folder_section(self) -> QGroupBox:
-        """情報収集フォルダセクション"""
+        """v11.0.0: 情報収集フォルダセクション（読み取り専用 + カラーコーディング）"""
         self.folder_group = QGroupBox(t('desktop.infoTab.folderGroupTitle'))
         self.folder_group.setStyleSheet(SECTION_CARD_STYLE)
         layout = QVBoxLayout(self.folder_group)
@@ -149,33 +444,25 @@ class InformationCollectionTab(QWidget):
         path_row.addWidget(self.open_folder_btn)
         layout.addLayout(path_row)
 
-        # 選択ボタン行
-        select_row = QHBoxLayout()
-        self.select_all_btn = QPushButton(t('desktop.infoTab.selectAll'))
-        self.select_all_btn.setStyleSheet(SECONDARY_BTN)
-        self.select_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_all_btn.setToolTip(t('desktop.infoTab.selectAllTip'))
-        self.select_all_btn.clicked.connect(self._select_all_files)
-        select_row.addWidget(self.select_all_btn)
+        # 凡例
+        legend_row = QHBoxLayout()
+        legend_row.setSpacing(12)
+        for color, label in [
+            ("#00c853", t('desktop.infoTab.legendNew')),
+            ("#ffd600", t('desktop.infoTab.legendModified')),
+            ("#9e9e9e", t('desktop.infoTab.legendUnchanged')),
+            ("#ef5350", t('desktop.infoTab.legendDeleted')),
+        ]:
+            dot = QLabel("●")
+            dot.setStyleSheet(f"color: {color}; font-size: 10px;")
+            lbl = QLabel(label)
+            lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px;")
+            legend_row.addWidget(dot)
+            legend_row.addWidget(lbl)
+        legend_row.addStretch()
+        layout.addLayout(legend_row)
 
-        self.select_none_btn = QPushButton(t('desktop.infoTab.deselectAll'))
-        self.select_none_btn.setStyleSheet(SECONDARY_BTN)
-        self.select_none_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_none_btn.setToolTip(t('desktop.infoTab.deselectAllTip'))
-        self.select_none_btn.clicked.connect(self._deselect_all_files)
-        select_row.addWidget(self.select_none_btn)
-
-        self.select_changed_btn = QPushButton(t('desktop.infoTab.selectDiffOnly'))
-        self.select_changed_btn.setStyleSheet(SECONDARY_BTN)
-        self.select_changed_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_changed_btn.setToolTip(t('desktop.infoTab.selectDiffOnlyTip'))
-        self.select_changed_btn.clicked.connect(self._select_changed_only)
-        select_row.addWidget(self.select_changed_btn)
-
-        select_row.addStretch()
-        layout.addLayout(select_row)
-
-        # ファイル一覧
+        # ファイル一覧（読み取り専用）
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderLabels(t('desktop.infoTab.fileTreeHeaders'))
         self.file_tree.setColumnCount(4)
@@ -183,8 +470,8 @@ class InformationCollectionTab(QWidget):
         self.file_tree.setColumnWidth(1, 80)
         self.file_tree.setColumnWidth(2, 130)
         self.file_tree.setColumnWidth(3, 100)
-        self.file_tree.setMinimumHeight(120)
-        self.file_tree.setMaximumHeight(200)
+        self.file_tree.setMinimumHeight(200)
+        self.file_tree.setMaximumHeight(320)
         self.file_tree.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: {COLORS['bg_card']};
@@ -209,7 +496,7 @@ class InformationCollectionTab(QWidget):
         """)
         layout.addWidget(self.file_tree)
 
-        # 合計 + ボタン行
+        # 合計 + リフレッシュボタン
         bottom_row = QHBoxLayout()
         self.total_label = QLabel(t('desktop.infoTab.totalFilesDefault'))
         self.total_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
@@ -222,19 +509,13 @@ class InformationCollectionTab(QWidget):
         self.refresh_btn.clicked.connect(self._refresh_file_list)
         bottom_row.addWidget(self.refresh_btn)
 
-        self.add_btn = QPushButton(t('desktop.infoTab.addFiles'))
-        self.add_btn.setStyleSheet(SECONDARY_BTN)
-        self.add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.add_btn.clicked.connect(self._add_files)
-        bottom_row.addWidget(self.add_btn)
-
         layout.addLayout(bottom_row)
         return self.folder_group
 
     def _create_settings_section(self) -> QGroupBox:
-        """RAG構築設定セクション"""
-        self.settings_group = QGroupBox(t('desktop.infoTab.ragSettingsGroupTitle'))
-        self.settings_group.setStyleSheet(SECTION_CARD_STYLE)
+        """RAG設定セクション（v11.0.0: 外枠タイトル削除）"""
+        self.settings_group = QGroupBox("")  # v11.0.0: 外枠タイトル削除
+        self.settings_group.setStyleSheet("QGroupBox { border: none; margin: 0; padding: 0; }")
         layout = QVBoxLayout(self.settings_group)
 
         # 想定実行時間
@@ -243,7 +524,7 @@ class InformationCollectionTab(QWidget):
         self.time_label.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 12px;")
         time_row.addWidget(self.time_label)
 
-        self.time_spin = QSpinBox()
+        self.time_spin = NoScrollSpinBox()
         self.time_spin.setRange(RAG_MIN_TIME_LIMIT, RAG_MAX_TIME_LIMIT)
         self.time_spin.setSingleStep(RAG_TIME_STEP)
         self.time_spin.setValue(RAG_DEFAULT_TIME_LIMIT)
@@ -254,42 +535,109 @@ class InformationCollectionTab(QWidget):
         time_row.addStretch()
         layout.addLayout(time_row)
 
-        # モデル情報
-        models_frame = QFrame()
-        models_frame.setStyleSheet(f"""
-            QFrame {{
+        # ── 使用モデル設定 ──
+        self.model_settings_group = QGroupBox(t('desktop.infoTab.modelSettingsGroup'))
+        self.model_settings_group.setStyleSheet(f"""
+            QGroupBox {{
                 background-color: {COLORS['bg_card']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 6px;
-                padding: 8px;
+                padding: 12px;
+                padding-top: 24px;
+                margin-top: 8px;
+                font-size: 12px;
+                font-weight: bold;
+                color: {COLORS['accent_cyan']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 4px;
             }}
         """)
-        models_layout = QVBoxLayout(models_frame)
-        models_layout.setSpacing(4)
+        models_layout = QVBoxLayout(self.model_settings_group)
+        models_layout.setSpacing(8)
 
-        self.model_info_labels = []
-        self.model_info_values = []
-        model_info = [
-            (t('desktop.infoTab.claudeModelLabel'), t('desktop.infoTab.modelClaude')),
-            (t('desktop.infoTab.execLLMLabel'), "command-a:latest (research)"),
-            (t('desktop.infoTab.qualityCheckLabel'), t('desktop.infoTab.modelMinistral')),
-            (t('desktop.infoTab.embeddingLabel'), t('desktop.infoTab.modelEmbedding')),
-        ]
-        for label_text, value_text in model_info:
-            row = QHBoxLayout()
-            lbl = QLabel(label_text)
-            lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px;")
-            lbl.setFixedWidth(100)
-            val = QLabel(value_text)
-            val.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 11px;")
-            row.addWidget(lbl)
-            row.addWidget(val)
-            row.addStretch()
-            models_layout.addLayout(row)
-            self.model_info_labels.append(lbl)
-            self.model_info_values.append(val)
+        # v11.0.0: モデル候補はModelCatalogから動的取得
+        from ..utils.model_catalog import (
+            get_rag_cloud_candidates, get_rag_local_candidates, populate_combo
+        )
+        self.model_combo_labels = []
+        self.model_combos = []
 
-        layout.addWidget(models_frame)
+        _label_style = f"color: {COLORS['text_secondary']}; font-size: 11px;"
+
+        # Cloud モデル — cloudAI登録済みモデル全表示
+        claude_row = QHBoxLayout()
+        self.claude_model_label = QLabel(t('desktop.infoTab.claudeModelSelect'))
+        self.claude_model_label.setStyleSheet(_label_style)
+        self.claude_model_label.setFixedWidth(130)
+        claude_row.addWidget(self.claude_model_label)
+        self.claude_model_combo = NoScrollComboBox()
+        self.claude_model_combo.setStyleSheet(COMBO_BOX_STYLE)
+        populate_combo(self.claude_model_combo, get_rag_cloud_candidates())
+        claude_row.addWidget(self.claude_model_combo)
+        models_layout.addLayout(claude_row)
+        self.model_combo_labels.append(self.claude_model_label)
+        self.model_combos.append(self.claude_model_combo)
+
+        # 実行モデル — localAIインストール済みモデル全表示
+        exec_row = QHBoxLayout()
+        self.exec_llm_label = QLabel(t('desktop.infoTab.execModelSelect'))
+        self.exec_llm_label.setStyleSheet(_label_style)
+        self.exec_llm_label.setFixedWidth(130)
+        exec_row.addWidget(self.exec_llm_label)
+        self.exec_llm_combo = NoScrollComboBox()
+        self.exec_llm_combo.setStyleSheet(COMBO_BOX_STYLE)
+        _exec_default = get_exec_llm()
+        populate_combo(self.exec_llm_combo, get_rag_local_candidates(), current_value=_exec_default)
+        exec_row.addWidget(self.exec_llm_combo)
+        models_layout.addLayout(exec_row)
+        self.model_combo_labels.append(self.exec_llm_label)
+        self.model_combos.append(self.exec_llm_combo)
+
+        # 品質チェックモデル — localAIインストール済みモデル全表示
+        quality_row = QHBoxLayout()
+        self.quality_llm_label = QLabel(t('desktop.infoTab.qualityModelSelect'))
+        self.quality_llm_label.setStyleSheet(_label_style)
+        self.quality_llm_label.setFixedWidth(130)
+        quality_row.addWidget(self.quality_llm_label)
+        self.quality_llm_combo = NoScrollComboBox()
+        self.quality_llm_combo.setStyleSheet(COMBO_BOX_STYLE)
+        _quality_default = get_quality_llm()
+        populate_combo(self.quality_llm_combo, get_rag_local_candidates(), current_value=_quality_default)
+        quality_row.addWidget(self.quality_llm_combo)
+        models_layout.addLayout(quality_row)
+        self.model_combo_labels.append(self.quality_llm_label)
+        self.model_combos.append(self.quality_llm_combo)
+
+        # Embedding モデル — localAIインストール済みモデル全表示
+        embed_row = QHBoxLayout()
+        self.embedding_label = QLabel(t('desktop.infoTab.embeddingSelect'))
+        self.embedding_label.setStyleSheet(_label_style)
+        self.embedding_label.setFixedWidth(130)
+        embed_row.addWidget(self.embedding_label)
+        self.embedding_combo = NoScrollComboBox()
+        self.embedding_combo.setStyleSheet(COMBO_BOX_STYLE)
+        _embed_default = get_embedding_model()
+        populate_combo(self.embedding_combo, get_rag_local_candidates(), current_value=_embed_default)
+        embed_row.addWidget(self.embedding_combo)
+        models_layout.addLayout(embed_row)
+        self.model_combo_labels.append(self.embedding_label)
+        self.model_combos.append(self.embedding_combo)
+
+        # モデル一覧更新ボタン
+        refresh_row = QHBoxLayout()
+        refresh_row.addStretch()
+        self.refresh_ollama_btn = QPushButton(t('desktop.infoTab.refreshOllamaModels'))
+        self.refresh_ollama_btn.setStyleSheet(SECONDARY_BTN)
+        self.refresh_ollama_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.refresh_ollama_btn.clicked.connect(self._refresh_ollama_models)
+        refresh_row.addWidget(self.refresh_ollama_btn)
+        models_layout.addLayout(refresh_row)
+        models_layout.addWidget(create_section_save_button(self._save_rag_settings))
+
+        layout.addWidget(self.model_settings_group)
 
         # チャンク設定
         chunk_row = QHBoxLayout()
@@ -297,7 +645,7 @@ class InformationCollectionTab(QWidget):
         self.chunk_label.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 12px;")
         chunk_row.addWidget(self.chunk_label)
 
-        self.chunk_size_spin = QSpinBox()
+        self.chunk_size_spin = NoScrollSpinBox()
         self.chunk_size_spin.setRange(128, 2048)
         self.chunk_size_spin.setSingleStep(RAG_CHUNK_STEP)
         self.chunk_size_spin.setValue(DEFAULT_CHUNK_SIZE)
@@ -310,7 +658,7 @@ class InformationCollectionTab(QWidget):
         self.overlap_label.setStyleSheet(f"color: {COLORS['text_primary']}; font-size: 12px;")
         chunk_row.addWidget(self.overlap_label)
 
-        self.overlap_spin = QSpinBox()
+        self.overlap_spin = NoScrollSpinBox()
         self.overlap_spin.setRange(0, 256)
         self.overlap_spin.setSingleStep(RAG_OVERLAP_STEP)
         self.overlap_spin.setValue(DEFAULT_CHUNK_OVERLAP)
@@ -321,16 +669,62 @@ class InformationCollectionTab(QWidget):
         chunk_row.addStretch()
         layout.addLayout(chunk_row)
 
-        # 設定保存ボタン
-        save_row = QHBoxLayout()
-        save_row.addStretch()
-        self.save_settings_btn = QPushButton(t('desktop.infoTab.saveSettings'))
-        self.save_settings_btn.setStyleSheet(SECONDARY_BTN)
-        self.save_settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.save_settings_btn.setToolTip(t('desktop.infoTab.saveSettingsTip'))
-        self.save_settings_btn.clicked.connect(self._save_rag_settings)
-        save_row.addWidget(self.save_settings_btn)
-        layout.addLayout(save_row)
+        # v11.0.0: チャンクサイズ/オーバーラップの説明はツールチップに
+        self.chunk_size_spin.setToolTip(t('desktop.infoTab.chunkSizeHint'))
+        self.overlap_spin.setToolTip(t('desktop.infoTab.overlapHint'))
+
+        # === v11.0.0: RAG Auto-Enhancement (Phase 6-E) ===
+        auto_enhance_group = QGroupBox(t('desktop.infoTab.autoEnhance'))
+        auto_enhance_group.setStyleSheet(SECTION_CARD_STYLE)
+        auto_enhance_layout = QVBoxLayout()
+
+        self.auto_kg_check = QCheckBox(t('desktop.infoTab.autoKgUpdate'))
+        self.auto_kg_check.setChecked(True)
+        self.auto_kg_check.setToolTip(t('desktop.infoTab.autoKgUpdateTip'))
+        auto_enhance_layout.addWidget(self.auto_kg_check)
+
+        self.hype_check = QCheckBox(t('desktop.infoTab.hypeEnabled'))
+        self.hype_check.setChecked(True)
+        self.hype_check.setToolTip(t('desktop.infoTab.hypeEnabledTip'))
+        auto_enhance_layout.addWidget(self.hype_check)
+
+        self.reranker_check = QCheckBox(t('desktop.infoTab.rerankerEnabled'))
+        self.reranker_check.setChecked(True)
+        self.reranker_check.setToolTip(t('desktop.infoTab.rerankerEnabledTip'))
+        auto_enhance_layout.addWidget(self.reranker_check)
+
+        # v11.0.0: 説明文はツールチップ化（UI直書き廃止）
+        auto_enhance_group.setToolTip(t('desktop.infoTab.autoEnhanceInfo'))
+        auto_enhance_layout.addWidget(create_section_save_button(self._save_rag_settings))
+
+        auto_enhance_group.setLayout(auto_enhance_layout)
+        self.auto_enhance_group = auto_enhance_group
+        self.auto_enhance_info = QLabel("")  # 後方互換用
+        layout.addWidget(auto_enhance_group)
+
+        # v11.0.0: Bottom save button removed — per-section save buttons used instead
+
+        # v11.0.0: 記憶・知識管理セクション（一般設定から移動）
+        self.rag_memory_group = QGroupBox(t('desktop.settings.memory'))
+        memory_group = self.rag_memory_group
+        memory_group.setStyleSheet(SECTION_CARD_STYLE)
+        memory_layout = QVBoxLayout(memory_group)
+
+        self.rag_memory_auto_save_cb = QCheckBox(t('desktop.settings.memoryAutoSave'))
+        self.rag_memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
+        self.rag_memory_auto_save_cb.setChecked(True)
+        memory_layout.addWidget(self.rag_memory_auto_save_cb)
+
+        self.rag_knowledge_enabled_cb = QCheckBox(t('desktop.settings.knowledgeEnabled'))
+        self.rag_knowledge_enabled_cb.setChecked(True)
+        memory_layout.addWidget(self.rag_knowledge_enabled_cb)
+
+        self.rag_encyclopedia_enabled_cb = QCheckBox(t('desktop.settings.encyclopediaEnabled'))
+        self.rag_encyclopedia_enabled_cb.setChecked(True)
+        memory_layout.addWidget(self.rag_encyclopedia_enabled_cb)
+
+        memory_layout.addWidget(create_section_save_button(self._save_rag_settings))
+        layout.addWidget(memory_group)
 
         return self.settings_group
 
@@ -552,24 +946,29 @@ class InformationCollectionTab(QWidget):
         self.doc_tree = QTreeWidget()
         self.doc_tree.setHeaderLabels(t('desktop.infoTab.docTreeHeaders'))
         self.doc_tree.setColumnCount(2)
-        self.doc_tree.setColumnWidth(0, 350)
-        self.doc_tree.setColumnWidth(1, 80)
-        self.doc_tree.setMaximumHeight(120)
+        self.doc_tree.setColumnWidth(0, 450)
+        self.doc_tree.setColumnWidth(1, 100)
+        self.doc_tree.setMinimumHeight(150)
+        self.doc_tree.setMaximumHeight(300)
+        self.doc_tree.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.doc_tree.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # マウスホイールを画面全体スクロールと分離（常にツリー内スクロールを優先）
+        self.doc_tree.setFocusPolicy(Qt.FocusPolicy.WheelFocus)
         self.doc_tree.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: {COLORS['bg_card']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 6px;
                 color: {COLORS['text_primary']};
-                font-size: 11px;
+                font-size: 12px;
             }}
-            QTreeWidget::item {{ padding: 3px; }}
+            QTreeWidget::item {{ padding: 5px 3px; }}
             QHeaderView::section {{
                 background-color: {COLORS['bg_card']};
                 color: {COLORS['accent_cyan']};
-                padding: 4px;
+                padding: 5px;
                 border: 1px solid {COLORS['border']};
-                font-size: 10px;
+                font-size: 11px;
             }}
         """)
         layout.addWidget(self.doc_tree)
@@ -595,52 +994,82 @@ class InformationCollectionTab(QWidget):
     # =========================================================================
 
     def retranslateUi(self):
-        """言語切替時に全ウィジェットのテキストを更新"""
+        """v11.0.0: 言語切替時に全ウィジェットのテキストを更新"""
+
+        # --- Sub-tab titles (chat=0, build=1, settings=2) ---
+        self.sub_tab_widget.setTabText(0, t('desktop.infoTab.chatSubTab'))
+        self.sub_tab_widget.setTabText(1, t('desktop.infoTab.buildSubTab'))
+        self.sub_tab_widget.setTabText(2, t('desktop.infoTab.settingsSubTab'))
+
+        # --- v11.0.0: チャットタブウィジェット ---
+        if hasattr(self, 'rag_chat_status'):
+            self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+        if hasattr(self, 'rag_chat_input'):
+            self.rag_chat_input.setPlaceholderText(t('desktop.infoTab.ragChatInputPlaceholder'))
+        if hasattr(self, 'rag_add_files_btn'):
+            self.rag_add_files_btn.setText(t('desktop.infoTab.ragAddFilesBtn'))
+            self.rag_add_files_btn.setToolTip(t('desktop.infoTab.ragAddFilesTooltip'))
+        if hasattr(self, 'rag_build_btn'):
+            self.rag_build_btn.setText(t('desktop.infoTab.ragBuildBtn'))
+            self.rag_build_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
+        if hasattr(self, 'rag_build_stop_btn'):
+            self.rag_build_stop_btn.setText(t('desktop.infoTab.ragBuildStopBtn'))
+        if hasattr(self, 'rag_delete_btn'):
+            self.rag_delete_btn.setText(t('desktop.infoTab.ragDeleteBtn'))
+            self.rag_delete_btn.setToolTip(t('desktop.infoTab.ragDeleteTooltip'))
+        if hasattr(self, 'rag_chat_send_btn'):
+            self.rag_chat_send_btn.setText(t('desktop.infoTab.ragSendBtn'))
+        # 会話継続パネル
+        if hasattr(self, 'rag_continue_label'):
+            self.rag_continue_label.setText(t('desktop.infoTab.ragContinueLabel'))
+        if hasattr(self, 'rag_continue_input'):
+            self.rag_continue_input.setPlaceholderText(t('desktop.infoTab.ragContinuePlaceholder'))
+        if hasattr(self, 'rag_quick_yes_btn'):
+            self.rag_quick_yes_btn.setText(t('desktop.infoTab.ragQuickYes'))
+        if hasattr(self, 'rag_quick_continue_btn'):
+            self.rag_quick_continue_btn.setText(t('desktop.infoTab.ragQuickContinue'))
+        if hasattr(self, 'rag_quick_exec_btn'):
+            self.rag_quick_exec_btn.setText(t('desktop.infoTab.ragQuickExec'))
+        if hasattr(self, 'rag_continue_send_btn'):
+            self.rag_continue_send_btn.setText(t('desktop.infoTab.ragContinueSend'))
 
         # --- QGroupBox titles ---
         self.folder_group.setTitle(t('desktop.infoTab.folderGroupTitle'))
         self.settings_group.setTitle(t('desktop.infoTab.ragSettingsGroupTitle'))
-        self.plan_group.setTitle(t('desktop.infoTab.planGroupTitle'))
-        self.execution_group.setTitle(t('desktop.infoTab.executionGroupTitle'))
+        self.model_settings_group.setTitle(t('desktop.infoTab.modelSettingsGroup'))
+        if hasattr(self, 'plan_group'):
+            self.plan_group.setTitle(t('desktop.infoTab.planGroupTitle'))
+        if hasattr(self, 'execution_group'):
+            self.execution_group.setTitle(t('desktop.infoTab.executionGroupTitle'))
         self.stats_group.setTitle(t('desktop.infoTab.statsGroupTitle'))
-        self.data_group.setTitle(t('desktop.infoTab.dataManageGroupTitle'))
+        if hasattr(self, 'data_group'):
+            self.data_group.setTitle(t('desktop.infoTab.dataManageGroupTitle'))
 
         # --- Folder section ---
         self.folder_path_label.setText(t('desktop.infoTab.folderPath', path=self._folder_path))
         self.open_folder_btn.setText(t('desktop.infoTab.openFolder'))
-        self.select_all_btn.setText(t('desktop.infoTab.selectAll'))
-        self.select_all_btn.setToolTip(t('desktop.infoTab.selectAllTip'))
-        self.select_none_btn.setText(t('desktop.infoTab.deselectAll'))
-        self.select_none_btn.setToolTip(t('desktop.infoTab.deselectAllTip'))
-        self.select_changed_btn.setText(t('desktop.infoTab.selectDiffOnly'))
-        self.select_changed_btn.setToolTip(t('desktop.infoTab.selectDiffOnlyTip'))
         self.file_tree.setHeaderLabels(t('desktop.infoTab.fileTreeHeaders'))
         self.refresh_btn.setText(t('desktop.infoTab.refresh'))
-        self.add_btn.setText(t('desktop.infoTab.addFiles'))
 
         # --- Settings section ---
         self.time_label.setText(t('desktop.infoTab.estimatedTime'))
         self.time_spin.setSuffix(t('desktop.infoTab.minuteSuffix'))
         self.time_spin.setToolTip(t('desktop.infoTab.timeLimitTip'))
 
-        # Model info labels
-        model_label_keys = [
-            'desktop.infoTab.claudeModelLabel',
-            'desktop.infoTab.execLLMLabel',
-            'desktop.infoTab.qualityCheckLabel',
-            'desktop.infoTab.embeddingLabel',
-        ]
-        model_value_keys = [
-            'desktop.infoTab.modelClaude',
-            None,  # "command-a:latest (research)" is not translatable
-            'desktop.infoTab.modelMinistral',
-            'desktop.infoTab.modelEmbedding',
-        ]
-        for i, key in enumerate(model_label_keys):
-            self.model_info_labels[i].setText(t(key))
-        for i, key in enumerate(model_value_keys):
-            if key is not None:
-                self.model_info_values[i].setText(t(key))
+        # Model combo labels
+        self.claude_model_label.setText(t('desktop.infoTab.claudeModelSelect'))
+        self.exec_llm_label.setText(t('desktop.infoTab.execLLMSelect'))
+        self.quality_llm_label.setText(t('desktop.infoTab.qualityLLMSelect'))
+        self.embedding_label.setText(t('desktop.infoTab.embeddingSelect'))
+        self.refresh_ollama_btn.setText(t('desktop.infoTab.refreshOllamaModels'))
+
+        # Update Claude model combo display names (i18n)
+        for i in range(self.claude_model_combo.count()):
+            model_id = self.claude_model_combo.itemData(i)
+            for m in CLAUDE_MODELS:
+                if m["id"] == model_id and m.get("i18n_display"):
+                    self.claude_model_combo.setItemText(i, t(m["i18n_display"]))
+                    break
 
         self.chunk_label.setText(t('desktop.infoTab.chunkSizeLabel'))
         self.chunk_size_spin.setSuffix(t('desktop.infoTab.tokenSuffix'))
@@ -648,20 +1077,52 @@ class InformationCollectionTab(QWidget):
         self.overlap_label.setText(t('desktop.infoTab.overlapLabel'))
         self.overlap_spin.setSuffix(t('desktop.infoTab.tokenSuffix'))
         self.overlap_spin.setToolTip(t('desktop.infoTab.overlapTip'))
-        self.save_settings_btn.setText(t('desktop.infoTab.saveSettings'))
-        self.save_settings_btn.setToolTip(t('desktop.infoTab.saveSettingsTip'))
+        # v11.0.0: Bottom save button removed — per-section save buttons used instead
 
-        # --- Plan section ---
-        self.plan_summary_label.setText(t('desktop.infoTab.planSummaryLabel'))
-        self.plan_summary_text.setPlaceholderText(t('desktop.infoTab.planPlaceholder'))
-        self.copy_plan_btn.setText(t('desktop.infoTab.copyPlan'))
-        self.copy_plan_btn.setToolTip(t('desktop.infoTab.copyPlanTip'))
-        self.create_plan_btn.setText(t('desktop.infoTab.createPlan'))
+        # --- RAG Auto-Enhancement section (v11.0.0) ---
+        if hasattr(self, 'auto_enhance_group'):
+            self.auto_enhance_group.setTitle(t('desktop.infoTab.autoEnhance'))
+        if hasattr(self, 'auto_kg_check'):
+            self.auto_kg_check.setText(t('desktop.infoTab.autoKgUpdate'))
+            self.auto_kg_check.setToolTip(t('desktop.infoTab.autoKgUpdateTip'))
+        if hasattr(self, 'hype_check'):
+            self.hype_check.setText(t('desktop.infoTab.hypeEnabled'))
+            self.hype_check.setToolTip(t('desktop.infoTab.hypeEnabledTip'))
+        if hasattr(self, 'reranker_check'):
+            self.reranker_check.setText(t('desktop.infoTab.rerankerEnabled'))
+            self.reranker_check.setToolTip(t('desktop.infoTab.rerankerEnabledTip'))
+        if hasattr(self, 'auto_enhance_info'):
+            self.auto_enhance_info.setText(t('desktop.infoTab.autoEnhanceInfo'))
 
-        # --- Execution section ---
-        self.start_btn.setText(t('desktop.infoTab.startBuild'))
-        self.stop_btn.setText(t('desktop.infoTab.stopBuild'))
-        self.rebuild_btn.setText(t('desktop.infoTab.retryBuild'))
+        # --- 記憶・知識管理セクション (settings sub-tab) ---
+        if hasattr(self, 'rag_memory_group'):
+            self.rag_memory_group.setTitle(t('desktop.settings.memory'))
+        if hasattr(self, 'rag_memory_auto_save_cb'):
+            self.rag_memory_auto_save_cb.setText(t('desktop.settings.memoryAutoSave'))
+            self.rag_memory_auto_save_cb.setToolTip(t('desktop.settings.memoryAutoSaveTip'))
+        if hasattr(self, 'rag_knowledge_enabled_cb'):
+            self.rag_knowledge_enabled_cb.setText(t('desktop.settings.knowledgeEnabled'))
+        if hasattr(self, 'rag_encyclopedia_enabled_cb'):
+            self.rag_encyclopedia_enabled_cb.setText(t('desktop.settings.encyclopediaEnabled'))
+
+        # --- Plan section (hidden, hasattr guard) ---
+        if hasattr(self, 'plan_summary_label'):
+            self.plan_summary_label.setText(t('desktop.infoTab.planSummaryLabel'))
+        if hasattr(self, 'plan_summary_text'):
+            self.plan_summary_text.setPlaceholderText(t('desktop.infoTab.planPlaceholder'))
+        if hasattr(self, 'copy_plan_btn'):
+            self.copy_plan_btn.setText(t('desktop.infoTab.copyPlan'))
+            self.copy_plan_btn.setToolTip(t('desktop.infoTab.copyPlanTip'))
+        if hasattr(self, 'create_plan_btn'):
+            self.create_plan_btn.setText(t('desktop.infoTab.createPlan'))
+
+        # --- Execution section (hidden, hasattr guard) ---
+        if hasattr(self, 'start_btn'):
+            self.start_btn.setText(t('desktop.infoTab.startBuild'))
+        if hasattr(self, 'stop_btn'):
+            self.stop_btn.setText(t('desktop.infoTab.stopBuild'))
+        if hasattr(self, 'rebuild_btn'):
+            self.rebuild_btn.setText(t('desktop.infoTab.retryBuild'))
 
         # --- Stats section (name labels) ---
         stats_name_keys = {
@@ -675,29 +1136,39 @@ class InformationCollectionTab(QWidget):
             if i18n_key is not None:
                 self.stats_name_labels[key].setText(t(i18n_key))
 
-        # --- Data management section ---
-        self.orphan_tree.setHeaderLabels(t('desktop.infoTab.orphanTreeHeaders'))
-        self.scan_orphan_btn.setText(t('desktop.infoTab.orphanScan'))
-        self.scan_orphan_btn.setToolTip(t('desktop.infoTab.orphanScanTip'))
-        self.delete_orphan_btn.setText(t('desktop.infoTab.deleteOrphans'))
-        self.delete_orphan_btn.setToolTip(t('desktop.infoTab.deleteOrphansTip'))
-        self.doc_delete_label.setText(t('desktop.infoTab.docDeleteLabel'))
-        self.doc_tree.setHeaderLabels(t('desktop.infoTab.docTreeHeaders'))
-        self.delete_doc_btn.setText(t('desktop.infoTab.deleteSelectedDocs'))
-        self.delete_doc_btn.setToolTip(t('desktop.infoTab.deleteSelectedDocsTip'))
+        # --- Data management section (hidden, hasattr guard) ---
+        if hasattr(self, 'orphan_tree'):
+            self.orphan_tree.setHeaderLabels(t('desktop.infoTab.orphanTreeHeaders'))
+        if hasattr(self, 'scan_orphan_btn'):
+            self.scan_orphan_btn.setText(t('desktop.infoTab.orphanScan'))
+            self.scan_orphan_btn.setToolTip(t('desktop.infoTab.orphanScanTip'))
+        if hasattr(self, 'delete_orphan_btn'):
+            self.delete_orphan_btn.setText(t('desktop.infoTab.deleteOrphans'))
+            self.delete_orphan_btn.setToolTip(t('desktop.infoTab.deleteOrphansTip'))
+        if hasattr(self, 'doc_delete_label'):
+            self.doc_delete_label.setText(t('desktop.infoTab.docDeleteLabel'))
+        if hasattr(self, 'doc_tree'):
+            self.doc_tree.setHeaderLabels(t('desktop.infoTab.docTreeHeaders'))
+        if hasattr(self, 'delete_doc_btn'):
+            self.delete_doc_btn.setText(t('desktop.infoTab.deleteSelectedDocs'))
+            self.delete_doc_btn.setToolTip(t('desktop.infoTab.deleteSelectedDocsTip'))
 
-        # --- RAG Progress Widget ---
+        # --- RAG Progress Widgets ---
         if hasattr(self, 'progress_widget') and hasattr(self.progress_widget, 'retranslateUi'):
             self.progress_widget.retranslateUi()
+        if hasattr(self, 'rag_progress_widget') and hasattr(self.rag_progress_widget, 'retranslateUi'):
+            self.rag_progress_widget.retranslateUi()
 
         # --- Refresh dynamic content with new language ---
         self._refresh_file_list()
         self._refresh_rag_stats()
-        self._scan_orphans()
-        self._refresh_doc_list()
+        if hasattr(self, 'orphan_tree'):
+            self._scan_orphans()
+        if hasattr(self, 'doc_tree'):
+            self._refresh_doc_list()
 
         # Update plan status if no plan exists
-        if not self._current_plan:
+        if not self._current_plan and hasattr(self, 'plan_status_label'):
             self.plan_status_label.setText(t('desktop.infoTab.planStatusDefault'))
 
     # =========================================================================
@@ -709,8 +1180,253 @@ class InformationCollectionTab(QWidget):
         pass  # ビルダーシグナルは_start_build()内で接続
 
     # =========================================================================
-    # アクション
+    # v11.0.0: RAGチャット アクション
     # =========================================================================
+
+    def _append_rag_chat_msg(self, role: str, content: str):
+        """チャット表示エリアにメッセージを追記"""
+        import html as html_lib
+        if role == "user":
+            html = (
+                f"<div style='margin: 8px 0; padding: 8px 12px; "
+                f"background: rgba(0,212,255,0.1); border-radius: 6px;'>"
+                f"<b style='color:#00d4ff;'>You:</b> "
+                f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
+            )
+        elif role == "assistant":
+            html = (
+                f"<div style='margin: 8px 0; padding: 8px 12px; "
+                f"background: rgba(0,255,136,0.05); border-radius: 6px;'>"
+                f"<b style='color:#00ff88;'>RAG:</b> "
+                f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
+            )
+        else:
+            html = (
+                f"<div style='margin: 4px 0; padding: 4px 12px; "
+                f"color: {COLORS['text_secondary']}; font-size: 11px; font-style: italic;'>"
+                f"{html_lib.escape(content)}</div>"
+            )
+        self.rag_chat_display.append(html)
+        # スクロールを最下部へ
+        sb = self.rag_chat_display.verticalScrollBar()
+        sb.setValue(sb.maximum())
+
+    def _on_rag_chat_send(self):
+        """RAGチャット送信"""
+        message = self.rag_chat_input.toPlainText().strip()
+        if not message:
+            return
+        if self._rag_chat_worker and self._rag_chat_worker.isRunning():
+            return
+        self.rag_chat_input.clear()
+        self._rag_chat_messages.append({"role": "user", "content": message})
+        self._append_rag_chat_msg("user", message)
+        self._do_rag_chat_query(message)
+
+    def _on_rag_continue_send(self):
+        """会話継続送信"""
+        message = self.rag_continue_input.toPlainText().strip()
+        if not message:
+            return
+        self.rag_continue_input.clear()
+        self._rag_chat_messages.append({"role": "user", "content": message})
+        self._append_rag_chat_msg("user", message)
+        self._do_rag_chat_query(message)
+
+    def _on_rag_quick_yes(self):
+        """はい クイックボタン"""
+        self.rag_continue_input.setPlainText(t('desktop.infoTab.ragQuickYesMsg'))
+        self._on_rag_continue_send()
+
+    def _on_rag_quick_continue(self):
+        """続行 クイックボタン"""
+        self.rag_continue_input.setPlainText(t('desktop.infoTab.ragQuickContinueMsg'))
+        self._on_rag_continue_send()
+
+    def _on_rag_quick_exec(self):
+        """実行 クイックボタン"""
+        self.rag_continue_input.setPlainText(t('desktop.infoTab.ragQuickExecMsg'))
+        self._on_rag_continue_send()
+
+    def _do_rag_chat_query(self, query: str):
+        """RAGコンテキストを付与してCloudAIに問い合わせ"""
+        self.rag_chat_send_btn.setEnabled(False)
+        self.rag_continue_send_btn.setEnabled(False)
+        self.rag_chat_status.setText(t('desktop.infoTab.ragStatusQuerying'))
+
+        # RAGコンテキスト取得 → ワーカー起動
+        rag_context = ""
+        try:
+            from ..web.rag_bridge import RAGBridge
+            bridge = RAGBridge()
+            rag_context = bridge.build_context(query, tab="ragChat")
+        except Exception as e:
+            logger.debug(f"RAG context build skipped: {e}")
+
+        model_id = self.claude_model_combo.currentData() or "claude-sonnet-4-6"
+        self._rag_chat_worker = RAGChatWorkerThread(
+            messages=list(self._rag_chat_messages),
+            rag_context=rag_context,
+            model_id=model_id,
+            parent=self,
+        )
+        self._rag_chat_worker.completed.connect(self._on_rag_chat_worker_done)
+        self._rag_chat_worker.errorOccurred.connect(self._on_rag_chat_worker_error)
+        self._rag_chat_worker.start()
+
+    def _on_rag_chat_worker_done(self, response: str):
+        """ワーカー正常完了"""
+        self._rag_chat_messages.append({"role": "assistant", "content": response})
+        self._append_rag_chat_msg("assistant", response)
+        self.rag_chat_send_btn.setEnabled(True)
+        self.rag_continue_send_btn.setEnabled(True)
+        self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+
+    def _on_rag_chat_worker_error(self, error: str):
+        """ワーカーエラー"""
+        self._append_rag_chat_msg("system", f"エラー: {error}")
+        self.rag_chat_send_btn.setEnabled(True)
+        self.rag_continue_send_btn.setEnabled(True)
+        self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+
+    def _on_rag_add_files(self):
+        """チャットタブからファイルを追加"""
+        extensions = " ".join(f"*{ext}" for ext in SUPPORTED_DOC_EXTENSIONS)
+        files, _ = QFileDialog.getOpenFileNames(
+            self, t('desktop.infoTab.addFilesTitle'),
+            "", t('desktop.infoTab.addFilesFilter', ext=extensions)
+        )
+        if files:
+            folder = Path(self._folder_path)
+            folder.mkdir(parents=True, exist_ok=True)
+            added_names = []
+            for src in files:
+                src_path = Path(src)
+                size_mb = src_path.stat().st_size / (1024 * 1024)
+                if size_mb > MAX_FILE_SIZE_MB:
+                    self._append_rag_chat_msg(
+                        "system",
+                        f"⚠️ {src_path.name} はサイズ超過でスキップ ({size_mb:.1f} MB > {MAX_FILE_SIZE_MB} MB)"
+                    )
+                    continue
+                dest = folder / src_path.name
+                try:
+                    shutil.copy2(str(src_path), str(dest))
+                    added_names.append(src_path.name)
+                except Exception as e:
+                    logger.error(f"File copy failed: {e}")
+            if added_names:
+                self._refresh_file_list()
+                names_str = ", ".join(added_names)
+                self._append_rag_chat_msg(
+                    "system",
+                    f"📄 ファイル追加: {names_str} (要再構築)"
+                )
+
+    def _on_rag_build_click(self):
+        """チャットタブから構築開始"""
+        self._append_rag_chat_msg("system", "📋 プランを作成中...")
+        self.rag_build_btn.setEnabled(False)
+        self.rag_build_stop_btn.setEnabled(True)
+        self.rag_chat_status.setText(t('desktop.infoTab.ragStatusBuilding'))
+        QTimer.singleShot(100, self._do_rag_build_plan)
+
+    def _do_rag_build_plan(self):
+        """構築プランを作成して実行"""
+        try:
+            from ..rag.rag_planner import RAGPlanner
+            planner = RAGPlanner()
+            plan = planner.create_plan(
+                self._folder_path,
+                self.time_spin.value(),
+            )
+            self._current_plan = plan
+            summary = plan.get("summary", "")
+            self._append_rag_chat_msg(
+                "system",
+                f"✅ プラン完了: {summary[:80]}{'...' if len(summary) > 80 else ''}"
+            )
+            self._start_build()
+        except Exception as e:
+            logger.error(f"RAG build plan failed: {e}")
+            self._append_rag_chat_msg("system", f"❌ プラン作成失敗: {str(e)[:200]}")
+            self.rag_build_btn.setEnabled(True)
+            self.rag_build_stop_btn.setEnabled(False)
+            self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+
+    def _on_rag_build_stop_click(self):
+        """チャットタブから構築停止"""
+        self._stop_build()
+        self._append_rag_chat_msg("system", "■ 構築を停止しました")
+
+    def _on_rag_delete_click(self):
+        """チャットタブからドキュメント削除ダイアログを表示"""
+        try:
+            import sqlite3
+            db_path = Path("data/helix_memory.db")
+            if not db_path.exists():
+                self._append_rag_chat_msg("system", "⚠️ RAGデータベースが見つかりません")
+                return
+            conn = sqlite3.connect(str(db_path))
+            conn.row_factory = sqlite3.Row
+            try:
+                rows = conn.execute(
+                    "SELECT source_file, COUNT(*) as cnt FROM documents GROUP BY source_file ORDER BY source_file"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            if not rows:
+                self._append_rag_chat_msg("system", "⚠️ 構築済みドキュメントがありません")
+                return
+
+            # 選択ダイアログ
+            dlg = QDialog(self)
+            dlg.setWindowTitle(t('desktop.infoTab.ragDeleteDialogTitle'))
+            dlg.resize(480, 360)
+            dlg_layout = QVBoxLayout(dlg)
+            dlg_layout.addWidget(QLabel(t('desktop.infoTab.ragDeleteDialogHint')))
+
+            list_widget = QListWidget()
+            for row in rows:
+                item = QListWidgetItem(f"{row['source_file']}  ({row['cnt']} chunks)")
+                item.setData(Qt.ItemDataRole.UserRole, row['source_file'])
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Unchecked)
+                list_widget.addItem(item)
+            dlg_layout.addWidget(list_widget)
+
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+            )
+            buttons.accepted.connect(dlg.accept)
+            buttons.rejected.connect(dlg.reject)
+            dlg_layout.addWidget(buttons)
+
+            if dlg.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            selected = [
+                list_widget.item(i).data(Qt.ItemDataRole.UserRole)
+                for i in range(list_widget.count())
+                if list_widget.item(i).checkState() == Qt.CheckState.Checked
+            ]
+            if not selected:
+                return
+
+            result = self.cleanup_manager.delete_selected_documents(selected)
+            self._refresh_doc_list()
+            self._refresh_rag_stats()
+            self._refresh_file_list()
+            names_str = ", ".join(selected)
+            self._append_rag_chat_msg(
+                "system",
+                f"🗑 削除完了: {names_str} "
+                f"(chunks: {result['deleted_chunks']}, summaries: {result['deleted_summaries']})"
+            )
+        except Exception as e:
+            logger.error(f"RAG delete failed: {e}")
+            self._append_rag_chat_msg("system", f"❌ 削除エラー: {str(e)[:200]}")
 
     def _open_folder(self):
         """OSのファイルエクスプローラーでフォルダを開く"""
@@ -727,6 +1443,29 @@ class InformationCollectionTab(QWidget):
                 subprocess.run(["xdg-open", abs_path])
         except Exception as e:
             logger.error(f"Failed to open folder: {e}")
+
+    def _refresh_ollama_models(self):
+        """v11.0.0: ModelCatalog経由でモデル一覧を更新"""
+        from ..utils.model_catalog import (
+            get_rag_cloud_candidates, get_rag_local_candidates, populate_combo
+        )
+        try:
+            # Cloudモデル更新
+            cloud = get_rag_cloud_candidates()
+            current_cloud = self.claude_model_combo.currentText()
+            populate_combo(self.claude_model_combo, cloud, current_value=current_cloud)
+
+            # ローカルモデル更新
+            local = get_rag_local_candidates()
+            for combo in [self.exec_llm_combo, self.quality_llm_combo, self.embedding_combo]:
+                current = combo.currentText()
+                populate_combo(combo, local, current_value=current)
+
+            count = len(local)
+            self.statusChanged.emit(f"Models refreshed: {len(cloud)} cloud + {count} local")
+        except Exception as e:
+            logger.debug(f"Model refresh failed: {e}")
+            self.statusChanged.emit(f"Refresh failed: {e}")
 
     def _add_files(self):
         """ファイル追加ダイアログ"""
@@ -761,74 +1500,69 @@ class InformationCollectionTab(QWidget):
                 self.statusChanged.emit(t('desktop.infoTab.filesAdded', count=added))
 
     def _refresh_file_list(self):
-        """ファイル一覧を更新し、RAG状態を表示"""
+        """v11.0.0: ファイル一覧を更新（読み取り専用・カラーコーディング）"""
         self.file_tree.clear()
         folder = Path(self._folder_path)
         folder.mkdir(parents=True, exist_ok=True)
 
-        # DiffDetectorで差分検出
         diff_detector = DiffDetector(db_conn_factory=self._get_db_conn)
         diff_result = diff_detector.detect_changes(self._folder_path)
 
         total_size = 0
         file_count = 0
 
-        # 新規ファイル
         for fi in diff_result.new_files:
-            self._add_file_tree_item(fi.name, fi.size, fi.modified, "new", checked=True)
+            self._add_file_tree_item(fi.name, fi.size, fi.modified, "new")
             total_size += fi.size
             file_count += 1
 
-        # 変更ファイル
         for fi in diff_result.modified_files:
-            self._add_file_tree_item(fi.name, fi.size, fi.modified, "modified", checked=True)
+            self._add_file_tree_item(fi.name, fi.size, fi.modified, "modified")
             total_size += fi.size
             file_count += 1
 
-        # 未変更ファイル
         for fi in diff_result.unchanged_files:
-            self._add_file_tree_item(fi.name, fi.size, fi.modified, "unchanged", checked=False)
+            self._add_file_tree_item(fi.name, fi.size, fi.modified, "unchanged")
             total_size += fi.size
             file_count += 1
 
-        # 削除済みファイル（DBにあるがフォルダにない）
         for name in diff_result.deleted_files:
-            item = QTreeWidgetItem([name, "-", "-", t('desktop.infoTab.ragStatusDeleted')])
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.CheckState.Unchecked)
-            item.setForeground(3, QFont().defaultFamily() and item.foreground(0))
-            self.file_tree.addTopLevelItem(item)
+            self._add_file_tree_item(name, 0, 0, "deleted")
 
         total_str = self._format_size(total_size)
         diff_summary = diff_result.summary
         self.total_label.setText(t('desktop.infoTab.totalFiles', count=file_count, size=total_str, diff=diff_summary))
 
-    def _add_file_tree_item(self, name: str, size: int, mtime: float,
-                            status: str, checked: bool):
-        """ファイル一覧に1行追加"""
-        size_str = self._format_size(size)
-        date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+    def _add_file_tree_item(self, name: str, size: int, mtime: float, status: str):
+        """v11.0.0: ファイル一覧に1行追加（読み取り専用・カラーコーディング）"""
+        size_str = self._format_size(size) if size > 0 else "-"
+        date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M") if mtime > 0 else "-"
 
         status_labels = {
             "new": t('desktop.infoTab.ragStatusNew'),
             "modified": t('desktop.infoTab.ragStatusChanged'),
             "unchanged": t('desktop.infoTab.ragStatusBuilt'),
+            "deleted": t('desktop.infoTab.ragStatusDeleted'),
         }
         status_label = status_labels.get(status, status)
 
         item = QTreeWidgetItem([name, size_str, date_str, status_label])
-        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-        item.setCheckState(0, Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        # 読み取り専用（チェックボックスなし）
+        item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
 
-        # RAG状態に応じた色分け
-        if status == "new":
-            item.setForeground(3, item.foreground(0))  # デフォルト色
-        elif status == "modified":
-            item.setForeground(3, item.foreground(0))
+        # カラーコーディング
+        color_map = {
+            "new": QColor("#00c853"),       # 緑
+            "modified": QColor("#ffd600"),  # 黄
+            "unchanged": QColor("#9e9e9e"), # グレー
+            "deleted": QColor("#ef5350"),   # 赤
+        }
+        color = color_map.get(status)
+        if color:
+            for col in range(4):
+                item.setForeground(col, color)
 
-        # データとしてステータスを保持
         item.setData(0, Qt.ItemDataRole.UserRole, status)
-
         self.file_tree.addTopLevelItem(item)
 
     def _get_db_conn(self):
@@ -1053,7 +1787,17 @@ class InformationCollectionTab(QWidget):
         signals.verification_result.connect(self._on_verification_result)
         signals.build_completed.connect(self._on_build_completed)
 
-        # UIを更新
+        # v11.0.0: チャット内進捗ウィジェットにも接続
+        if hasattr(self, 'rag_progress_widget'):
+            signals.progress_updated.connect(self.rag_progress_widget.on_progress_updated)
+            signals.time_updated.connect(self.rag_progress_widget.on_time_updated)
+            signals.step_started.connect(self.rag_progress_widget.on_step_started)
+            signals.step_progress.connect(self.rag_progress_widget.on_step_progress)
+            signals.step_completed.connect(self.rag_progress_widget.on_step_completed)
+            signals.step_started.connect(self._on_build_step_started_chat)
+            self.rag_progress_widget.setVisible(True)
+
+        # UIを更新（旧ボタン）
         self.start_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.rebuild_btn.setEnabled(False)
@@ -1107,10 +1851,17 @@ class InformationCollectionTab(QWidget):
                     else:
                         tab.rag_lock_overlay.hide_lock()
 
+    def _on_build_step_started_chat(self, step_name: str):
+        """v11.0.0: 構築ステップ開始をチャットに表示"""
+        if hasattr(self, 'rag_chat_display'):
+            self._append_rag_chat_msg("system", f"🔧 {step_name}...")
+
     def _on_error(self, step_name: str, error_message: str):
         """エラー発生"""
         logger.error(f"RAG build error at {step_name}: {error_message}")
         self.statusChanged.emit(t('desktop.infoTab.errorStep', step=step_name))
+        if hasattr(self, 'rag_chat_display'):
+            self._append_rag_chat_msg("system", f"❌ エラー ({step_name}): {error_message[:120]}")
 
     def _on_verification_result(self, result: dict):
         """検証結果受信"""
@@ -1119,18 +1870,31 @@ class InformationCollectionTab(QWidget):
         logger.info(f"Verification result: {verdict} (score={score})")
 
     def _on_build_completed(self, success: bool, message: str):
-        """構築完了"""
+        """v11.0.0: 構築完了"""
         self.start_btn.setEnabled(True)
         self.stop_btn.setEnabled(False)
         self.rebuild_btn.setEnabled(True)
         self.create_plan_btn.setEnabled(True)
 
-        self._refresh_rag_stats()
+        # v11.0.0: チャット用ボタン状態を更新
+        if hasattr(self, 'rag_build_btn'):
+            self.rag_build_btn.setEnabled(True)
+        if hasattr(self, 'rag_build_stop_btn'):
+            self.rag_build_stop_btn.setEnabled(False)
+        if hasattr(self, 'rag_progress_widget'):
+            self.rag_progress_widget.setVisible(False)
+        if hasattr(self, 'rag_chat_status'):
+            self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
 
-        if success:
-            QMessageBox.information(self, t('desktop.infoTab.buildCompleteTitle'), message)
-        else:
-            QMessageBox.warning(self, t('desktop.infoTab.buildResultTitle'), message)
+        self._refresh_rag_stats()
+        self._refresh_file_list()
+
+        # v11.0.0: 結果をチャットに表示
+        if hasattr(self, 'rag_chat_display'):
+            if success:
+                self._append_rag_chat_msg("system", f"✅ RAG構築完了! {message}")
+            else:
+                self._append_rag_chat_msg("system", f"⚠️ 構築結果: {message}")
 
     # =========================================================================
     # データ管理
@@ -1261,7 +2025,7 @@ class InformationCollectionTab(QWidget):
     # =========================================================================
 
     def _save_rag_settings(self):
-        """RAG構築設定をapp_settings.jsonに保存"""
+        """RAG構築設定をapp_settings.jsonに保存（v10.1.0: モデル選択含む）"""
         try:
             settings_path = Path("config/app_settings.json")
             settings = {}
@@ -1269,11 +2033,24 @@ class InformationCollectionTab(QWidget):
                 with open(settings_path, 'r', encoding='utf-8') as f:
                     settings = json.load(f)
 
-            settings["rag"] = {
+            # Claude model: userDataにIDが格納されている
+            claude_model_id = self.claude_model_combo.currentData() or self.claude_model_combo.currentText()
+
+            new_rag = {
                 "time_limit_minutes": self.time_spin.value(),
                 "chunk_size": self.chunk_size_spin.value(),
                 "overlap": self.overlap_spin.value(),
+                "claude_model": claude_model_id,
+                "exec_llm": self.exec_llm_combo.currentText(),
+                "quality_llm": self.quality_llm_combo.currentText(),
+                "embedding_model": self.embedding_combo.currentText(),
+                # v11.0.0: RAG Auto-Enhancement (Phase 6-E)
+                "auto_kg_update": self.auto_kg_check.isChecked() if hasattr(self, 'auto_kg_check') else True,
+                "hype_enabled": self.hype_check.isChecked() if hasattr(self, 'hype_check') else True,
+                "reranker_enabled": self.reranker_check.isChecked() if hasattr(self, 'reranker_check') else True,
             }
+
+            settings["rag"] = new_rag
 
             settings_path.parent.mkdir(parents=True, exist_ok=True)
             with open(settings_path, 'w', encoding='utf-8') as f:
@@ -1286,7 +2063,7 @@ class InformationCollectionTab(QWidget):
             QMessageBox.warning(self, t('desktop.infoTab.ragSettingsSaveFailedTitle'), t('desktop.infoTab.ragSettingsSaveError', error=str(e)))
 
     def _load_rag_settings(self):
-        """app_settings.jsonからRAG構築設定を読み込んでSpinBoxに反映"""
+        """app_settings.jsonからRAG構築設定を読み込んでUI反映（v10.1.0: モデル選択含む）"""
         try:
             settings_path = Path("config/app_settings.json")
             if not settings_path.exists():
@@ -1301,6 +2078,26 @@ class InformationCollectionTab(QWidget):
                 self.chunk_size_spin.setValue(rag["chunk_size"])
             if "overlap" in rag:
                 self.overlap_spin.setValue(rag["overlap"])
+
+            # モデル選択復元
+            if "claude_model" in rag:
+                idx = self.claude_model_combo.findData(rag["claude_model"])
+                if idx >= 0:
+                    self.claude_model_combo.setCurrentIndex(idx)
+            if "exec_llm" in rag:
+                self.exec_llm_combo.setCurrentText(rag["exec_llm"])
+            if "quality_llm" in rag:
+                self.quality_llm_combo.setCurrentText(rag["quality_llm"])
+            if "embedding_model" in rag:
+                self.embedding_combo.setCurrentText(rag["embedding_model"])
+
+            # v11.0.0: RAG Auto-Enhancement (Phase 6-E)
+            if hasattr(self, 'auto_kg_check'):
+                self.auto_kg_check.setChecked(rag.get("auto_kg_update", True))
+            if hasattr(self, 'hype_check'):
+                self.hype_check.setChecked(rag.get("hype_enabled", True))
+            if hasattr(self, 'reranker_check'):
+                self.reranker_check.setChecked(rag.get("reranker_enabled", True))
 
             logger.debug(f"RAG settings loaded: {rag}")
         except Exception as e:

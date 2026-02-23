@@ -6,7 +6,7 @@
 **Claude-centric multi-model AI orchestration platform with dual interface (Desktop + Web)**
 Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI with cross-device Web UI.
 
-![Version](https://img.shields.io/badge/version-9.6.0-00d4ff)
+![Version](https://img.shields.io/badge/version-9.9.1-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -18,11 +18,12 @@ Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — uni
 
 ## What it does
 
-Helix AI Studio runs a **3-Phase pipeline**:
+Helix AI Studio runs a **3+1 Phase pipeline**:
 
 1. **Phase 1 (Claude Code CLI)** — design analysis → structured instructions for each local model
 2. **Phase 2 (Local LLM team via Ollama, sequential)** — specialized execution (coding / research / reasoning / translation / vision)
 3. **Phase 3 (Claude Code CLI)** — integrate, validate with Acceptance Criteria (PASS/FAIL), produce final output
+4. **Phase 4 (Optional)** — Sonnet 4.6/4.5 applies file changes from Phase 3 structured output
 
 This approach improves answer quality by combining multiple viewpoints while staying practical for **VRAM-heavy 120B-class models** (run sequentially).
 
@@ -30,31 +31,38 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ---
 
-## Key Features (v9.6.0 "Global Ready")
+## Key Features (v9.9.1 "Memory & Codex")
 
 ### Orchestration (mixAI)
-- **3-Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates
+- **3+1 Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates → (optional) Sonnet applies changes
+- **Phase 4 (Optional)**: Sonnet 4.6/4.5 applies file changes from Phase 3 structured output
 - **Structured Phase 1**: design_analysis + acceptance_criteria + expected_output_format
 - **Acceptance Criteria evaluation in Phase 3** (PASS/FAIL checklist)
 - **Quality loop**: configurable Phase-2 retry cap (`max_phase2_retries`)
+- **Phase 2 skip**: each local LLM category can be set to "none" to skip
 - **Neural Flow / phase progress visualization** (pipeline transparency)
-- **Switchable P1/P3 Engine**: Claude API or local LLM for orchestration phases
+- **Switchable P1/P3 Engine**: Claude API, local LLM, or GPT-5.3-Codex for orchestration phases
+- **Presets**: One-click "P1=Opus4.6 / P3=GPT-5.3-Codex" preset button
 
 ### Direct Claude Chat (soloAI)
 - **Claude Code CLI** direct conversation mode
+- **GPT-5.3-Codex (CLI)** as an optional model — routes to Codex CLI backend
+- **Adaptive thinking (effort)** for Opus 4.6 — configurable reasoning intensity (low/medium/high)
+- **Search/Browse mode**: None / Claude WebSearch / Browser Use selector
 - Streaming responses via WebSocket
 - File attachment and context injection
 
 ### Local LLM Team (Ollama)
-- **5 specialized categories**: coding / research / reasoning / translation / vision
+- **5 specialized categories**: coding / research / reasoning / translation / vision (each category can be skipped)
 - **SequentialExecutor** for large models (load → run → unload)
-- **Resident models**: Control AI + Embedding model pinned to smaller GPU (optional)
+- **Resident models**: Control AI + Embedding model managed in General Settings (optional, GPU-aware)
 
 ### Dual Interface (Desktop + Web)
 - **Desktop**: PyQt6 native app with full control over all settings
 - **Web UI**: React SPA accessible from any device (phone, tablet, remote PC)
 - **Cross-Device Sync**: Tailscale VPN-based secure access, execution lock, file transfer
 - **Persistent Sessions**: Chat history preserved across sessions with context modes (single/session/full)
+- **Desktop Chat History** (v9.7.0): QDockWidget side panel with search, tab filters, date grouping — shares the same SQLite DB with Web UI
 
 ### Memory & Knowledge (Adaptive / Living Memory)
 - **4-layer memory**: Thread / Episodic / Semantic / Procedural
@@ -87,7 +95,7 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ## Demo
 
-### mixAI — 3-Phase Pipeline (Claude → Local LLMs → Claude)
+### mixAI — 3+1 Phase Pipeline (Claude → Local LLMs → Claude → Sonnet)
 ![mixAI Demo](docs/screenshots/mixai_demo.gif)
 
 ### soloAI — Direct Claude CLI
@@ -174,7 +182,8 @@ graph LR
   P1a --> P1b["Phase 1b: Instructions + Acceptance Criteria (Claude Code CLI)"]
   P1b --> P2["Phase 2: Local LLM Team (Ollama, Sequential)"]
   P2 --> P3["Phase 3: Integrate + Criteria Evaluation (Claude Code CLI)"]
-  P3 --> User
+  P3 --> P4["Phase 4 (Optional): Apply file changes (Sonnet 4.6/4.5)"]
+  P4 --> User
 
   P2 --> coding["coding: devstral-2:123b"]
   P2 --> research["research: command-a:latest"]
@@ -258,6 +267,10 @@ Helix AI Studio/
 
 | Version | Codename | Highlights |
 |---------|----------|------------|
+| v9.9.1 | Memory & Codex | HelixMemoryManager強化(private除外/段階注入/ビューア), Codex CLI soloAI対応, mixAI Opus4.6/Codexプリセット, 検索選択式, 設定保存修正, 差分ダイアログ修正, スクロール誤操作防止, 保存UIボタン統一 |
+| v9.8.0 | GitHub Ready | Sonnet 4.6, Adaptive thinking (effort), Phase 4, resident model relocation, Phase 2 skip, context bar fix |
+| v9.7.1 | Desktop Chat History | SpinBox UX fix, mixAI/soloAI header cleanup, model selector dedup, timeout i18n fix, NoScrollSpinBox for RAG, Ollama settings reorder |
+| v9.7.0 | Desktop Chat History | Desktop chat history side panel, settings UI cleanup, Ollama settings consolidation |
 | v9.6.0 | Global Ready | Web UI + Desktop UI English switching (shared i18n) / README.md |
 | v9.5.0 | Cross-Device Sync | Web execution lock, mobile file attach, device transfer, post-logout chat view |
 | v9.3.0 | Switchable Engine | P1/P3 engine switchable between Claude API and local LLM |

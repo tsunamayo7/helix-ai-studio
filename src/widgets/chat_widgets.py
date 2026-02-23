@@ -1,8 +1,8 @@
 """
-Helix AI Studio - Chat Enhancement Widgets (v8.0.0)
+Helix AI Studio - Chat Enhancement Widgets (v9.8.0)
 チャットUI強化ウィジェット群:
-- PhaseIndicator: 3Phase実行状態の視覚的インジケーター
-- SoloAIStatusBar: soloAI実行状態のシンプルな表示
+- PhaseIndicator: 4Phase実行状態の視覚的インジケーター
+- CloudAIStatusBar: cloudAI実行状態のシンプルな表示
 - ExecutionIndicator: チャットエリア内の実行中インジケーター
 - InterruptionBanner: 中断時にチャットエリアに表示するバナー
 """
@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame,
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont
 
 from ..utils.styles import (
     PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
@@ -28,11 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# 改善C: PhaseIndicator — 3Phase実行状態の視覚的インジケーター
+# 改善C: PhaseIndicator — 4Phase実行状態の視覚的インジケーター (v9.8.0)
 # =============================================================================
 
 class PhaseIndicator(QWidget):
-    """3Phase実行状態の視覚的インジケーター"""
+    """4Phase実行状態の視覚的インジケーター (v9.8.0: Phase 4追加)"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -40,6 +41,7 @@ class PhaseIndicator(QWidget):
             ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
             ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
+            ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
         self.current_phase = -1  # -1=未実行
         self._nodes = []
@@ -87,7 +89,7 @@ class PhaseIndicator(QWidget):
         layout.addStretch()
 
     def set_active_phase(self, phase_index: int):
-        """アクティブフェーズを設定（0=P1, 1=P2, 2=P3）"""
+        """アクティブフェーズを設定（0=P1, 1=P2, 2=P3, 3=P4）"""
         self.current_phase = phase_index
 
         for i, (_, _, color) in enumerate(self.phases):
@@ -117,7 +119,7 @@ class PhaseIndicator(QWidget):
             self._dots[i].setText("\u2713")
             self._dots[i].setStyleSheet(f"color: {color}; font-size: 12px; font-weight: bold;")
             self._texts[i].setStyleSheet(f"color: {color}; font-size: 11px;")
-        self.current_phase = 3
+        self.current_phase = len(self.phases)
 
     def reset(self):
         """未実行状態にリセット"""
@@ -134,17 +136,18 @@ class PhaseIndicator(QWidget):
             ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
             ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
+            ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
         for i, (label, desc, _color) in enumerate(self.phases):
             self._texts[i].setText(f"{label}: {desc}")
 
 
 # =============================================================================
-# 改善J: SoloAIStatusBar — soloAI実行状態のシンプルな表示
+# 改善J: CloudAIStatusBar — cloudAI実行状態のシンプルな表示
 # =============================================================================
 
-class SoloAIStatusBar(QWidget):
-    """soloAI実行状態のシンプルな表示（旧ステージUIを置換）"""
+class CloudAIStatusBar(QWidget):
+    """cloudAI実行状態の表示（v9.7.1: mixAI形式のヘッダーに統一）"""
 
     new_session_clicked = pyqtSignal()
 
@@ -153,6 +156,7 @@ class SoloAIStatusBar(QWidget):
         self._setup_ui()
 
     def _setup_ui(self):
+        from ..utils.constants import APP_VERSION
         self.setStyleSheet("""
             QWidget {
                 background-color: #1a1a2e;
@@ -163,25 +167,36 @@ class SoloAIStatusBar(QWidget):
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(8)
 
-        # 実行状態インジケーター
-        self.status_dot = QLabel("\u25cf")
-        self.status_dot.setStyleSheet("color: #888; font-size: 10px;")
-        self.status_dot.setFixedWidth(16)
-        layout.addWidget(self.status_dot)
+        # v9.7.1: タイトルラベル（mixAI形式に統一 - 左寄せ）
+        self.title_label = QLabel(t('desktop.cloudAI.title'))
+        self.title_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.title_label.setStyleSheet("color: #e0e0e0;")
+        layout.addWidget(self.title_label)
 
-        # ステータステキスト
-        self.status_label = QLabel(t('desktop.widgets.chatWidgets.statusWaiting'))
-        self.status_label.setStyleSheet("color: #888; font-size: 12px;")
-        layout.addWidget(self.status_label)
-
-        layout.addStretch()
-
-        # 新規セッションボタン
+        # 新規セッションボタン（タイトルの直後 - mixAIと同じスタイル）
         self.btn_new_session = QPushButton(t('desktop.widgets.chatWidgets.newSession'))
-        self.btn_new_session.setStyleSheet(SECONDARY_BTN + "QPushButton { padding: 4px 12px; font-size: 11px; }")
-        self.btn_new_session.setMaximumHeight(28)
+        self.btn_new_session.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_new_session.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #00ff88;
+                border: 1px solid #00ff88;
+                border-radius: 4px;
+                padding: 4px 12px;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background: rgba(0, 255, 136, 0.1);
+            }
+        """)
         self.btn_new_session.clicked.connect(self.new_session_clicked.emit)
         layout.addWidget(self.btn_new_session)
+
+        # 非表示のステータス管理用（set_status互換）
+        self.status_dot = QLabel()
+        self.status_dot.setVisible(False)
+        self.status_label = QLabel()
+        self.status_label.setVisible(False)
 
     def set_status(self, status: str, color: str = ""):
         """
@@ -205,6 +220,7 @@ class SoloAIStatusBar(QWidget):
 
     def retranslateUi(self):
         """Update all translatable text (called on language switch)."""
+        self.title_label.setText(t('desktop.cloudAI.title'))
         self.status_label.setText(t('desktop.widgets.chatWidgets.statusWaiting'))
         self.btn_new_session.setText(t('desktop.widgets.chatWidgets.newSession'))
 

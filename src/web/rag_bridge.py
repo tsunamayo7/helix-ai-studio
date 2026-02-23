@@ -60,7 +60,7 @@ class WebRAGBridge:
     # RAGコンテキスト検索（soloAI / mixAI Phase 1 注入用）
     # ═══════════════════════════════════════════════════════════
 
-    async def build_context(self, query: str, tab: str = "soloAI",
+    async def build_context(self, query: str, tab: str = "cloudAI",
                             max_chars: int = 8000) -> str:
         """
         4層メモリ + Document Memory を検索し、プロンプト注入用コンテキストを構築。
@@ -118,7 +118,7 @@ class WebRAGBridge:
     # 会話保存（エピソード記憶への追加）
     # ═══════════════════════════════════════════════════════════
 
-    async def save_conversation(self, messages: list, tab: str = "soloAI") -> str:
+    async def save_conversation(self, messages: list, tab: str = "cloudAI") -> str:
         """Web UIの会話をEpisodic Memoryに保存。Returns: session_id"""
         session_id = f"web_{tab}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
 
