@@ -50,10 +50,7 @@ files = [
     'frontend/src/components/TabBar.jsx',
     'frontend/src/hooks/useWebSocket.js',
     'frontend/public/sw.js',
-    'config/config.json',
-    'config/app_settings.json',
-    'config/custom_models.json',
-    'config/cloud_models.json',
+    # config/ is intentionally excluded - may contain API keys / webhook URLs
     'i18n/ja.json',
     'i18n/en.json',
 ]
