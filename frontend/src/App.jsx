@@ -5,6 +5,7 @@ import InputBar from './components/InputBar';
 import StatusIndicator from './components/StatusIndicator';
 import TabBar from './components/TabBar';
 import MixAIView from './components/MixAIView';
+import LocalAIView from './components/LocalAIView';
 import FileManagerView from './components/FileManagerView';
 import ChatListPanel from './components/ChatListPanel';
 import { useAuth } from './hooks/useAuth';
@@ -115,9 +116,10 @@ function PreLoginView({ onLogin }) {
 export default function App() {
   const { t, lang, setLang } = useI18n();
   const { token, isAuthenticated, login, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('cloudAI');
+  const [activeTab, setActiveTab] = useState('mixAI');
   const cloudAI = useWebSocket(token, 'cloud');
   const mixAI = useWebSocket(token, 'mix');
+  const localAI = useWebSocket(token, 'local');
 
   const [showChatList, setShowChatList] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -129,15 +131,24 @@ export default function App() {
     return <PreLoginView onLogin={() => setShowLogin(true)} />;
   }
 
-  const current = activeTab === 'cloudAI' ? cloudAI : mixAI;
+  const current = activeTab === 'cloudAI' ? cloudAI
+                : activeTab === 'mixAI'   ? mixAI
+                : activeTab === 'localAI' ? localAI
+                : mixAI;
 
   function handleSelectChat(chat) {
-    const ws = activeTab === 'cloudAI' ? cloudAI : mixAI;
+    const ws = activeTab === 'cloudAI' ? cloudAI
+             : activeTab === 'mixAI'   ? mixAI
+             : activeTab === 'localAI' ? localAI
+             : cloudAI;
     ws.loadChat(chat.id);
   }
 
   function handleNewChat(chat) {
-    const ws = activeTab === 'cloudAI' ? cloudAI : mixAI;
+    const ws = activeTab === 'cloudAI' ? cloudAI
+             : activeTab === 'mixAI'   ? mixAI
+             : activeTab === 'localAI' ? localAI
+             : cloudAI;
     if (chat) {
       ws.loadChat(chat.id);
     } else {
@@ -198,13 +209,10 @@ export default function App() {
           token={token}
         />
       ) : activeTab === 'localAI' ? (
-        <div className="flex-1 flex items-center justify-center text-gray-500">
-          <div className="text-center">
-            <p className="text-4xl mb-4">🖥️</p>
-            <p className="text-lg font-medium">{t('tabs.localAI')}</p>
-            <p className="text-sm mt-2 text-gray-600">{t('web.localAI.comingSoon') || 'Coming soon — use desktop app for localAI'}</p>
-          </div>
-        </div>
+        <LocalAIView
+          localAI={localAI}
+          token={token}
+        />
       ) : null}
     </div>
   );

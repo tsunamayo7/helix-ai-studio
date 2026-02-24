@@ -202,6 +202,19 @@ BROWSER_USE_TOOL = {
     }
 }
 
+# v11.3.1: localAI / mixAI search 担当 LLM 向け Web ツール使い分けガイド
+LOCALAI_WEB_TOOL_GUIDE = """## Web情報取得ツールの優先順位
+
+1. web_search(query) — URLを探す（まずここから）
+2. fetch_url(url) — 静的HTMLページ取得（軽量・高速）
+3. browser_use(url) — JSレンダリングページ取得（重い）
+
+ルール:
+- fetch_url で内容が取れた場合は browser_use を使わない
+- browser_use は fetch_url が空や不完全だった場合のみ使う
+- max_chars は 4000〜6000 を目安にトークン節約を意識する
+"""
+
 # 読み取り専用ツール（write確認不要）
 READ_ONLY_TOOLS = {"read_file", "list_dir", "search_files", "web_search", "fetch_url", "browser_use"}
 WRITE_TOOLS = {"write_file", "create_file"}
@@ -398,10 +411,18 @@ class LocalAgentRunner:
 
     def _execute_tool(self, name: str, args: dict) -> dict:
         """ツールを実行して結果を返す"""
-        # パストラバーサル防止
+        # パストラバーサル防止（path キーがある場合）
         if "path" in args:
             if not self._validate_path(args["path"]):
                 return {"error": f"パスが不正です: {args['path']}"}
+
+        # v11.2.1: list_dir の path は省略可能（空/None = project_dir）
+        # "path" キーなしで呼ばれた場合にも明示的にバリデーション
+        if name == "list_dir":
+            list_dir_path = args.get("path") or ""
+            if list_dir_path and "path" not in args:
+                if not self._validate_path(list_dir_path):
+                    return {"error": f"パスが不正です: {list_dir_path}"}
 
         try:
             if name == "read_file":
@@ -424,13 +445,15 @@ class LocalAgentRunner:
             else:
                 return {"error": f"未知のツール: {name}"}
         except Exception as e:
+            logger.debug(f"[LocalAgent] Tool execution silent error in {name}: {e}")
             return {"error": str(e)}
 
     def _validate_path(self, rel_path: str) -> bool:
-        """パストラバーサル防止"""
+        """パストラバーサル防止（v11.2.1: is_relative_to 使用で str.startswith の弱点を解消）"""
         try:
-            target = (self.project_dir / rel_path).resolve()
-            return str(target).startswith(str(self.project_dir.resolve()))
+            resolved = (self.project_dir / rel_path).resolve()
+            base = self.project_dir.resolve()
+            return resolved.is_relative_to(base)
         except Exception:
             return False
 
@@ -634,23 +657,113 @@ class LocalAgentRunner:
         except Exception as e:
             return {"error": f"URL fetch failed: {str(e)}"}
 
-    def _tool_browser_use(self, url: str, task: str = "") -> dict:
-        """v11.1.0: Browser Use でウェブページを自動操作しコンテンツを取得"""
+    def _tool_browser_use(self, url: str, task: str = "", max_chars: int = 6000) -> dict:
+        """v11.3.1: JS レンダリング対応 URL 取得（browser-use ヘッドレスブラウザ使用）。
+
+        LLM・API キー不要。browser-use を純粋な JS レンダリングエンジンとして使用する。
+        browser-use 未インストール時は httpx にフォールバック（静的ページのみ対応）。
+        失敗時は {"error": ...} を返す（例外を上位に投げない）。
+
+        戻り値フォーマット (v11.3.1):
+            method: "browser_use" | "httpx_fallback"
+            url: 元リクエスト URL
+            final_url: リダイレクト後 URL
+            title: ページタイトル
+            content: 本文テキスト（最大 max_chars 文字）
+            content_truncated: bool
+            fetched_at: ISO8601 UTC タイムスタンプ
+            notes: "js-rendered" | "static-httpx"
+        """
         if not url.startswith("https://"):
             return {"error": "https:// で始まる URL のみ許可されています"}
+
+        import datetime
+        fetched_at = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        max_chars = min(max_chars, 8000)  # 暴走防止
+
+        # browser-use による JS レンダリング取得を試みる
         try:
+            import asyncio
             import re
             from browser_use import Browser
-            browser = Browser()
-            content = browser.get_text(url, timeout=20)
-            if content:
-                clean = re.sub(r'<[^>]+>', '', content)
-                clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
-                clean = re.sub(r'#{1,6}\s*', '', clean)
-                clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
-                return {"url": url, "content": clean[:6000], "truncated": len(clean) > 6000}
-            return {"url": url, "content": ""}
+
+            async def _async_fetch(target_url: str) -> tuple:
+                """(text, final_url, title) を返す"""
+                browser = Browser()
+                await browser.start()
+                try:
+                    page = await browser.new_page(target_url)
+                    await asyncio.sleep(2)  # JS レンダリング待機
+                    text = await page.evaluate('() => document.body.innerText') or ""
+                    title = ""
+                    try:
+                        title = await page.evaluate('() => document.title') or ""
+                    except Exception:
+                        pass
+                    final_url = target_url
+                    try:
+                        final_url = await page.get_url() or target_url
+                    except Exception:
+                        pass
+                    return text, final_url, title
+                finally:
+                    await browser.stop()
+
+            # QThread 内でも安全な新規イベントループで実行
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                raw_text, final_url, title = loop.run_until_complete(_async_fetch(url))
+            finally:
+                loop.close()
+
+            text = re.sub(r'\s+', ' ', raw_text).strip()
+            truncated = len(text) > max_chars
+            return {
+                "method": "browser_use",
+                "url": url,
+                "final_url": final_url,
+                "title": title,
+                "content": text[:max_chars],
+                "content_truncated": truncated,
+                "fetched_at": fetched_at,
+                "notes": "js-rendered",
+            }
+
         except ImportError:
-            return {"error": "browser_use パッケージがインストールされていません (pip install browser-use)"}
+            logger.debug("browser_use not installed, falling back to httpx for URL fetch")
         except Exception as e:
-            return {"error": f"Browser Use fetch failed: {str(e)}"}
+            logger.warning(f"browser_use fetch failed for {url}: {e}, falling back to httpx")
+
+        # httpx フォールバック（静的ページ用）
+        try:
+            import httpx
+            import re
+            headers = {"User-Agent": "Mozilla/5.0 (compatible; HelixAI/1.0)"}
+            resp = httpx.get(url, timeout=20, follow_redirects=True, headers=headers)
+            resp.raise_for_status()
+            final_url = str(resp.url)
+            text = resp.text
+            # title 抽出
+            title = ""
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', text, re.IGNORECASE | re.DOTALL)
+            if title_match:
+                title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+            # HTML 除去
+            text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+            text = re.sub(r'<[^>]+>', '', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            truncated = len(text) > max_chars
+            return {
+                "method": "httpx_fallback",
+                "url": url,
+                "final_url": final_url,
+                "title": title,
+                "content": text[:max_chars],
+                "content_truncated": truncated,
+                "fetched_at": fetched_at,
+                "notes": "static-httpx",
+            }
+        except Exception as e:
+            return {"error": f"URL fetch failed (browser_use + httpx): {str(e)}"}

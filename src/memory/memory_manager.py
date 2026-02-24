@@ -35,8 +35,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 DEFAULT_DB_PATH = "data/helix_memory.db"
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-EMBEDDING_MODEL = "qwen3-embedding:4b"
-CONTROL_MODEL = "ministral-3:8b"
+EMBEDDING_MODEL = ""  # v11.5.0: 動的取得。model_config.get_embedding_model() を使用
+CONTROL_MODEL = ""    # v11.5.0: 動的取得。model_config.get_quality_llm() を使用
 EMBEDDING_DIM = 768
 MAX_THREAD_MESSAGES = 50
 
@@ -71,6 +71,30 @@ def _load_memory_config() -> dict:
     except Exception:
         _memory_config_cache = {}
     return _memory_config_cache
+
+
+def _get_ctrl_model() -> str:
+    """v11.5.0: CONTROL_MODEL を動的に取得"""
+    try:
+        from .model_config import get_quality_llm
+        val = get_quality_llm()
+        if val:
+            return val
+    except Exception:
+        pass
+    return CONTROL_MODEL or "mistral:latest"
+
+
+def _get_emb_model() -> str:
+    """v11.5.0: EMBEDDING_MODEL を動的に取得"""
+    try:
+        from .model_config import get_embedding_model
+        val = get_embedding_model()
+        if val:
+            return val
+    except Exception:
+        pass
+    return EMBEDDING_MODEL or "nomic-embed-text:latest"
 
 
 def _cosine_similarity(a: bytes, b: bytes) -> float:
@@ -214,8 +238,13 @@ class MemoryRiskGate:
 
     async def _get_embedding(self, text: str) -> Optional[List[float]]:
         """qwen3-embedding:4bでEmbeddingを取得"""
+        try:
+            from .model_config import get_embedding_model
+            _emb_model = get_embedding_model()
+        except Exception:
+            _emb_model = _get_emb_model()  # v11.5.0: 動的取得
         url = f"{self.ollama_host}/api/embed"
-        payload = {"model": EMBEDDING_MODEL, "input": text}
+        payload = {"model": _emb_model, "input": text}
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
@@ -231,11 +260,16 @@ class MemoryRiskGate:
 
     async def extract_memories(self, user_query: str, ai_response: str) -> dict:
         """応答から記憶候補を抽出"""
+        try:
+            from .model_config import get_quality_llm
+            _model = get_quality_llm()
+        except Exception:
+            _model = _get_ctrl_model()  # v11.5.0: 動的取得
         prompt = self.EXTRACTION_PROMPT.format(
             user_query=user_query[:2000],
             ai_response=ai_response[:4000]
         )
-        raw = await self._call_ollama(CONTROL_MODEL, prompt)
+        raw = await self._call_ollama(_model, prompt)
         try:
             # JSON部分を抽出
             start = raw.find('{')
@@ -250,11 +284,16 @@ class MemoryRiskGate:
         """記憶候補の重複・矛盾チェック"""
         if not candidates:
             return []
+        try:
+            from .model_config import get_quality_llm
+            _model = get_quality_llm()
+        except Exception:
+            _model = _get_ctrl_model()  # v11.5.0: 動的取得
         prompt = self.VALIDATION_PROMPT.format(
             candidate=json.dumps(candidates, ensure_ascii=False, indent=2),
             existing_memories=json.dumps(existing[:20], ensure_ascii=False, indent=2)
         )
-        raw = await self._call_ollama(CONTROL_MODEL, prompt)
+        raw = await self._call_ollama(_model, prompt)
         try:
             start = raw.find('[')
             end = raw.rfind(']') + 1
@@ -266,18 +305,28 @@ class MemoryRiskGate:
 
     async def summarize_episode(self, messages: list) -> str:
         """セッションを要約"""
+        try:
+            from .model_config import get_quality_llm
+            _model = get_quality_llm()
+        except Exception:
+            _model = _get_ctrl_model()  # v11.5.0: 動的取得
         msg_text = "\n".join(
             f"[{m.get('role', '?')}] {m.get('content', '')[:300]}"
             for m in messages[:20]
         )
         prompt = self.EPISODE_SUMMARY_PROMPT.format(session_messages=msg_text)
-        return await self._call_ollama(CONTROL_MODEL, prompt)
+        return await self._call_ollama(_model, prompt)
 
     async def summarize_weekly(self, summaries: list) -> str:
         """週次要約を生成"""
+        try:
+            from .model_config import get_quality_llm
+            _model = get_quality_llm()
+        except Exception:
+            _model = _get_ctrl_model()  # v11.5.0: 動的取得
         text = "\n".join(f"- {s}" for s in summaries)
         prompt = self.WEEKLY_SUMMARY_PROMPT.format(session_summaries=text)
-        return await self._call_ollama(CONTROL_MODEL, prompt)
+        return await self._call_ollama(_model, prompt)
 
 
 # =============================================================================
@@ -830,7 +879,7 @@ class HelixMemoryManager:
         import requests as _requests
         url = f"{self.ollama_host}/api/generate"
         payload = {
-            "model": CONTROL_MODEL,
+            "model": _get_ctrl_model(),
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": 0.1, "num_predict": max_tokens}
@@ -935,7 +984,7 @@ class HelixMemoryManager:
         try:
             import requests
             url = f"{self.ollama_host}/api/embed"
-            payload = {"model": EMBEDDING_MODEL, "input": text}
+            payload = {"model": _get_emb_model(), "input": text}
             resp = requests.post(url, json=payload, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()

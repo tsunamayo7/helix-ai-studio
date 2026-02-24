@@ -103,6 +103,14 @@ class SettingsCortexTab(QWidget):
         self.ai_status_group = self._create_ai_status_group()
         content_layout.addWidget(self.ai_status_group)
 
+        # v11.3.1: オプションツール状態セクション
+        self.optional_tools_group = self._create_optional_tools_group()
+        content_layout.addWidget(self.optional_tools_group)
+
+        # v11.2.0: API Keys管理セクション
+        self.api_keys_group = self._create_api_keys_group()
+        content_layout.addWidget(self.api_keys_group)
+
         # v11.0.0: MCP管理はcloudAI/localAIタブに移設（Phase 2/5）
 
         # 4. 記憶・知識管理 → v11.0.0: RAGタブ設定に移動（非表示化）
@@ -198,8 +206,176 @@ class SettingsCortexTab(QWidget):
 
         return group
 
+    def _create_optional_tools_group(self) -> QGroupBox:
+        """v11.3.1: オプション依存パッケージの状態確認 + ワンクリックインストール"""
+        group = QGroupBox(t('desktop.settings.optionalToolsGroup'))
+        group.setStyleSheet(SECTION_CARD_STYLE)
+        layout = QVBoxLayout(group)
+
+        # 説明ラベル
+        desc = QLabel(t('desktop.settings.optionalToolsDesc'))
+        desc.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        # パッケージ定義
+        optional_packages = [
+            {
+                "label": "Browser Use",
+                "import": "browser_use",
+                "pip": "browser-use",
+                "desc_key": "optToolBrowserUseDesc",
+                "chromium_needed": True,
+            },
+            {
+                "label": "sentence-transformers",
+                "import": "sentence_transformers",
+                "pip": "sentence-transformers",
+                "desc_key": "optToolSentenceTransDesc",
+                "chromium_needed": False,
+            },
+        ]
+
+        for pkg in optional_packages:
+            is_installed = False
+            try:
+                __import__(pkg["import"])
+                is_installed = True
+            except ImportError:
+                pass
+
+            row = QHBoxLayout()
+
+            # 状態インジケーター
+            if is_installed:
+                status_label = QLabel(f"\u2705 {pkg['label']}")
+                status_label.setStyleSheet("color: #22c55e; font-size: 12px;")
+            else:
+                status_label = QLabel(f"\u2b1c {pkg['label']}")
+                status_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+            status_label.setToolTip(t(f"desktop.settings.{pkg['desc_key']}"))
+            row.addWidget(status_label)
+            row.addStretch()
+
+            # インストールボタン（未インストール時のみ）
+            if not is_installed:
+                install_btn = QPushButton(f"pip install {pkg['pip']}")
+                install_btn.setStyleSheet("font-size: 11px; padding: 2px 8px;")
+                install_btn.setToolTip(t('desktop.settings.optToolInstallTip', pip=pkg['pip']))
+                install_btn.clicked.connect(
+                    lambda checked, p=pkg["pip"], c=pkg["chromium_needed"]:
+                        self._install_optional_package(p, c)
+                )
+                row.addWidget(install_btn)
+
+            layout.addLayout(row)
+
+            # browser-use インストール済み時: Chromium 状態確認
+            if is_installed and pkg["chromium_needed"]:
+                chromium_ok = self._check_chromium_installed()
+                if chromium_ok:
+                    chrom_label = QLabel("  \u2705 Chromium " + t('desktop.settings.optToolChromiumReady'))
+                    chrom_label.setStyleSheet("color: #22c55e; font-size: 10px;")
+                else:
+                    chrom_label = QLabel("  \u26a0\ufe0f " + t('desktop.settings.optToolChromiumMissing'))
+                    chrom_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+                chrom_label.setWordWrap(True)
+                layout.addWidget(chrom_label)
+
+                if not chromium_ok:
+                    chrom_btn = QPushButton("playwright install chromium")
+                    chrom_btn.setStyleSheet("font-size: 10px; padding: 2px 6px; margin-left: 16px;")
+                    chrom_btn.clicked.connect(
+                        lambda: self._install_chromium()
+                    )
+                    layout.addWidget(chrom_btn)
+
+        return group
+
+    def _check_chromium_installed(self) -> bool:
+        """v11.3.1: Chromium がインストール済みかを確認"""
+        try:
+            import subprocess, sys
+            r = subprocess.run(
+                [sys.executable, "-c", "from playwright.sync_api import sync_playwright; p = sync_playwright().start(); b = p.chromium.launch(); b.close(); p.stop()"],
+                capture_output=True, timeout=15
+            )
+            return r.returncode == 0
+        except Exception:
+            return False
+
+    def _install_chromium(self):
+        """v11.3.1: Chromium を playwright 経由でインストール"""
+        import subprocess, sys
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                timeout=180, check=True
+            )
+            QMessageBox.information(
+                self,
+                t('desktop.settings.optToolInstallDoneTitle'),
+                t('desktop.settings.optToolChromiumInstallNote')
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                t('desktop.settings.optToolInstallFailTitle'),
+                str(e)
+            )
+
+    def _install_optional_package(self, pip_name: str, chromium_needed: bool = False):
+        """v11.3.1: オプションパッケージをサブプロセスでインストール"""
+        import subprocess, sys
+
+        reply = QMessageBox.question(
+            self,
+            t('desktop.settings.optToolInstallConfirmTitle'),
+            t('desktop.settings.optToolInstallConfirmMsg', pip=pip_name),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", pip_name],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode == 0:
+                msg = t('desktop.settings.optToolInstallSuccess', pip=pip_name)
+                if chromium_needed:
+                    # Chromium も自動インストール
+                    try:
+                        subprocess.run(
+                            [sys.executable, "-m", "playwright", "install", "chromium"],
+                            timeout=180, check=True
+                        )
+                        msg += "\n\n" + t('desktop.settings.optToolChromiumInstallNote')
+                    except Exception:
+                        pass
+                QMessageBox.information(self, t('desktop.settings.optToolInstallDoneTitle'), msg)
+            else:
+                QMessageBox.warning(
+                    self,
+                    t('desktop.settings.optToolInstallFailTitle'),
+                    t('desktop.settings.optToolInstallFailMsg', error=result.stderr[:500])
+                )
+        except subprocess.TimeoutExpired:
+            QMessageBox.warning(
+                self,
+                t('desktop.settings.optToolInstallFailTitle'),
+                t('desktop.settings.optToolInstallTimeout')
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                t('desktop.settings.optToolInstallFailTitle'),
+                str(e)
+            )
+
     def _check_all_ai_status(self):
-        """Claude CLI / Codex CLI / Ollama を一括確認（v11.0.0: QTimer遅延で確実にUI更新）"""
+        """Anthropic SDK / OpenAI SDK / Ollama を一括確認（v11.0.0: QTimer遅延で確実にUI更新）"""
         # 即座にUI反応（確認中表示）
         self.ai_status_result_label.setText("⏳ " + t('desktop.settings.aiStatusChecking'))
         self.ai_status_result_label.setStyleSheet("color: #f59e0b; font-size: 12px;")
@@ -208,24 +384,22 @@ class SettingsCortexTab(QWidget):
         QTimer.singleShot(50, self._do_ai_status_check)
 
     def _do_ai_status_check(self):
-        """AI状態チェック本体"""
+        """AI状態チェック本体（SDK availability check）"""
         statuses = []
 
-        # Claude CLI
+        # Anthropic SDK
         try:
-            from ..backends.claude_cli_backend import check_claude_cli_available
-            available, msg = check_claude_cli_available()
-            statuses.append(f"Claude CLI {'✓' if available else '✗'}")
-        except Exception:
-            statuses.append("Claude CLI ✗")
+            import anthropic  # noqa: F401
+            statuses.append("Anthropic SDK ✓")
+        except ImportError:
+            statuses.append("Anthropic SDK ✗")
 
-        # Codex CLI
+        # OpenAI SDK
         try:
-            from ..backends.codex_cli_backend import check_codex_cli_available
-            codex_ok, _ = check_codex_cli_available()
-            statuses.append(f"Codex CLI {'✓' if codex_ok else '✗'}")
-        except Exception:
-            statuses.append("Codex CLI ✗")
+            import openai  # noqa: F401
+            statuses.append("OpenAI SDK ✓")
+        except ImportError:
+            statuses.append("OpenAI SDK ✗")
 
         # Ollama
         try:
@@ -261,7 +435,7 @@ class SettingsCortexTab(QWidget):
     # ========================================
 
     def _create_cli_status_group(self) -> QGroupBox:
-        """v8.1.0: Claude CLI状態表示（説明文削除、ボタンのみ）"""
+        """v8.1.0: Claude CLI状態表示（SDK移行に伴い非表示）"""
         group = QGroupBox(t('desktop.settings.cliStatus'))
         layout = QVBoxLayout(group)
 
@@ -281,8 +455,8 @@ class SettingsCortexTab(QWidget):
         self.cli_status_label.setStyleSheet("color: #888;")
         layout.addWidget(self.cli_status_label)
 
-        # 初期状態でCLIをチェック
-        self._check_cli_status()
+        # SDK移行に伴い、CLIステータスグループを非表示にする
+        group.setVisible(False)
 
         return group
 
@@ -508,6 +682,226 @@ class SettingsCortexTab(QWidget):
             logger.warning(f"Resident model settings load failed: {e}")
 
     # v11.0.0: MCP管理はcloudAI/localAIタブに移設（Phase 2/5）
+
+    # ========================================
+    # v11.2.0: API Keys管理
+    # ========================================
+
+    def _create_api_keys_group(self) -> QGroupBox:
+        """v11.2.0: API Keys管理セクション（Brave Search + Browser Use）"""
+        group = QGroupBox(t('desktop.settings.apiKeysGroup'))
+        group.setStyleSheet(SECTION_CARD_STYLE)
+        layout = QVBoxLayout(group)
+
+        # v11.5.1: セキュリティ注意ラベル
+        self.api_security_label = QLabel(t('desktop.settings.apiKeySecurityNote'))
+        self.api_security_label.setStyleSheet(
+            "color: #f59e0b; font-size: 10px; "
+            "padding: 4px 6px; "
+            "background: rgba(245,158,11,0.1); "
+            "border: 1px solid rgba(245,158,11,0.3); "
+            "border-radius: 4px;"
+        )
+        self.api_security_label.setWordWrap(True)
+        layout.addWidget(self.api_security_label)
+        layout.addSpacing(4)
+
+        # --- Brave Search API Key ---
+        self.brave_api_label = QLabel(t('desktop.settings.braveApiKeyLabel'))
+        self.brave_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.brave_api_label)
+
+        brave_row = QHBoxLayout()
+        self.brave_api_input = QLineEdit()
+        self.brave_api_input.setPlaceholderText(t('desktop.settings.braveApiKeyPlaceholder'))
+        self.brave_api_input.setEchoMode(QLineEdit.EchoMode.Password)
+        brave_row.addWidget(self.brave_api_input, 1)
+        self.brave_api_page_btn = QPushButton(t('desktop.settings.braveApiPageBtn'))
+        self.brave_api_page_btn.clicked.connect(self._open_brave_api_page)
+        brave_row.addWidget(self.brave_api_page_btn)
+        self.brave_api_save_btn = QPushButton(t('common.save'))
+        self.brave_api_save_btn.clicked.connect(self._save_brave_api_key)
+        brave_row.addWidget(self.brave_api_save_btn)
+        layout.addLayout(brave_row)
+
+        self._load_brave_api_key()
+
+        # --- v11.4.0: Anthropic API Key ---
+        layout.addSpacing(8)
+        self.anthropic_api_label = QLabel(t('desktop.settings.anthropicApiKeyLabel'))
+        self.anthropic_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.anthropic_api_label)
+
+        anthropic_row = QHBoxLayout()
+        self.anthropic_api_input = QLineEdit()
+        self.anthropic_api_input.setPlaceholderText(t('desktop.settings.anthropicApiKeyPlaceholder'))
+        self.anthropic_api_input.setEchoMode(QLineEdit.EchoMode.Password)
+        anthropic_row.addWidget(self.anthropic_api_input, 1)
+        self.anthropic_api_save_btn = QPushButton(t('common.save'))
+        self.anthropic_api_save_btn.clicked.connect(self._save_anthropic_api_key)
+        anthropic_row.addWidget(self.anthropic_api_save_btn)
+        layout.addLayout(anthropic_row)
+        self._load_anthropic_api_key()
+
+        # --- v11.4.0: OpenAI API Key ---
+        layout.addSpacing(8)
+        self.openai_api_label = QLabel(t('desktop.settings.openaiApiKeyLabel'))
+        self.openai_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.openai_api_label)
+
+        openai_row = QHBoxLayout()
+        self.openai_api_input = QLineEdit()
+        self.openai_api_input.setPlaceholderText(t('desktop.settings.openaiApiKeyPlaceholder'))
+        self.openai_api_input.setEchoMode(QLineEdit.EchoMode.Password)
+        openai_row.addWidget(self.openai_api_input, 1)
+        self.openai_api_save_btn = QPushButton(t('common.save'))
+        self.openai_api_save_btn.clicked.connect(self._save_openai_api_key)
+        openai_row.addWidget(self.openai_api_save_btn)
+        layout.addLayout(openai_row)
+        self._load_openai_api_key()
+
+        # --- v11.5.0 L-G: Google API Key ---
+        layout.addSpacing(8)
+        self.google_api_label = QLabel(t('desktop.settings.googleApiKeyLabel'))
+        self.google_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(self.google_api_label)
+
+        google_row = QHBoxLayout()
+        self.google_api_input = QLineEdit()
+        self.google_api_input.setPlaceholderText(t('desktop.settings.googleApiKeyPlaceholder'))
+        self.google_api_input.setEchoMode(QLineEdit.EchoMode.Password)
+        google_row.addWidget(self.google_api_input, 1)
+        self.google_api_save_btn = QPushButton(t('common.save'))
+        self.google_api_save_btn.clicked.connect(self._save_google_api_key)
+        google_row.addWidget(self.google_api_save_btn)
+        layout.addLayout(google_row)
+        self._load_google_api_key()
+
+        return group
+
+    def _open_brave_api_page(self):
+        """Brave Search API 取得ページを開く"""
+        from PyQt6.QtGui import QDesktopServices
+        from PyQt6.QtCore import QUrl
+        QDesktopServices.openUrl(QUrl("https://brave.com/search/api/"))
+
+    def _save_brave_api_key(self):
+        """Brave Search API キーを general_settings.json に保存"""
+        key = self.brave_api_input.text().strip()
+        settings_path = Path("config/general_settings.json")
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["brave_search_api_key"] = key
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.brave_api_save_btn.setText("✅")
+            QTimer.singleShot(1500, lambda: self.brave_api_save_btn.setText(t('common.save')))
+        except Exception as e:
+            logger.warning(f"Brave API key save failed: {e}")
+
+    def _load_brave_api_key(self):
+        """保存済み Brave Search API キーを復元"""
+        settings_path = Path("config/general_settings.json")
+        try:
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.brave_api_input.setText(data.get("brave_search_api_key", ""))
+        except Exception as e:
+            logger.debug(f"Brave API key load: {e}")
+
+    # --- v11.4.0: Anthropic API Key save/load ---
+    def _save_anthropic_api_key(self):
+        """Anthropic API キーを general_settings.json に保存"""
+        key = self.anthropic_api_input.text().strip()
+        settings_path = Path("config/general_settings.json")
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["anthropic_api_key"] = key
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.anthropic_api_save_btn.setText("✅")
+            QTimer.singleShot(1500, lambda: self.anthropic_api_save_btn.setText(t('common.save')))
+        except Exception as e:
+            logger.warning(f"Anthropic API key save failed: {e}")
+
+    def _load_anthropic_api_key(self):
+        """保存済み Anthropic API キーを復元"""
+        settings_path = Path("config/general_settings.json")
+        try:
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.anthropic_api_input.setText(data.get("anthropic_api_key", ""))
+        except Exception as e:
+            logger.debug(f"Anthropic API key load: {e}")
+
+    # --- v11.4.0: OpenAI API Key save/load ---
+    def _save_openai_api_key(self):
+        """OpenAI API キーを general_settings.json に保存"""
+        key = self.openai_api_input.text().strip()
+        settings_path = Path("config/general_settings.json")
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["openai_api_key"] = key
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.openai_api_save_btn.setText("✅")
+            QTimer.singleShot(1500, lambda: self.openai_api_save_btn.setText(t('common.save')))
+        except Exception as e:
+            logger.warning(f"OpenAI API key save failed: {e}")
+
+    def _load_openai_api_key(self):
+        """保存済み OpenAI API キーを復元"""
+        settings_path = Path("config/general_settings.json")
+        try:
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.openai_api_input.setText(data.get("openai_api_key", ""))
+        except Exception as e:
+            logger.debug(f"OpenAI API key load: {e}")
+
+    def _save_google_api_key(self):
+        """v11.5.0: Google API キーを general_settings.json に保存"""
+        key = self.google_api_input.text().strip()
+        settings_path = Path("config/general_settings.json")
+        try:
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {}
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["google_api_key"] = key
+            with open(settings_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self.google_api_save_btn.setText("✅")
+            QTimer.singleShot(1500, lambda: self.google_api_save_btn.setText(t('common.save')))
+        except Exception as e:
+            logger.warning(f"Google API key save failed: {e}")
+
+    def _load_google_api_key(self):
+        """v11.5.0: 保存済み Google API キーを復元"""
+        settings_path = Path("config/general_settings.json")
+        try:
+            if settings_path.exists():
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                self.google_api_input.setText(data.get("google_api_key", ""))
+        except Exception as e:
+            logger.debug(f"Google API key load: {e}")
 
     # ========================================
     # 4. 記憶・知識管理
@@ -1381,6 +1775,8 @@ class SettingsCortexTab(QWidget):
         self.display_group.setTitle(t('desktop.settings.display'))
         self.auto_group.setTitle(t('desktop.settings.automation'))
         self.webui_group.setTitle(t('desktop.settings.webUI'))
+        if hasattr(self, 'api_keys_group'):
+            self.api_keys_group.setTitle(t('desktop.settings.apiKeysGroup'))
 
         # AI Status group
         self.ai_status_check_btn.setText(t('desktop.settings.aiStatusCheckBtn'))
@@ -1423,6 +1819,36 @@ class SettingsCortexTab(QWidget):
         # Auto group
         self.auto_save_cb.setText(t('desktop.settings.autoSave'))
         self.auto_context_cb.setText(t('desktop.settings.autoContext'))
+
+        # v11.3.1: Optional tools group
+        if hasattr(self, 'optional_tools_group'):
+            self.optional_tools_group.setTitle(t('desktop.settings.optionalToolsGroup'))
+
+        # API Keys group (v11.2.0 → v11.4.0: Anthropic/OpenAI追加)
+        if hasattr(self, 'api_keys_group'):
+            self.api_keys_group.setTitle(t('desktop.settings.apiKeysGroup'))
+            if hasattr(self, 'api_security_label'):
+                self.api_security_label.setText(t('desktop.settings.apiKeySecurityNote'))
+            if hasattr(self, 'brave_api_label'):
+                self.brave_api_label.setText(t('desktop.settings.braveApiKeyLabel'))
+            self.brave_api_input.setPlaceholderText(t('desktop.settings.braveApiKeyPlaceholder'))
+            self.brave_api_page_btn.setText(t('desktop.settings.braveApiPageBtn'))
+            self.brave_api_save_btn.setText(t('common.save'))
+            if hasattr(self, 'anthropic_api_label'):
+                self.anthropic_api_label.setText(t('desktop.settings.anthropicApiKeyLabel'))
+            if hasattr(self, 'anthropic_api_input'):
+                self.anthropic_api_input.setPlaceholderText(t('desktop.settings.anthropicApiKeyPlaceholder'))
+                self.anthropic_api_save_btn.setText(t('common.save'))
+            if hasattr(self, 'openai_api_label'):
+                self.openai_api_label.setText(t('desktop.settings.openaiApiKeyLabel'))
+            if hasattr(self, 'openai_api_input'):
+                self.openai_api_input.setPlaceholderText(t('desktop.settings.openaiApiKeyPlaceholder'))
+                self.openai_api_save_btn.setText(t('common.save'))
+            if hasattr(self, 'google_api_label'):
+                self.google_api_label.setText(t('desktop.settings.googleApiKeyLabel'))
+            if hasattr(self, 'google_api_input'):
+                self.google_api_input.setPlaceholderText(t('desktop.settings.googleApiKeyPlaceholder'))
+                self.google_api_save_btn.setText(t('common.save'))
 
         # Web UI group
         if not self.web_ui_toggle.isChecked():

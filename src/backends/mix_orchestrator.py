@@ -67,7 +67,7 @@ from .sequential_executor import (
     SequentialResult,
     filter_chain_of_thought,
 )
-from ..utils.constants import DEFAULT_CLAUDE_MODEL_ID
+from ..utils.constants import DEFAULT_CLAUDE_MODEL_ID, get_default_claude_model
 from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -372,12 +372,9 @@ class MixAIOrchestrator(QThread):
             if file_changes:
                 self.phase_changed.emit(4, t('desktop.backends.phase4Applying'))
                 try:
-                    # Map Phase4 model selection to CLI model ID
-                    p4_model_map = {
-                        "Claude Sonnet 4.6": "claude-sonnet-4-6",
-                        "Claude Sonnet 4.5": "claude-sonnet-4-5-20250929",
-                    }
-                    p4_model = p4_model_map.get(phase4_config, "claude-sonnet-4-6")
+                    # Map Phase4 model selection to CLI model ID（v11.3.0: 動的解決）
+                    from ..utils.constants import resolve_claude_model_id, get_default_claude_model
+                    p4_model = resolve_claude_model_id(phase4_config) if phase4_config else get_default_claude_model()
 
                     # Build Phase 4 prompt with file_changes
                     p4_prompt = (
@@ -468,18 +465,26 @@ class MixAIOrchestrator(QThread):
 
     def _execute_phase1(self) -> dict:
         """Phase 1: エンジンに応じた計画立案（v9.3.0: エンジン分岐対応 / v9.9.0: GPT-5.3-Codex追加）"""
+        # v11.5.0: cloud_models.json 動的取得 → config → 定数フォールバック
+        _default = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
         engine = self.config.get("orchestrator_engine",
-                                 self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
+                                 self.config.get("claude_model_id", _default))
+
+        # v11.5.0: engine が空の場合はエラーを返す（ローカルに暗黙フォールバックしない）
+        if not engine:
+            return {"error": "No model configured. Register a model in cloudAI > Settings > Cloud Model Management.", "phase": "phase1"}
 
         if engine.startswith("claude-"):
             return self._execute_phase1_claude(engine)
         elif engine == "gpt-5.3-codex":
             return self._execute_phase1_codex()
+        elif engine.startswith("gemini-"):
+            return self._execute_phase1_gemini(engine)
         else:
             return self._execute_phase1_local(engine)
 
     def _execute_phase1_claude(self, model_id: str) -> dict:
-        """Phase 1: Claude CLI版（v10.0.0: Prompt Cache最適化）"""
+        """Phase 1: Claude版（v11.4.0: API-first / v10.0.0: Prompt Cache最適化）"""
         system_prompt = self._build_phase1_system_prompt()
 
         # v8.0.0: BIBLEコンテキスト注入
@@ -502,6 +507,64 @@ class MixAIOrchestrator(QThread):
             except Exception as e:
                 logger.warning(f"Memory context injection failed: {e}")
 
+        # --- v11.4.0: API-first 接続判定 ---
+        from ..backends.api_priority_resolver import resolve_anthropic_connection, ConnectionMode
+        conn_method, conn_kwargs = resolve_anthropic_connection(ConnectionMode.AUTO)
+
+        if conn_method == "unavailable":
+            reason = conn_kwargs.get("reason", "Anthropic に接続できません")
+            logger.warning(f"[mixAI Phase1] Connection unavailable: {reason}")
+            raise RuntimeError(f"Phase 1 (Claude) 接続不可: {reason}")
+
+        if conn_method == "anthropic_api":
+            # --- Anthropic API 直接呼び出し ---
+            from ..backends.anthropic_api_backend import call_anthropic_api
+            from ..utils.constants import get_default_claude_model
+
+            effective_model = model_id or self.config.get("claude_model_id") or get_default_claude_model()
+
+            # ユーザープロンプト組み立て（system_promptはAPI側で分離して渡す）
+            user_prompt_parts = []
+            if bible_block:
+                user_prompt_parts.append(bible_block)
+            if memory_block:
+                user_prompt_parts.append(memory_block)
+            user_prompt_parts.append(f"## ユーザーの要求:\n{self.user_prompt}")
+
+            # v10.0.0: 検索モード適用 / v11.1.0: browser_use_enabled追加
+            search_mode = self.config.get("search_mode", 0)
+            browser_use_enabled = self.config.get("browser_use_enabled", False)
+            if search_mode == 2 or browser_use_enabled:
+                browser_results = self._fetch_browser_use_results(self.user_prompt)
+                if browser_results:
+                    user_prompt_parts.append(browser_results)
+
+            # 添付ファイル情報
+            if self.attached_files:
+                files_info = "\n".join(f"- {f}" for f in self.attached_files)
+                user_prompt_parts.append(f"## 添付ファイル:\n{files_info}")
+
+            api_user_prompt = "\n\n".join(user_prompt_parts)
+
+            logger.info(f"[mixAI Phase1] Using Anthropic API (model={effective_model})")
+            self.monitor_event.emit("start", effective_model, "Anthropic API")
+
+            try:
+                raw_output = call_anthropic_api(
+                    prompt=api_user_prompt,
+                    model_id=effective_model,
+                    system_prompt=system_prompt,
+                    max_tokens=8192,
+                    api_key=conn_kwargs.get("api_key"),
+                )
+                self.monitor_event.emit("finish", effective_model, "success")
+            except Exception as e:
+                self.monitor_event.emit("error", effective_model, str(e))
+                raise
+
+            return self._parse_phase1_output(raw_output)
+
+        # --- claude_cli: 既存のCLI実行パス ---
         # v10.0.0: Prompt Cache最適化
         # system_prompt + bible_block は変化頻度が低いため先頭に配置し
         # Claude APIの自動キャッシュのヒット率を最大化
@@ -555,6 +618,10 @@ class MixAIOrchestrator(QThread):
             "finish" if ok else "error", name, "Phase 1 (Local)")
 
         system_prompt = self._build_phase1_system_prompt()
+        # v11.3.1: browser_use 有効時は Web ツール使い分けガイドを追加
+        if self.config.get("browser_use_enabled", False):
+            from .local_agent import LOCALAI_WEB_TOOL_GUIDE
+            system_prompt = system_prompt + "\n\n" + LOCALAI_WEB_TOOL_GUIDE.strip()
 
         # ストリーミング出力をUIに転送
         agent.on_streaming = lambda text: self.streaming_output.emit(text)
@@ -574,12 +641,43 @@ class MixAIOrchestrator(QThread):
 
         user_prompt = f"{bible_block}## ユーザーの要求:\n{self.user_prompt}"
 
+        # v11.3.0: URL自動取得注入（_execute_phase1_claude と統一）
+        browser_use_enabled = self.config.get("browser_use_enabled", False)
+        if browser_use_enabled:
+            browser_results = self._fetch_browser_use_results(self.user_prompt)
+            if browser_results:
+                user_prompt += f"\n\n{browser_results}"
+
         if self.attached_files:
             files_info = "\n".join(f"- {f}" for f in self.attached_files)
             user_prompt += f"\n\n## 添付ファイル:\n{files_info}"
 
         result = agent.run(system_prompt, user_prompt)
         return self._parse_phase1_output(result)
+
+    def _execute_phase1_gemini(self, model_id: str) -> dict:
+        """Phase 1: Gemini API版（v11.5.0 L-G）"""
+        system_prompt = self._build_phase1_system_prompt()
+        user_prompt = self._build_phase1_user_prompt()
+
+        from ..backends.api_priority_resolver import resolve_google_connection, ConnectionMode
+        conn_method, conn_kwargs = resolve_google_connection(ConnectionMode.API_ONLY)
+
+        if conn_method == "unavailable":
+            return {"error": conn_kwargs.get("reason", "Google API unavailable"), "phase": "phase1"}
+
+        try:
+            from ..backends.google_api_backend import call_google_api
+            full_text = call_google_api(
+                prompt=user_prompt,
+                model_id=model_id,
+                system_prompt=system_prompt,
+                api_key=conn_kwargs["api_key"],
+            )
+            return {"response": full_text, "model": model_id, "phase": "phase1"}
+        except Exception as e:
+            logger.error(f"Phase1 Gemini error: {e}")
+            return {"error": str(e), "phase": "phase1"}
 
     def _execute_phase1_codex(self) -> dict:
         """Phase 1: GPT-5.3-Codex CLI版（v9.9.0）"""
@@ -741,37 +839,42 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 - 不要なカテゴリはskip: trueに設定"""
 
     def _fetch_browser_use_results(self, prompt: str) -> str:
-        """v10.0.0: BrowserUseでURL事前取得・トークンクリッピング"""
+        """v11.3.0: URL自動取得（httpx ベース）。browser_use パッケージ不要。
+
+        プロンプト中の URL を最大3件取得してプロンプトに注入する。
+        Claude CLI / Codex CLI / ローカルLLM エンジンすべてで動作する。
+        JS レンダリングが必要なページには localAI の browser_use ツールを使用すること。
+        """
         import re
         try:
+            import httpx
             urls = re.findall(r'https?://[^\s\'"<>]+', prompt)
             if not urls:
                 return ""
-            from browser_use import Browser
             results = []
-            browser = Browser()
             max_chars = 6000  # ~2000 tokens
+            headers = {"User-Agent": "Mozilla/5.0 (compatible; HelixAI/1.0)"}
             for url in urls[:3]:
                 try:
-                    content = browser.get_text(url, timeout=15)
-                    if content:
-                        # HTML/Markdownタグ除去
-                        clean = re.sub(r'<[^>]+>', '', content)
-                        clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
-                        clean = re.sub(r'#{1,6}\s*', '', clean)
-                        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
-                        results.append(f"[{url}]\n{clean}")
-                except Exception:
-                    pass
+                    resp = httpx.get(url, timeout=15, follow_redirects=True, headers=headers)
+                    resp.raise_for_status()
+                    text = resp.text
+                    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                    text = re.sub(r'<[^>]+>', '', text)
+                    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    if text:
+                        results.append(f"[{url}]\n{text[:2000]}")
+                except Exception as e:
+                    logger.debug(f"URL fetch failed for {url}: {e}")
             if results:
                 combined = "\n\n".join(results)
                 if len(combined) > max_chars:
                     combined = combined[:max_chars] + "\n\n... [truncated]"
-                return f"<browser_results>\n{combined}\n</browser_results>"
-        except ImportError:
-            logger.debug("browser_use not installed, skipping")
+                return f"<url_contents>\n{combined}\n</url_contents>"
         except Exception as e:
-            logger.warning(f"Browser Use fetch failed: {e}")
+            logger.warning(f"URL fetch failed: {e}")
         return ""
 
     def _parse_phase1_output(self, raw_output: str) -> dict:
@@ -910,19 +1013,27 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 
     def _execute_phase3(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> dict:
         """Phase 3: エンジンに応じた比較統合（v9.3.0: エンジン分岐対応 / v9.9.0: GPT-5.3-Codex追加）"""
+        # v11.5.0: cloud_models.json 動的取得 → config → 定数フォールバック
+        _default = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
         engine = self.config.get("orchestrator_engine",
-                                 self.config.get("claude_model_id", DEFAULT_CLAUDE_MODEL_ID))
+                                 self.config.get("claude_model_id", _default))
+
+        # v11.5.0: engine が空の場合はエラーを返す
+        if not engine:
+            return {"error": "No model configured. Register a model in cloudAI > Settings > Cloud Model Management.", "phase": "phase3"}
 
         if engine.startswith("claude-"):
             return self._execute_phase3_claude(phase1_answer, phase2_results, engine)
         elif engine == "gpt-5.3-codex":
             return self._execute_phase3_codex(phase1_answer, phase2_results)
+        elif engine.startswith("gemini-"):
+            return self._execute_phase3_gemini(phase1_answer, phase2_results, engine)
         else:
             return self._execute_phase3_local(phase1_answer, phase2_results, engine)
 
     def _execute_phase3_claude(self, phase1_answer: str,
                                 phase2_results: list[SequentialResult], model_id: str) -> dict:
-        """Phase 3: Claude CLI版（従来の実装）"""
+        """Phase 3: Claude版（v11.4.0: API-first / 従来CLI）"""
         system_prompt = self._build_phase3_system_prompt(phase1_answer, phase2_results)
 
         # v8.0.0: BIBLEコンテキスト注入（Phase 3用）
@@ -946,6 +1057,51 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
             except Exception as e:
                 logger.warning(f"Memory Phase 3 context injection failed: {e}")
 
+        # --- v11.4.0: API-first 接続判定 ---
+        from ..backends.api_priority_resolver import resolve_anthropic_connection, ConnectionMode
+        conn_method, conn_kwargs = resolve_anthropic_connection(ConnectionMode.AUTO)
+
+        if conn_method == "unavailable":
+            reason = conn_kwargs.get("reason", "Anthropic に接続できません")
+            logger.warning(f"[mixAI Phase3] Connection unavailable: {reason}")
+            raise RuntimeError(f"Phase 3 (Claude) 接続不可: {reason}")
+
+        if conn_method == "anthropic_api":
+            # --- Anthropic API 直接呼び出し ---
+            from ..backends.anthropic_api_backend import call_anthropic_api
+            from ..utils.constants import get_default_claude_model
+
+            effective_model = model_id or self.config.get("claude_model_id") or get_default_claude_model()
+
+            # ユーザープロンプト組み立て（system_promptはAPI側で分離して渡す）
+            user_prompt_parts = []
+            if bible_block:
+                user_prompt_parts.append(bible_block.strip())
+            if memory_block:
+                user_prompt_parts.append(memory_block.strip())
+            user_prompt_parts.append("統合を実行してください。")
+
+            api_user_prompt = "\n\n".join(user_prompt_parts)
+
+            logger.info(f"[mixAI Phase3] Using Anthropic API (model={effective_model})")
+            self.monitor_event.emit("start", effective_model, "Anthropic API")
+
+            try:
+                raw_output = call_anthropic_api(
+                    prompt=api_user_prompt,
+                    model_id=effective_model,
+                    system_prompt=system_prompt,
+                    max_tokens=8192,
+                    api_key=conn_kwargs.get("api_key"),
+                )
+                self.monitor_event.emit("finish", effective_model, "success")
+            except Exception as e:
+                self.monitor_event.emit("error", effective_model, str(e))
+                raise
+
+            return self._parse_phase3_output(raw_output)
+
+        # --- claude_cli: 既存のCLI実行パス ---
         full_prompt = f"{system_prompt}{bible_block}{memory_block}\n\n統合を実行してください。"
 
         raw_output = self._run_claude_cli(full_prompt, model_id=model_id)
@@ -979,6 +1135,31 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 
         result = agent.run(system_prompt, user_prompt)
         return self._parse_phase3_output(result)
+
+    def _execute_phase3_gemini(self, phase1_answer: str,
+                                phase2_results: list, model_id: str) -> dict:
+        """Phase 3: Gemini API版（v11.5.0 L-G）"""
+        system_prompt = self._build_phase3_system_prompt(phase1_answer, phase2_results)
+        user_prompt = self._build_phase3_user_prompt(phase1_answer, phase2_results)
+
+        from ..backends.api_priority_resolver import resolve_google_connection, ConnectionMode
+        conn_method, conn_kwargs = resolve_google_connection(ConnectionMode.API_ONLY)
+
+        if conn_method == "unavailable":
+            return {"error": conn_kwargs.get("reason", "Google API unavailable"), "phase": "phase3"}
+
+        try:
+            from ..backends.google_api_backend import call_google_api
+            full_text = call_google_api(
+                prompt=user_prompt,
+                model_id=model_id,
+                system_prompt=system_prompt,
+                api_key=conn_kwargs["api_key"],
+            )
+            return {"response": full_text, "model": model_id, "phase": "phase3"}
+        except Exception as e:
+            logger.error(f"Phase3 Gemini error: {e}")
+            return {"error": str(e), "phase": "phase3"}
 
     def _execute_phase3_codex(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> dict:
         """Phase 3: GPT-5.3-Codex CLI版（v9.9.0）"""
@@ -1220,14 +1401,14 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
 品質スコアが0.7以上で重大な問題がなければ "pass" を返してください。
 """
 
-        # モデルルーティング
-        MODEL_MAP = {
-            "GPT-5.3-Codex (CLI)": "codex",
-            "Claude Sonnet 4.6 (CLI)": "claude-sonnet-4-6",
-            "Claude Opus 4.6 (CLI)": "claude-opus-4-6",
-        }
-
-        engine_type = MODEL_MAP.get(model_key, "claude-sonnet-4-6")
+        # モデルルーティング（v11.3.0: 動的解決）
+        if model_key in ("GPT-5.3-Codex (CLI)", "gpt-5.3-codex"):
+            engine_type = "codex"
+        elif model_key.startswith("claude-"):
+            engine_type = model_key
+        else:
+            from ..utils.constants import resolve_claude_model_id
+            engine_type = resolve_claude_model_id(model_key)
 
         try:
             if engine_type == "codex":
@@ -1281,7 +1462,13 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
         - model_idパラメータ追加（CLAUDE_MODELSのidを直接渡す）
         """
         # v7.1.0: model_id → --model に直接渡す
-        effective_model = model_id or self.config.get("claude_model_id") or self.config.get("claude_model", DEFAULT_CLAUDE_MODEL_ID)
+        # v11.5.0: cloud_models.json 動的取得 → config → 定数フォールバック
+        _default = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
+        effective_model = model_id or self.config.get("claude_model_id") or self.config.get("claude_model", _default)
+
+        # v11.5.0: モデル未設定ガード
+        if not effective_model:
+            raise ValueError("No model configured for Claude CLI. Register a model in cloudAI > Settings > Cloud Model Management.")
 
         # v10.1.0: モニターイベント - 開始
         self.monitor_event.emit("start", effective_model, "Claude CLI")
@@ -1349,8 +1536,10 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
         Returns:
             Claude CLIの出力テキスト
         """
+        # v11.5.0: cloud_models.json 動的取得 → config → 定数フォールバック
+        _default = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
         model_id = model_override or self.config.get(
-            "claude_model_id", DEFAULT_CLAUDE_MODEL_ID
+            "claude_model_id", _default
         )
         return self._run_claude_cli(prompt, model_id=model_id)
 

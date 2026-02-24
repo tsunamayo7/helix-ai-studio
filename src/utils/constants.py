@@ -7,12 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.0.0"
-APP_CODENAME = "Smart History"
+APP_VERSION = "11.5.3"
+APP_CODENAME = "Web LocalAI + Discord"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.0.0 'Smart History' - "
-    "UI簡素化, cloudAI継続送信(--resume), Historyタブ新設, "
-    "BIBLEクロスタブ統合, MCP分散配置, RAGタブチャットUI化"
+    "Helix AI Studio v11.5.3 'Web LocalAI + Discord' - "
+    "localAI Web UI追加・Discord通知接続・チャットUI統一"
 )
 
 # v8.5.0: 情報収集フォルダ
@@ -45,41 +44,12 @@ MID_SESSION_TRIGGER_COUNT = 5    # 中間要約トリガーのメッセージ間
 MID_SESSION_CONTEXT_CHARS = 600  # 中間要約コンテキストの最大文字数
 
 # =============================================================================
-# Adaptive Thinking - Effort Level (v9.8.0: replaces ThinkingMode)
-# =============================================================================
-class EffortLevel:
-    """
-    Claude Code CLI の effort 設定（Opus 4.6 専用）
-    環境変数 CLAUDE_CODE_EFFORT_LEVEL で反映する。
-    """
-    DEFAULT = "default"   # 未使用（env設定なし = CLI既定動作）
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-    @classmethod
-    def all_levels(cls) -> list:
-        """全てのeffortレベルをリストで返す"""
-        return [cls.DEFAULT, cls.LOW, cls.MEDIUM, cls.HIGH]
-
-    @classmethod
-    def is_opus_46(cls, model_id: str) -> bool:
-        """Opus 4.6系モデルかどうか判定（effortが有効なモデル）"""
-        if not model_id:
-            return False
-        return model_id.startswith("claude-opus-4-6")
-
-# =============================================================================
 # AIモデル設定
 # =============================================================================
-# v7.1.0: Claudeモデル定義（動的選択対応）
-CLAUDE_MODELS = [
-    {"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6 (最高知能)", "description": "最も高度で知的なモデル。複雑な推論・計画立案に最適", "tier": "opus", "is_default": True, "i18n_display": "desktop.mixAI.claudeModelOpus46", "i18n_desc": "desktop.mixAI.claudeModelOpus46Desc"},
-    {"id": "claude-sonnet-4-6", "display_name": "Claude Sonnet 4.6 (高速・高性能)", "description": "高速かつ高性能。Opus 4.6に次ぐ推論力とコスト効率", "tier": "sonnet", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelSonnet46", "i18n_desc": "desktop.mixAI.claudeModelSonnet46Desc"},
-    {"id": "claude-opus-4-5-20250929", "display_name": "Claude Opus 4.5 (高品質)", "description": "高品質でバランスの取れた応答。安定性重視", "tier": "opus", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelOpus45", "i18n_desc": "desktop.mixAI.claudeModelOpus45Desc"},
-    {"id": "claude-sonnet-4-5-20250929", "display_name": "Claude Sonnet 4.5 (高速)", "description": "高速応答とコスト効率。日常タスク向き", "tier": "sonnet", "is_default": False, "i18n_display": "desktop.mixAI.claudeModelSonnet45", "i18n_desc": "desktop.mixAI.claudeModelSonnet45Desc"},
-]
-DEFAULT_CLAUDE_MODEL_ID = "claude-opus-4-6"
+# v11.5.0: モデルはユーザーが cloud_models.json に登録する。
+# アプリはいかなるモデルにも依存しない。
+CLAUDE_MODELS = []  # 後方互換のため空配列を維持
+DEFAULT_CLAUDE_MODEL_ID = ""  # 未設定。get_default_claude_model() で動的取得
 
 
 def get_claude_model_by_id(model_id: str) -> dict | None:
@@ -90,35 +60,48 @@ def get_claude_model_by_id(model_id: str) -> dict | None:
     return None
 
 
-def get_default_claude_model() -> dict:
-    """デフォルトのClaudeモデル定義を取得"""
-    for m in CLAUDE_MODELS:
-        if m["is_default"]:
-            return m
-    return CLAUDE_MODELS[0]
+def get_default_claude_model() -> str:
+    """v11.5.0: cloud_models.json の先頭モデルの model_id を返す。
+    空の場合は "" を返す（呼び出し側でチェックすること）。
+    """
+    try:
+        from pathlib import Path
+        import json
+        config_path = Path("config/cloud_models.json")
+        if config_path.exists():
+            data = json.loads(config_path.read_text(encoding='utf-8'))
+            models = data.get("models", []) if isinstance(data, dict) else data
+            if models and isinstance(models, list):
+                return models[0].get("model_id", "")
+    except Exception:
+        pass
+    return ""
 
 
-class ClaudeModels:
-    """Claudeモデル定数（後方互換性のため維持）"""
-    SONNET_45 = "Claude Sonnet 4.5 (高速)"
-    SONNET_46 = "Claude Sonnet 4.6 (高速・高性能)"
-    OPUS_45 = "Claude Opus 4.5 (高品質)"
-    OPUS_46 = "Claude Opus 4.6 (最高知能)"
+def resolve_claude_model_id(text: str) -> str:
+    """v11.5.0: 表示名またはモデルIDから model_id を解決する。
+    cloud_models.json 照合を優先、見つからない場合は text をそのまま返す。
+    """
+    if not text:
+        return get_default_claude_model()
+    if text.startswith("claude-") or text.startswith("gpt") or text.startswith("o3") or text.startswith("o4"):
+        return text
+    try:
+        from pathlib import Path
+        import json
+        config_path = Path("config/cloud_models.json")
+        if config_path.exists():
+            data = json.loads(config_path.read_text(encoding='utf-8'))
+            models = data.get("models", []) if isinstance(data, dict) else data
+            for m in models:
+                if (m.get("display_name") == text
+                        or m.get("name") == text
+                        or m.get("model_id") == text):
+                    return m.get("model_id", text)
+    except Exception:
+        pass
+    return text
 
-    @classmethod
-    def all_models(cls) -> list:
-        """全てのClaudeモデル表示名をリストで返す"""
-        return [m["display_name"] for m in CLAUDE_MODELS]
-
-class GeminiModels:
-    """Geminiモデル定数"""
-    PRO_3 = "Gemini 3 Pro (推奨)"
-    FLASH_3 = "Gemini 3 Flash (高速)"
-
-    @classmethod
-    def all_models(cls) -> list:
-        """全てのGeminiモデルをリストで返す"""
-        return [cls.PRO_3, cls.FLASH_3]
 
 # =============================================================================
 # デフォルト設定値

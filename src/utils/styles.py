@@ -42,10 +42,8 @@ SECTION_CARD_STYLE = """
     QGroupBox::title {
         subcontrol-origin: margin;
         subcontrol-position: top left;
-        padding: 4px 12px;
-        background-color: #0a0a1a;
-        border: 1px solid #2a2a3e;
-        border-radius: 4px;
+        left: 8px;
+        padding: 2px 8px;
         color: #00d4ff;
         font-weight: bold;
         font-size: 13px;

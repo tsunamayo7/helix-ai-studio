@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio - Next-Gen Hybrid AI Development Platform
-Version: 1.0.0
+Helix AI Studio v11.5.1 "Provider Pure"
+Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
-論理（Claude）と視覚（Gemini）の螺旋構造、ローカルAI（Trinity）による進化を象徴した
-次世代ハイブリッドAI開発環境
+Tabs:
+- mixAI: 3+1 Phase Pipeline (Cloud AI plans → Local LLM team → Cloud AI integrates → Apply)
+- cloudAI: Direct cloud model chat (Anthropic / OpenAI / Google API, CLI fallback)
+- localAI: Ollama direct chat with 5 specialized categories
+- History: JSONL chat history with search, date grouping, tab filters
+- RAG: Document chunking, vector search, knowledge graph
+- Settings: API keys, model catalog, Ollama, MCP, memory, display
 
-Features:
-- Claude Code Tab: Logic & Architecture (MCP統合, Diff View, Context Loading)
-- Gemini Designer Tab: UI/UX Refinement (UI Refiner Pipeline)
-- App Manager Tab: Project Hub (Knowledge Graph可視化)
-- Settings/Cortex Tab: Knowledge & Local AI (LightRAG, MCP Server Manager)
-
-Base: Claude Code GUI v7.6.2 + Trinity Exoskeleton v2.2.5
+Architecture: API-first with CLI fallback, dynamic model catalog (cloud_models.json),
+provider-based routing (anthropic_api / openai_api / google_api / *_cli)
 """
 
 import sys
@@ -194,8 +194,12 @@ def main():
     atexit.register(cleanup_on_exit)
 
     try:
+        from src.utils.log_setup import setup_app_logging
         from src.main_window import create_application, MainWindow
         from src.utils.i18n import init_language
+
+        # v11.2.1: アプリ全体のログインフラを初期化（QApplication生成前）
+        setup_app_logging()
 
         # v9.6.0: 言語設定を初期化（UIインスタンス化前）
         init_language()

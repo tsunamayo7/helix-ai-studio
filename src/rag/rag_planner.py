@@ -70,10 +70,12 @@ PLAN_SYSTEM_PROMPT = """あなたはHelix AI StudioのRAG構築プランナー�
 
 
 class RAGPlanner:
-    """Claude Opus 4.6 によるRAG構築プラン策定"""
+    """Claude Opus 4.6 またはローカルLLMによるRAG構築プラン策定（v11.3.0）"""
 
-    def __init__(self, claude_model: str = "claude-opus-4-6"):
-        self.claude_model = claude_model
+    def __init__(self, claude_model: str = None, planner_engine: str = None):
+        from ..utils.constants import get_default_claude_model
+        self.claude_model = claude_model or get_default_claude_model()
+        self.planner_engine = planner_engine or get_default_claude_model()
         self.chunker = DocumentChunker()
 
     def create_plan(self, folder_path: str, time_limit_minutes: int,
@@ -106,13 +108,17 @@ class RAGPlanner:
                                      time_limit_minutes)
 
         try:
-            result = self._call_claude_cli(prompt)
+            # v11.3.0: planner_engine に応じてローカルLLMまたはClaude CLIを使用
+            if self.planner_engine.startswith("claude-"):
+                result = self._call_claude_cli(prompt)
+            else:
+                result = self._call_local_llm(prompt, self.planner_engine)
             plan = self._parse_plan(result)
             logger.info(f"RAG plan created: {plan.get('plan_id', 'unknown')}")
             return plan
         except Exception as e:
             logger.error(f"RAG plan creation failed: {e}")
-            logger.warning("Using fallback default plan due to Claude CLI failure")
+            logger.warning("Using fallback default plan due to planner failure")
             # フォールバック: デフォルトプランを生成
             return self._create_default_plan(file_previews, time_limit_minutes)
 
@@ -197,6 +203,31 @@ JSONのみ出力してください。"""
         except UnicodeDecodeError as e:
             logger.error(f"Claude CLI response encoding error: {e}")
             raise RuntimeError(f"Claude CLI応答のエンコーディングエラー: {e}")
+
+    def _call_local_llm(self, prompt: str, model: str) -> str:
+        """Ollama API 経由でローカルLLMを同期呼び出し（v11.3.0）"""
+        import requests as _requests
+        full_prompt = PLAN_SYSTEM_PROMPT + "\n\n" + prompt
+        url = "http://localhost:11434/api/generate"
+        payload = {
+            "model": model,
+            "prompt": full_prompt,
+            "stream": False,
+            "options": {"temperature": 0.1, "num_predict": 4096},
+        }
+        try:
+            resp = _requests.post(url, json=payload, timeout=300)
+            if resp.status_code != 200:
+                raise RuntimeError(f"Ollama returned status {resp.status_code}: {resp.text[:200]}")
+            data = resp.json()
+            result = data.get("response", "").strip()
+            if not result:
+                raise RuntimeError("Ollama returned empty response")
+            return result
+        except _requests.exceptions.Timeout:
+            raise RuntimeError(f"Ollama timed out (300秒超過) — モデル: {model}")
+        except _requests.exceptions.ConnectionError:
+            raise RuntimeError("Ollama サーバーに接続できません (localhost:11434)")
 
     def _parse_plan(self, raw: str) -> dict:
         """CLIの出力からJSONを抽出"""

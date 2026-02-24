@@ -133,17 +133,15 @@ class ClaudeCLIBackend(LLMBackend):
         "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
     }
 
-    def __init__(self, working_dir: str = None, effort_level: str = "default", skip_permissions: bool = True, model: str = None):
+    def __init__(self, working_dir: str = None, skip_permissions: bool = True, model: str = None):
         """
         Args:
             working_dir: 作業ディレクトリ
-            effort_level: エフォートレベル (low, default, high) - v9.8.0
             skip_permissions: 権限確認をスキップするか (v3.5.0)
             model: 使用するモデル名 (v3.9.4: モデル選択対応)
         """
         super().__init__("claude-cli")
         self._working_dir = working_dir or os.getcwd()
-        self._effort_level = effort_level
         self._skip_permissions = skip_permissions  # v3.5.0: 権限スキップフラグ
         self._model = model  # v3.9.4: モデル選択対応
         self._current_process: Optional[subprocess.Popen] = None
@@ -162,14 +160,6 @@ class ClaudeCLIBackend(LLMBackend):
     @working_dir.setter
     def working_dir(self, value: str):
         self._working_dir = value
-
-    @property
-    def effort_level(self) -> str:
-        return self._effort_level
-
-    @effort_level.setter
-    def effort_level(self, value: str):
-        self._effort_level = value
 
     @property
     def skip_permissions(self) -> bool:
@@ -226,6 +216,26 @@ class ClaudeCLIBackend(LLMBackend):
             return self.MODEL_MAP["opus-4-5"]
         elif "sonnet" in text_lower:
             return self.MODEL_MAP["sonnet-4-5"]
+        # v11.5.0: cloud_models.json の provider 付きルックアップ
+        try:
+            import json
+            from pathlib import Path
+            data = json.loads(Path("config/cloud_models.json").read_text(encoding='utf-8'))
+            models = data.get("models", []) if isinstance(data, dict) else data
+            for m in models:
+                if m.get("display_name") == text or m.get("name") == text or m.get("model_id") == text:
+                    # CLI バックエンドなので anthropic_cli のみ対象
+                    provider = m.get("provider", "")
+                    if provider in ("anthropic_cli", ""):
+                        return m.get("model_id")
+                    else:
+                        logger.warning(f"[ClaudeCLIBackend] Model '{text}' found but provider='{provider}', not anthropic_cli")
+                        return m.get("model_id")  # それでもmodel_idは返す（呼び出し側でルーティング済み）
+        except Exception:
+            pass
+        # v11.5.0: model_id がそのまま渡された場合はそのまま返す
+        if text and not text.startswith("Claude "):
+            return text
         return None
 
     def set_streaming_callback(self, callback: Callable[[str], None]):
@@ -249,13 +259,27 @@ class ClaudeCLIBackend(LLMBackend):
         return self.DEFAULT_TIMEOUT_SEC
 
     def _build_cli_env(self) -> dict:
-        """Build environment dict for CLI subprocess with effort level.
+        """Build environment dict for CLI subprocess.
 
-        v9.8.0: Injects CLAUDE_CODE_EFFORT_LEVEL for Opus 4.6 adaptive thinking.
+        v11.3.0: extra_env パススルー対応。
+        config/config.json の "extra_env" ブロックに記述した env var を
+        Claude CLI 呼び出し時に注入する。仕様変更時はコード変更不要。
         """
         env = os.environ.copy()
-        if self._effort_level and self._effort_level != "default":
-            env["CLAUDE_CODE_EFFORT_LEVEL"] = self._effort_level
+
+        # extra_env パススルー（config/config.json から）
+        try:
+            import json
+            from pathlib import Path
+            config_path = Path("config/config.json")
+            if config_path.exists():
+                cfg = json.loads(config_path.read_text(encoding='utf-8'))
+                for k, v in cfg.get("extra_env", {}).items():
+                    if isinstance(k, str) and isinstance(v, str) and k.strip():
+                        env[k] = v
+        except Exception as e:
+            logger.debug(f"extra_env load failed: {e}")
+
         return env
 
     def _build_command(self, extra_options: List[str] = None, use_continue: bool = False,
@@ -339,7 +363,7 @@ class ClaudeCLIBackend(LLMBackend):
             timeout = self._get_timeout()
 
             logger.info(f"[ClaudeCLIBackend] Starting CLI: session={request.session_id}, "
-                       f"effort={self._effort_level}, timeout={timeout // 60}min")
+                       f"timeout={timeout // 60}min")
 
             # プロセス実行
             with self._process_lock:
@@ -518,7 +542,6 @@ class ClaudeCLIBackend(LLMBackend):
 
             response_metadata = {
                 "backend": self.name,
-                "effort_level": self._effort_level,
                 "working_dir": self._working_dir,
                 "note": "Claude Max/Proプラン使用（Extra Usage有効時は超過分のみ従量課金）"
             }

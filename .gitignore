@@ -12,17 +12,20 @@ build/
 
 # PyInstaller
 *.exe
+*.spec
 *.spec.bak
 
 # Environment
 .env
+*.env
 .venv/
 env/
 venv/
 
-# Config (contains API keys)
-config/
-!config/config.example.json
+# Config (contains API keys — exclude all except example files)
+config/*
+!config/*.example.json
+data/web_execution_lock.json
 
 # Runtime data
 data/
@@ -42,6 +45,7 @@ logs/
 .DS_Store
 Thumbs.db
 Desktop.ini
+*.lnk
 
 # Node (for Claude Code CLI)
 node_modules/
@@ -52,10 +56,19 @@ node_modules/
 *.orig
 
 nul
+
+# Development/debug artifacts
+debug_out*.txt
+patch_z*.py
+patch_z*_i18n.py
+restore_ja.py
+ja_backup.json
+helix_source_bundle.txt
+
 # Personal/development files
 .claude/
 修正/
 成果品/
 BIBLE/
 GitHub/
-ユニペット/
+snippets/

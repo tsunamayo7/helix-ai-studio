@@ -59,24 +59,25 @@ def notify_discord(
     Returns:
         True: 通知送信が開始された, False: 設定なしまたは無効
     """
-    url = _get_webhook_url()
+    # v11.2.1: config.json を1回だけ読み込み（url と status_map を両方取得）
+    try:
+        config_data = json.loads(CONFIG_PATH.read_text(encoding='utf-8')) if CONFIG_PATH.exists() else {}
+    except Exception:
+        config_data = {}
+    ws = config_data.get("web_server", {})
+    url = ws.get("discord_webhook_url", "").strip()
     if not url or not _is_valid_webhook(url):
         return False
 
-    # v11.0.0: Discord通知イベント設定を参照
-    try:
-        config_data = json.loads(CONFIG_PATH.read_text(encoding='utf-8')) if CONFIG_PATH.exists() else {}
-        ws = config_data.get("web_server", {})
-        status_map = {
-            "started": ws.get("discord_notify_start", True),
-            "completed": ws.get("discord_notify_complete", True),
-            "error": ws.get("discord_notify_error", True),
-            "timeout": ws.get("discord_notify_error", True),
-        }
-        if not status_map.get(status, True):
-            return False
-    except Exception:
-        pass
+    # Discord通知イベント設定を参照
+    status_map = {
+        "started": ws.get("discord_notify_start", True),
+        "completed": ws.get("discord_notify_complete", True),
+        "error": ws.get("discord_notify_error", True),
+        "timeout": ws.get("discord_notify_error", True),
+    }
+    if not status_map.get(status, True):
+        return False
 
     # 色設定（Discordの embed color は10進数）
     color_map = {

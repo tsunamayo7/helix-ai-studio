@@ -5,6 +5,94 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.5.1] - 2026-02-25 "Provider Pure"
+
+### Changed
+- `_get_selected_model_provider()` prefix fallback removed — models without provider in cloud_models.json now return "unknown" instead of guessing from model_id prefix
+- Unknown provider sends user-friendly guide (i18n) instead of raw error message
+- API key security warning label added to Settings > API Key Setup section
+- `HelixAIStudio.py` docstring updated from v1.0.0 to v11.5.1
+- README.md rewritten: version badges, Quick Start with API connection table, Tech Stack, Version History
+- `install.bat` version updated to v11.5.1
+- `.gitignore` fixed: `config/` → `config/*` to allow `!config/*.example.json` negation
+- `requirements.txt` formalized: FastAPI/Uvicorn/Pydantic/httpx added as core dependencies, SDKs moved from optional to required
+- CHANGELOG.md updated with v11.1.0–v11.5.1 entries
+
+## [11.5.0] - 2026-02-24 "Model Agnostic"
+
+### Added
+- Multi-provider API support: Anthropic API, OpenAI API, Google Gemini API (direct SDK connections)
+- `google-genai` SDK integration for Gemini models (Pro 3, Flash 3)
+- Dynamic model catalog: `cloud_models.json` with per-model `provider` field
+- Provider-based routing: 6 providers (anthropic_api, openai_api, google_api, anthropic_cli, openai_cli, google_cli)
+- API Priority Resolver: AUTO/API_ONLY/CLI_ONLY connection modes with fallback
+- Cloud model add dialog with provider selection dropdown
+- Provider badge display in registered model list (`[Anthropic API]`, `[OpenAI API]`, etc.)
+- Model capability registry (`model_capabilities.py`) for extra_env / context limits
+- `config/cloud_models.example.json`, `config/general_settings.example.json` template files
+- Gemini API key field in Settings > API Key Setup
+
+### Changed
+- `CLAUDE_MODELS = []` and `DEFAULT_CLAUDE_MODEL_ID = ""` — app ships with no hardcoded models
+- `get_default_claude_model()` and `resolve_claude_model_id()` now read from `cloud_models.json` dynamically
+- `memory_manager.py` control/embedding models use dynamic getters instead of hardcoded constants
+- `model_config.py` defaults changed to empty strings (no model assumptions)
+- Local LLM category defaults (coding/research/reasoning/translation/vision) cleared to empty
+- Web API `/api/models` endpoint reads from `cloud_models.json` dynamically
+- `chat_store.py` SQLite model column DEFAULT changed to empty string
+
+### Removed
+- Hardcoded model ID string comparisons (`model_id == "gpt-5.3-codex"`) from routing logic
+- Fixed model fallback chains that assumed specific model availability
+
+## [11.4.0] - 2026-02-24 "API-First Connections"
+
+### Added
+- `src/backends/anthropic_api_backend.py`: Direct Anthropic API backend using official SDK (streaming support)
+- `src/backends/openai_api_backend.py`: Direct OpenAI API backend using official SDK (streaming support)
+- API key registration UI in Settings tab (Anthropic / OpenAI / Gemini keys)
+- "Auto" connection mode (API-first → CLI fallback) for cloudAI
+- API connection for mixAI Phase 1/3 (no longer CLI-only)
+
+### Changed
+- cloudAI routing refactored: provider-based dispatch instead of model name matching
+- Settings tab: API key fields with masked input and connection test buttons
+
+## [11.3.1] - 2026-02-24 "Browser Use Activation"
+
+### Added
+- Browser Use fully wired as active tool for localAI (`OllamaWorkerThread._execute_tool()` browser_use case)
+- Optional tools status display + install UI in Settings > General
+- `LOCALAI_WEB_TOOL_GUIDE` constant for LLM web tool usage guidance
+- `install.bat` optional package installation prompts (browser-use, sentence-transformers, anthropic, openai)
+
+### Fixed
+- `_tool_browser_use()` return value structured with `fetched_at`/`final_url`/`title`/`notes`
+- localAI `_send_message()` tools list now includes `BROWSER_USE_TOOL` when enabled
+
+## [11.3.0] - 2026-02-24
+
+### Added
+- Cloud model dynamic registration (`cloud_models.json`)
+- Model capability registry with `extra_env` support
+- Local model pipeline wiring for all 5 categories
+
+### Changed
+- Effort level UI removed (moved to env variable)
+- Browser Use / httpx separation for cloudAI and mixAI
+- RAG GroupBox title corrected
+- RAG Planner local model support with 2-step engine
+
+## [11.1.0] - 2026-02-23 "Browser Use Integration"
+
+### Added
+- Browser Use settings integration in localAI tab
+- Smart History full implementation with JSONL search
+
+### Changed
+- RAG chat fixes and improvements
+- i18n updates for Browser Use and History features
+
 ## [11.0.0] - 2026-02-23 "Smart History"
 
 ### Added
@@ -265,4 +353,4 @@ Since v8.0.0, versions follow this pattern:
 
 ---
 
-For full architectural details, see `BIBLE_Helix_AI_Studio_9.5.0.md`.
+For full architectural details, see `PROJECT_BIBLE.md`.

@@ -38,6 +38,12 @@ from .rag_bridge import WebRAGBridge
 from .chat_store import ChatStore
 from .ws_manager import WebSocketManager
 
+# v11.5.3: Discord通知
+try:
+    from ..utils.discord_notifier import notify_discord as _notify_discord
+except ImportError:
+    def _notify_discord(*args, **kwargs): return False
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -287,6 +293,184 @@ async def websocket_mix(websocket: WebSocket, token: str = Query(...)):
 
 
 # =============================================================================
+# WebSocket エンドポイント (localAI)  v11.5.3
+# =============================================================================
+
+@app.websocket("/ws/local")
+async def websocket_local(websocket: WebSocket, token: str = Query(...)):
+    """
+    localAI WebSocketエンドポイント。
+    Ollama API を直接呼び出してストリーミング応答を返す。
+
+    クライアント → サーバー:
+      {"action": "execute", "prompt": "...", "model": "gemma3:27b",
+       "chat_id": "...", "attached_files": [...]}
+      {"action": "cancel"}
+
+    サーバー → クライアント:
+      {"type": "streaming", "chunk": "...", "done": false}
+      {"type": "streaming", "chunk": "...", "done": true}
+      {"type": "status", "status": "...", "detail": "..."}
+      {"type": "error", "error": "..."}
+    """
+    # JWT認証
+    client_ip = websocket.client.host
+    if not auth_manager.check_ip(client_ip):
+        await websocket.close(code=4003, reason="IP not allowed")
+        return
+
+    payload = auth_manager.verify_token(token)
+    if payload is None:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    client_id = str(uuid.uuid4())
+    connected = await ws_manager.connect(websocket, client_id)
+    if not connected:
+        await websocket.close(code=4029, reason="Too many connections")
+        return
+
+    try:
+        await ws_manager.send_status(client_id, "connected", "localAI WebSocket ready")
+
+        while True:
+            data = await websocket.receive_json()
+            action = data.get("action")
+
+            if action == "ping":
+                await ws_manager.send_to(client_id, {"type": "pong"})
+
+            elif action == "execute":
+                await _handle_local_execute(client_id, data)
+
+            elif action == "cancel":
+                await ws_manager.send_status(client_id, "cancelled", "キャンセルは現在未対応です")
+
+            else:
+                await ws_manager.send_error(client_id, f"Unknown action: {action}")
+
+    except WebSocketDisconnect:
+        logger.info(f"localAI WebSocket disconnected: {client_id}")
+    except Exception as e:
+        logger.error(f"localAI WebSocket error: {e}")
+    finally:
+        await ws_manager.disconnect(client_id)
+
+
+async def _handle_local_execute(client_id: str, data: dict):
+    """
+    localAI実行ハンドラ (v11.5.3)
+    Ollama API を使ってローカルLLMチャットを実行する。
+    """
+    prompt = data.get("prompt", "")
+    chat_id = data.get("chat_id")
+    model = data.get("model", "")
+    attached_files = data.get("attached_files", [])
+    client_info = data.get("client_info", "Web Client")
+
+    if not prompt:
+        await ws_manager.send_error(client_id, "Prompt is empty")
+        return
+
+    # モデル未指定なら設定から取得
+    if not model:
+        try:
+            settings = _load_merged_settings()
+            assignments = settings.get("model_assignments", {})
+            model = assignments.get("coding") or ""
+        except Exception:
+            pass
+    if not model:
+        await ws_manager.send_error(client_id, "No model specified. Please select a model.")
+        return
+
+    ollama_host = _load_merged_settings().get("ollama_host", "http://localhost:11434")
+
+    # 実行ロック
+    _set_execution_lock("localAI", client_info, prompt)
+
+    # チャットID管理
+    if not chat_id:
+        chat = chat_store.create_chat(tab="localAI")
+        chat_id = chat["id"]
+        await ws_manager.send_to(client_id, {
+            "type": "chat_created",
+            "chat_id": chat_id,
+        })
+
+    chat_store.add_message(chat_id, "user", prompt)
+
+    # タイトル自動生成
+    chat = chat_store.get_chat(chat_id)
+    if chat and chat["message_count"] == 1:
+        title = chat_store.auto_generate_title(chat_id)
+        await ws_manager.send_to(client_id, {
+            "type": "chat_title_updated",
+            "chat_id": chat_id,
+            "title": title,
+        })
+
+    # 添付ファイル情報をプロンプトに追加
+    full_prompt = prompt
+    if attached_files:
+        full_prompt += "\n\n[添付ファイル]\n" + "\n".join(f"- {f}" for f in attached_files)
+
+    ws_manager.set_active_task(client_id, "localAI")
+    await ws_manager.send_status(client_id, "executing", f"{model} 実行中...")
+
+    # Discord: チャット開始通知
+    _notify_discord("localAI", "started", f"モデル: {model}\n{prompt[:200]}")
+
+    start_time = _time.time()
+
+    try:
+        response = await _run_ollama_async(
+            model=model,
+            prompt=full_prompt,
+            timeout=_get_claude_timeout_sec(),
+            host=ollama_host,
+        )
+
+        elapsed = _time.time() - start_time
+
+        # 応答保存
+        chat_store.add_message(chat_id, "assistant", response,
+                               metadata={"model": model, "elapsed": round(elapsed, 1)})
+
+        await ws_manager.send_streaming(client_id, response, done=True)
+        await ws_manager.send_status(client_id, "completed", f"実行完了 ({elapsed:.1f}s)")
+
+        # Discord: 完了通知
+        _notify_discord("localAI", "completed", response[:500], elapsed=elapsed)
+
+        # 会話をRAGに保存
+        asyncio.ensure_future(_save_web_conversation(
+            [{"role": "user", "content": prompt},
+             {"role": "assistant", "content": response}],
+            tab="localAI",
+        ))
+
+    except Exception as e:
+        elapsed = _time.time() - start_time
+        error_msg = str(e)
+
+        # Ollama接続エラーの場合、わかりやすいメッセージに変換
+        if "ConnectError" in error_msg or "Connection refused" in error_msg:
+            error_msg = f"Ollama に接続できません ({ollama_host})。Ollama が起動しているか確認してください。"
+        elif "404" in error_msg:
+            error_msg = f"モデル '{model}' が見つかりません。Ollama でモデルをプルしてください。"
+
+        await ws_manager.send_error(client_id, error_msg)
+
+        # Discord: エラー通知
+        _notify_discord("localAI", "error", prompt[:200], error=error_msg)
+
+    finally:
+        _release_execution_lock()
+        ws_manager.set_active_task(client_id, None)
+
+
+# =============================================================================
 # SPA catch-all ルート（WebSocketルートより後に定義）
 # =============================================================================
 
@@ -325,7 +509,7 @@ async def _handle_solo_execute(client_id: str, data: dict):
 
     prompt = data.get("prompt", "")
     chat_id = data.get("chat_id")  # v9.2.0
-    model_id = data.get("model_id", "claude-opus-4-6")
+    model_id = data.get("model_id", "") or _get_default_model()
     project_dir = data.get("project_dir", "")
     timeout = data.get("timeout") or 0
     timeout = timeout if timeout > 0 else _get_claude_timeout_sec()
@@ -399,6 +583,9 @@ async def _handle_solo_execute(client_id: str, data: dict):
     ws_manager.set_active_task(client_id, "cloudAI")
     await ws_manager.send_status(client_id, "executing", f"Claude ({model_id}) 実行中...")
 
+    # v11.5.3: Discord開始通知
+    _notify_discord("cloudAI", "started", f"モデル: {model_id}\n{prompt[:200]}")
+
     # Claude CLI構築
     cmd = [
         "claude",
@@ -446,6 +633,9 @@ async def _handle_solo_execute(client_id: str, data: dict):
             await ws_manager.send_streaming(client_id, response_text, done=True)
             await ws_manager.send_status(client_id, "completed", "実行完了")
 
+            # v11.5.3: Discord完了通知
+            _notify_discord("cloudAI", "completed", response_text[:500])
+
             # 会話をRAGに保存
             asyncio.ensure_future(_save_web_conversation(
                 [{"role": "user", "content": prompt},
@@ -459,10 +649,13 @@ async def _handle_solo_execute(client_id: str, data: dict):
 
     except subprocess.TimeoutExpired:
         await ws_manager.send_error(client_id, f"Claude CLI timed out ({timeout}s)")
+        _notify_discord("cloudAI", "timeout", prompt[:200], error=f"Timeout {timeout}s")
     except FileNotFoundError:
         await ws_manager.send_error(client_id, "Claude CLI not found")
+        _notify_discord("cloudAI", "error", prompt[:200], error="Claude CLI not found")
     except Exception as e:
         await ws_manager.send_error(client_id, f"Execution error: {str(e)}")
+        _notify_discord("cloudAI", "error", prompt[:200], error=str(e))
     finally:
         _release_execution_lock()  # v9.5.0
         ws_manager.set_active_task(client_id, None)
@@ -485,7 +678,7 @@ async def _handle_mix_execute(client_id: str, data: dict):
     """
     prompt = data.get("prompt", "")
     chat_id = data.get("chat_id")  # v9.2.0
-    model_id = data.get("model_id", "claude-opus-4-6")
+    model_id = data.get("model_id", "") or _get_default_model()
     # v9.3.0: orchestrator_engine（config.jsonから読み取り）
     engine_id = _load_orchestrator_engine()
     model_assignments = data.get("model_assignments", {})
@@ -530,6 +723,9 @@ async def _handle_mix_execute(client_id: str, data: dict):
     rag_prompt = context_result["prompt"]
 
     ws_manager.set_active_task(client_id, "mixAI")
+
+    # v11.5.3: Discord開始通知
+    _notify_discord("mixAI", "started", f"エンジン: {engine_id}\n{prompt[:200]}")
 
     # RAGコンテキスト注入（フルモード以外）
     if enable_rag and context_result["mode"] != "full":
@@ -690,6 +886,9 @@ async def _handle_mix_execute(client_id: str, data: dict):
         await ws_manager.send_streaming(client_id, final_answer, done=True)
         await ws_manager.send_status(client_id, "completed", "3Phase実行完了")
 
+        # v11.5.3: Discord完了通知
+        _notify_discord("mixAI", "completed", final_answer[:500])
+
         # 会話をRAGに保存
         asyncio.ensure_future(_save_web_conversation(
             [{"role": "user", "content": prompt},
@@ -699,6 +898,7 @@ async def _handle_mix_execute(client_id: str, data: dict):
 
     except Exception as e:
         await ws_manager.send_error(client_id, f"mixAI execution error: {str(e)}")
+        _notify_discord("mixAI", "error", prompt[:200], error=str(e))
     finally:
         _release_execution_lock()  # v9.5.0
         ws_manager.set_active_task(client_id, None)
@@ -770,6 +970,15 @@ async def _run_ollama_async(model: str, prompt: str,
 # v9.3.0: ローカルLLMエージェント実行
 # =============================================================================
 
+def _get_default_model() -> str:
+    """v11.5.0: cloud_models.json からデフォルトモデルIDを取得"""
+    try:
+        from ..utils.constants import get_default_claude_model
+        return get_default_claude_model()
+    except Exception:
+        return ""
+
+
 def _get_claude_timeout_sec() -> int:
     """
     設定ファイルからClaudeタイムアウト（秒）を読み取る。
@@ -833,10 +1042,10 @@ def _load_orchestrator_engine() -> str:
         if config_path.exists():
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-            return config.get("orchestrator_engine", "claude-opus-4-6")
+            return config.get("orchestrator_engine") or ""
     except Exception:
         pass
-    return "claude-opus-4-6"
+    return ""
 
 
 async def _run_local_agent(prompt: str, model_name: str,

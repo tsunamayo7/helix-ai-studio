@@ -15,7 +15,8 @@ from typing import Optional
 
 _translations = {}
 _current_lang = 'ja'
-_i18n_dir = Path(__file__).parent.parent.parent / 'i18n'
+_app_root = Path(__file__).parent.parent.parent
+_i18n_dir = _app_root / 'i18n'
 
 
 def _load_translations():
@@ -90,7 +91,7 @@ def init_language():
     global _current_lang
     _load_translations()
     try:
-        gs_path = Path('config/general_settings.json')
+        gs_path = _app_root / 'config' / 'general_settings.json'
         if gs_path.exists():
             with open(gs_path, 'r', encoding='utf-8') as f:
                 gs = json.load(f)
@@ -102,7 +103,7 @@ def init_language():
 def _save_language_preference(lang: str):
     """Save language preference to general_settings.json."""
     try:
-        gs_path = Path('config/general_settings.json')
+        gs_path = _app_root / 'config' / 'general_settings.json'
         gs = {}
         if gs_path.exists():
             with open(gs_path, 'r', encoding='utf-8') as f:

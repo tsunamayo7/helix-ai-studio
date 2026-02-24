@@ -309,7 +309,11 @@ class RAGBuilder(QThread):
                 self._finish(False, "ユーザーにより中止されました")
                 return
 
-            kg_model = "command-a:latest"
+            try:
+                from ..memory.model_config import get_exec_llm
+                kg_model = get_exec_llm()
+            except Exception:
+                kg_model = "command-a:latest"  # フォールバック
             for step in steps:
                 if "Semantic" in step.get("name", "") or "TKG" in step.get("name", ""):
                     kg_model = step.get("model", kg_model)

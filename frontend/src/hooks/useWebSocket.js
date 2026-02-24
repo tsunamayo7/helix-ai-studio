@@ -175,7 +175,7 @@ export function useWebSocket(token, endpoint = 'solo') {
       action: 'execute',
       prompt,
       chat_id: options.chatId || activeChatId || null,
-      model_id: options.modelId || 'claude-opus-4-6',
+      model_id: options.modelId || '',
       project_dir: options.projectDir || '',
       timeout: options.timeout || 0,  // 0 = サーバー側で設定ファイルから読み取り
       use_mcp: options.useMcp !== false,
@@ -202,12 +202,32 @@ export function useWebSocket(token, endpoint = 'solo') {
       action: 'execute',
       prompt,
       chat_id: options.chatId || activeChatId || null,
-      model_id: options.modelId || 'claude-opus-4-6',
+      model_id: options.modelId || '',
       model_assignments: options.modelAssignments || {},
       project_dir: options.projectDir || '',
       attached_files: options.attachedFiles || [],
       timeout: options.timeout || 0,  // 0 = サーバー側で設定ファイルから読み取り
       enable_rag: options.enableRag !== false,
+    }));
+  }, [activeChatId]);
+
+  // v11.5.3: localAI用メッセージ送信
+  const sendLocalMessage = useCallback((prompt, options = {}) => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      console.error('WebSocket not connected');
+      return;
+    }
+
+    setMessages(prev => [...prev, { role: 'user', content: prompt }]);
+    setIsExecuting(true);
+
+    wsRef.current.send(JSON.stringify({
+      action: 'execute',
+      prompt,
+      chat_id: options.chatId || activeChatId || null,
+      model: options.model || '',
+      attached_files: options.attachedFiles || [],
+      client_info: 'Web Client (localAI)',
     }));
   }, [activeChatId]);
 
@@ -250,6 +270,7 @@ export function useWebSocket(token, endpoint = 'solo') {
     messages,
     sendMessage,
     sendMixMessage,
+    sendLocalMessage,
     isExecuting,
     phaseInfo,
     llmStatus,

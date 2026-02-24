@@ -1,0 +1,7 @@
+{
+  "_comment": "Helix AI Studio 設定ファイルのサンプル。実際の設定は config/config.json に記述してください。",
+  "_comment_extra_env": "Claude CLI に渡す追加環境変数。仕様変更時はここを更新するだけで対応可能。注意: extra_env に設定した env var はすべての Claude CLI 呼び出し（Phase 1/3 含む）に適用されます。",
+  "extra_env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  }
+}

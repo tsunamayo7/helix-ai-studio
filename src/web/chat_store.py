@@ -36,7 +36,7 @@ class ChatStore:
                 title TEXT NOT NULL DEFAULT '新しいチャット',
                 context_mode TEXT NOT NULL DEFAULT 'session'
                     CHECK(context_mode IN ('single', 'session', 'full')),
-                claude_model_id TEXT NOT NULL DEFAULT 'claude-opus-4-6',
+                claude_model_id TEXT NOT NULL DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 message_count INTEGER DEFAULT 0,
@@ -70,7 +70,7 @@ class ChatStore:
     # ═══ チャット CRUD ═══
 
     def create_chat(self, tab: str, context_mode: str = "session",
-                    model_id: str = "claude-opus-4-6") -> dict:
+                    model_id: str = "") -> dict:
         self._enforce_limits()
         chat_id = uuid.uuid4().hex[:12]
         now = datetime.now().isoformat()

@@ -12,9 +12,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_EXEC_LLM = "command-a:latest"
-_DEFAULT_QUALITY_LLM = "ministral-3:8b"
-_DEFAULT_EMBEDDING = "qwen3-embedding:0.6b"
+# v11.5.0: デフォルトを空文字に変更。ユーザーが app_settings.json で設定する。
+_DEFAULT_EXEC_LLM = ""
+_DEFAULT_QUALITY_LLM = ""
+_DEFAULT_EMBEDDING = ""
 
 
 def _load_rag_settings() -> dict:

@@ -173,14 +173,13 @@ class CLIWorkerThread(QThread):
     errorOccurred = pyqtSignal(str)
 
     def __init__(self, backend, prompt: str, model: str = None,
-                 working_dir: str = None, effort_level: str = "default",
+                 working_dir: str = None,
                  resume_session_id: str = None, parent=None):
         super().__init__(parent)
         self._backend = backend
         self._prompt = prompt
         self._model = model
         self._working_dir = working_dir
-        self._effort_level = effort_level
         self._resume_session_id = resume_session_id  # v11.0.0
         self._full_response = ""
         self._start_time = None
@@ -194,10 +193,6 @@ class CLIWorkerThread(QThread):
         self._start_time = time.time()
 
         try:
-            # v9.8.0: CLIバックエンドのeffortレベルを設定
-            if self._effort_level:
-                self._backend.effort_level = self._effort_level
-
             # 作業ディレクトリを設定
             if self._working_dir:
                 self._backend.working_dir = self._working_dir
@@ -662,13 +657,14 @@ class ClaudeTab(QWidget):
     _cli_check_done = pyqtSignal(bool)
 
     def _init_backend(self):
-        """Backend を初期化 (v11.0.0: 非ブロッキング化)"""
+        """v11.4.0: デフォルトを Auto モードに変更"""
         import threading
 
-        # まずAPI fallbackで即時初期化（ブロッキングなし）
         self._cli_backend = None
         self.backend = ClaudeBackend(model="sonnet-4-5")
         self._use_cli_mode = False
+        self._use_ollama_mode = False
+        self._use_auto_mode = True  # v11.4.0: デフォルト Auto
 
         # シグナル接続（初回のみ）
         try:
@@ -676,7 +672,7 @@ class ClaudeTab(QWidget):
         except Exception:
             pass
 
-        # CLI利用可否をバックグラウンドで確認
+        # CLI利用可否をバックグラウンドで確認（Auto/CLI Only モード向け）
         def _check_cli():
             try:
                 cli_available, _ = check_claude_cli_available()
@@ -694,48 +690,48 @@ class ClaudeTab(QWidget):
             self._use_cli_mode = True
 
     def _on_auth_mode_changed(self, index: int):
-        """認証モード変更時 (v2.5.0, v3.0.0: Ollama追加, v3.2.0: CLI Backend強化, v3.9.2: UI無効化)"""
-        if index == 0:  # CLI (Max/Proプラン)
+        """v11.4.0: 0=Auto, 1=CLI Only, 2=API Only(廃止互換), 3=Ollama"""
+        if index == 0:  # Auto（API優先 → CLI フォールバック）
+            self._use_cli_mode = False
+            self._use_ollama_mode = False
+            self._use_auto_mode = True
+            self._set_ollama_ui_disabled(False)
+            self.statusChanged.emit(t('desktop.cloudAI.autoModeEnabled'))
+
+        elif index == 1:  # CLI Only
             cli_available, message = check_claude_cli_available()
             if cli_available:
                 self._cli_backend = get_claude_cli_backend()
                 self.backend = self._cli_backend
                 self._use_cli_mode = True
                 self._use_ollama_mode = False
+                self._use_auto_mode = False
+                self._set_ollama_ui_disabled(False)
                 self.statusChanged.emit(t('desktop.cloudAI.cliAuthSwitched'))
             else:
-                # CLIが利用不可の場合は警告して元に戻す
                 QMessageBox.warning(
                     self,
                     t('desktop.cloudAI.cliAuthWarningTitle'),
                     t('desktop.cloudAI.cliNotAvailableDialogMsg', message=message)
                 )
                 self.auth_mode_combo.blockSignals(True)
-                self.auth_mode_combo.setCurrentIndex(1)
+                self.auth_mode_combo.setCurrentIndex(0)  # Auto に戻す
                 self.auth_mode_combo.blockSignals(False)
                 self._use_cli_mode = False
-                self._use_ollama_mode = False
-            # v3.9.2: CLI/APIモードではUIを有効化
-            self._set_ollama_ui_disabled(False)
-        elif index == 1:  # API (従量課金)
-            # v7.1.0: userDataからmodel_idを取得
-            model_id = self.model_combo.currentData() or DEFAULT_CLAUDE_MODEL_ID
-            if "opus" in model_id:
-                self.backend = ClaudeBackend(model="opus-4-5")
-            elif "sonnet" in model_id:
-                self.backend = ClaudeBackend(model="sonnet-4-5")
-            else:
-                self.backend = ClaudeBackend(model="sonnet-4-5")
+                self._use_auto_mode = True
+
+        elif index == 2:  # API Only（廃止互換）
             self._use_cli_mode = False
             self._use_ollama_mode = False
-            self.statusChanged.emit(t('desktop.cloudAI.apiAuthSwitched'))
-            # v3.9.2: CLI/APIモードではUIを有効化
+            self._use_auto_mode = False
             self._set_ollama_ui_disabled(False)
-        else:  # Ollama (ローカル) - v3.0.0
+            self.statusChanged.emit(t('desktop.cloudAI.apiAuthSwitched'))
+
+        else:  # index == 3: Ollama
             self._use_cli_mode = False
             self._use_ollama_mode = True
+            self._use_auto_mode = False
             self._configure_ollama_mode()
-            # v3.9.2: Ollamaモードでは使用モデル・思考を無効化
             self._set_ollama_ui_disabled(True)
             self.statusChanged.emit(t('desktop.cloudAI.ollamaSwitched', model=self._ollama_model))
 
@@ -777,7 +773,7 @@ class ClaudeTab(QWidget):
 
         # v3.9.2: cloudAI(Claude)タブの設定からOllama設定を取得
         ollama_url = "http://localhost:11434"
-        self._ollama_model = "qwen3-coder"
+        self._ollama_model = ""
 
         # 自身の設定タブ（サブタブ）から取得
         if hasattr(self, 'settings_ollama_url'):
@@ -794,13 +790,50 @@ class ClaudeTab(QWidget):
         from ..backends import LocalBackend
         self.backend = LocalBackend()
 
+    def _auto_select_ollama_model(self) -> str:
+        """v11.5.0: Ollama の最初のインストール済みモデルを自動選択"""
+        try:
+            import requests
+            ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
+            resp = requests.get(f"{ollama_url}/api/tags", timeout=2)
+            if resp.status_code == 200:
+                models = resp.json().get("models", [])
+                if models:
+                    name = models[0].get("name", "")
+                    logger.info(f"[ClaudeTab] Auto-selected Ollama model: {name}")
+                    return name
+        except Exception:
+            pass
+        return ""
+
+    def _show_no_models_banner(self, visible: bool):
+        """v11.5.0: モデル未設定バナーの表示/非表示"""
+        if not hasattr(self, '_no_models_banner'):
+            return
+        self._no_models_banner.setVisible(visible)
+
+    def _check_models_configured(self):
+        """v11.5.0: 起動時とモデル追加/削除時に呼び出す"""
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if not config_path.exists():
+                self._show_no_models_banner(True)
+                return
+            data = json.loads(config_path.read_text(encoding='utf-8'))
+            has_models = len(data.get("models", [])) > 0
+            self._show_no_models_banner(not has_models)
+        except Exception:
+            self._show_no_models_banner(True)
+
     def _update_auth_status(self):
         """認証状態を更新表示 (v2.5.0, v3.0.0: Ollama追加)"""
         if hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
             # v3.0.0: Ollamaモード
             import os
             ollama_url = os.environ.get("ANTHROPIC_BASE_URL", "http://localhost:11434")
-            model_name = getattr(self, '_ollama_model', 'qwen3-coder')
+            model_name = getattr(self, '_ollama_model', '')
             self.auth_status_label.setText("🖥️")
             self.auth_status_label.setStyleSheet("color: #3b82f6; font-size: 12pt;")
             self.auth_status_label.setToolTip(
@@ -857,6 +890,25 @@ class ClaudeTab(QWidget):
         workflow_bar = self._create_workflow_bar()
         chat_layout.addWidget(workflow_bar)
 
+        # v11.5.0: モデル未設定バナー
+        self._no_models_banner = QFrame()
+        self._no_models_banner.setStyleSheet(
+            "QFrame { background: #1a1a2e; border: 1px solid #f59e0b; border-radius: 6px; padding: 4px; }"
+        )
+        banner_layout = QHBoxLayout(self._no_models_banner)
+        banner_layout.setContentsMargins(8, 6, 8, 6)
+        banner_text = QLabel(t('desktop.cloudAI.noModelsConfigured'))
+        banner_text.setStyleSheet("color: #fbbf24; font-size: 11px;")
+        banner_text.setWordWrap(True)
+        banner_layout.addWidget(banner_text, 1)
+        banner_btn = QPushButton(t('desktop.cloudAI.goToModelSettings'))
+        banner_btn.setStyleSheet("QPushButton { color: #3b82f6; font-size: 10px; border: none; }")
+        banner_btn.clicked.connect(lambda: self.sub_tabs.setCurrentIndex(1))
+        banner_layout.addWidget(banner_btn)
+        chat_layout.addWidget(self._no_models_banner)
+        self._no_models_banner.setVisible(False)
+        self._check_models_configured()
+
         # メインスプリッター (チャット表示と入力エリア)
         main_splitter = QSplitter(Qt.Orientation.Vertical)
 
@@ -910,10 +962,13 @@ class ClaudeTab(QWidget):
         self.auth_label = QLabel(t('desktop.cloudAI.authLabel2'))
         self.auth_mode_combo = NoScrollComboBox()
         self.auth_mode_combo.addItems([
-            t('desktop.cloudAI.authCliOption'),
-            t('desktop.cloudAI.authApiOption'),
-            t('desktop.cloudAI.authOllamaOption'),
+            t('desktop.cloudAI.authAutoOption'),   # 0: Auto（API優先→CLI）
+            t('desktop.cloudAI.authCliOption'),    # 1: CLI Only
+            t('desktop.cloudAI.authApiOption'),    # 2: API Only（後方互換）
+            t('desktop.cloudAI.authOllamaOption'), # 3: Ollama
         ])
+        # v11.4.0: デフォルトを Auto に変更
+        self.auth_mode_combo.setCurrentIndex(0)
         self.auth_mode_combo.setToolTip(t('desktop.cloudAI.authComboTooltipFull'))
         self.auth_mode_combo.currentIndexChanged.connect(self._on_auth_mode_changed)
         self.auth_status_label = QLabel("")
@@ -934,7 +989,8 @@ class ClaudeTab(QWidget):
         self.cli_check_btn.clicked.connect(self._check_cli_status)
         cli_status_layout.addWidget(self.cli_check_btn)
         cli_status_layout.addStretch()
-        api_layout.addRow("Claude CLI:", cli_status_layout)
+        # v11.5.0: CLI行を非表示（オブジェクトは他で参照されるため残す）
+        # api_layout.addRow("Claude CLI:", cli_status_layout)
 
         # 統合接続テスト
         test_group_layout = QHBoxLayout()
@@ -1062,17 +1118,12 @@ class ClaudeTab(QWidget):
         self.permission_skip_checkbox.setToolTip(t('desktop.cloudAI.permissionSkipTooltip'))
         mcp_options_layout.addWidget(self.permission_skip_checkbox)
 
-        # v10.1.0: Browser Use チェックボックス
+        # v11.3.0: Browser Use チェックボックス（httpxベースのため常時有効）
         self.browser_use_checkbox = QCheckBox(t('desktop.cloudAI.browserUseLabel'))
         self.browser_use_checkbox.setChecked(False)
         self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
-        try:
-            import browser_use  # noqa: F401
-            self._browser_use_available = True
-        except ImportError:
-            self._browser_use_available = False
-            self.browser_use_checkbox.setEnabled(False)
-            self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseNotInstalled'))
+        self._browser_use_available = True
+        self.browser_use_checkbox.setEnabled(True)
         mcp_options_layout.addWidget(self.browser_use_checkbox)
         mcp_options_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
 
@@ -1147,6 +1198,7 @@ class ClaudeTab(QWidget):
         codex_section_layout.addRow("Codex CLI:", codex_status_layout)
         self.codex_section_group.setLayout(codex_section_layout)
         scroll_layout.addWidget(self.codex_section_group)
+        self.codex_section_group.setVisible(False)  # v11.5.0: Codex CLIセクション非表示
         self._check_codex_version()
 
         # === v11.0.0: MCP Settings for cloudAI ===
@@ -1280,12 +1332,53 @@ class ClaudeTab(QWidget):
         import logging
         logger = logging.getLogger(__name__)
 
-        auth_mode = self.auth_mode_combo.currentIndex()  # 0: CLI, 1: API, 2: Ollama
-        auth_names = ["CLI (Max/Pro)", "API", "Ollama"]
+        auth_mode = self.auth_mode_combo.currentIndex()  # v11.4.0: 0=Auto, 1=CLI, 2=API, 3=Ollama
+        auth_names = ["Auto (API→CLI)", "CLI (Max/Pro)", "API", "Ollama"]
         auth_name = auth_names[auth_mode] if auth_mode < len(auth_names) else t('desktop.cloudAI.unknownAuth')
 
         try:
             if auth_mode == 0:
+                # v11.4.0: Auto モード — API 優先で接続テスト
+                from ..backends.api_priority_resolver import resolve_anthropic_connection, ConnectionMode
+                method, kwargs = resolve_anthropic_connection(ConnectionMode.AUTO)
+                if method == "anthropic_api":
+                    import time
+                    from ..backends.anthropic_api_backend import is_anthropic_sdk_available
+                    if not is_anthropic_sdk_available():
+                        QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'),
+                                            "anthropic SDK がインストールされていません。\npip install anthropic")
+                        return
+                    start = time.time()
+                    # 簡易テスト: API key の有効性を確認
+                    import anthropic
+                    client = anthropic.Anthropic(api_key=kwargs["api_key"])
+                    resp = client.messages.create(
+                        model="claude-sonnet-4-5-20250929", max_tokens=5,
+                        messages=[{"role": "user", "content": "Hi"}])
+                    latency = time.time() - start
+                    self._save_last_test_success("Anthropic API", latency)
+                    QMessageBox.information(
+                        self, t('desktop.cloudAI.testSuccessTitle'),
+                        f"Auto → Anthropic API 接続成功\nLatency: {latency:.2f}s")
+                elif method == "claude_cli":
+                    from ..utils.subprocess_utils import run_hidden
+                    import time
+                    start = time.time()
+                    result = run_hidden(["claude", "--version"], capture_output=True, text=True, timeout=10)
+                    latency = time.time() - start
+                    if result.returncode == 0:
+                        self._save_last_test_success("CLI (Auto fallback)", latency)
+                        QMessageBox.information(
+                            self, t('desktop.cloudAI.testSuccessTitle'),
+                            f"Auto → Claude CLI フォールバック接続成功\nLatency: {latency:.2f}s\nCLI: {result.stdout.strip()}")
+                    else:
+                        QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'),
+                                            f"CLI テスト失敗: {result.stderr}")
+                else:
+                    QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'),
+                                        kwargs.get("reason", "接続先が見つかりません"))
+
+            elif auth_mode == 1:
                 # CLI モード
                 cli_available, _ = check_claude_cli_available()
                 if not cli_available:
@@ -1312,11 +1405,33 @@ class ClaudeTab(QWidget):
                 else:
                     QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'), t('desktop.cloudAI.testFailedCliError', error=result.stderr))
 
-            elif auth_mode == 1:
-                # API モード (v8.1.0: 廃止済み)
-                QMessageBox.warning(self, t('desktop.cloudAI.apiDeprecatedTitle'), t('desktop.cloudAI.apiDeprecatedFullMsg'))
+            elif auth_mode == 2:
+                # API モード — v11.4.0: API直接接続テスト
+                from ..backends.api_priority_resolver import resolve_anthropic_connection, ConnectionMode
+                method, kwargs = resolve_anthropic_connection(ConnectionMode.API_ONLY)
+                if method == "anthropic_api":
+                    import time
+                    from ..backends.anthropic_api_backend import is_anthropic_sdk_available
+                    if not is_anthropic_sdk_available():
+                        QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'),
+                                            "anthropic SDK がインストールされていません。\npip install anthropic")
+                        return
+                    start = time.time()
+                    import anthropic
+                    client = anthropic.Anthropic(api_key=kwargs["api_key"])
+                    resp = client.messages.create(
+                        model="claude-sonnet-4-5-20250929", max_tokens=5,
+                        messages=[{"role": "user", "content": "Hi"}])
+                    latency = time.time() - start
+                    self._save_last_test_success("Anthropic API", latency)
+                    QMessageBox.information(
+                        self, t('desktop.cloudAI.testSuccessTitle'),
+                        f"Anthropic API 接続成功\nLatency: {latency:.2f}s")
+                else:
+                    QMessageBox.warning(self, t('desktop.cloudAI.testFailedTitle'),
+                                        kwargs.get("reason", "API キーが設定されていません"))
 
-            else:
+            elif auth_mode == 3:
                 # Ollama モード
                 import ollama
                 import time
@@ -1478,24 +1593,6 @@ class ClaudeTab(QWidget):
         except Exception as e:
             logger.debug(f"claude_settings.json load failed: {e}")
 
-    def _update_effort_visibility(self, index=None):
-        """v11.0.0: effort_combo removed - no-op for backward compatibility"""
-        pass
-
-    def _get_effort_from_config(self) -> str:
-        """v11.0.0: config.json から effort_level を読み取る（UI削除後の隠し設定）"""
-        try:
-            from pathlib import Path
-            import json
-            config_path = Path("config/config.json")
-            if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                return config.get("effort_level", "high")
-        except Exception:
-            pass
-        return "high"
-
     def _save_all_cloudai_settings(self):
         """v11.0.0: Save all cloudAI settings"""
         self._save_claude_settings()
@@ -1513,8 +1610,6 @@ class ClaudeTab(QWidget):
             "ollama_model": self.settings_ollama_model.currentText(),
             "auth_mode": self.auth_mode_combo.currentIndex(),
             "model_index": self.model_combo.currentIndex(),
-            # v11.0.0: effort_level is now a hidden config.json setting
-            "effort_level": self._get_effort_from_config(),
             "timeout_minutes": self.solo_timeout_spin.value() if hasattr(self, 'solo_timeout_spin') else 30,
             "mcp_enabled": self.mcp_checkbox.isChecked(),
             "diff_enabled": self.diff_checkbox.isChecked(),
@@ -1670,7 +1765,7 @@ class ClaudeTab(QWidget):
         return frame
 
     def _load_cloud_models_to_combo(self, combo):
-        """v11.0.0: cloud_models.json からモデル一覧を読み込みコンボに設定"""
+        """v11.5.0: cloud_models.json からモデル一覧を読み込みコンボに設定"""
         combo.clear()
         try:
             from pathlib import Path
@@ -1680,13 +1775,52 @@ class ClaudeTab(QWidget):
                 with open(config_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 for model in data.get("models", []):
-                    combo.addItem(model["name"], model["model_id"])
+                    provider = model.get("provider", "?")
+                    badge = {"anthropic_api": "API", "openai_api": "OAI", "google_api": "Gemini", "anthropic_cli": "CLI", "openai_cli": "Codex", "google_cli": "G-CLI"}.get(provider, provider)
+                    combo.addItem(f"{model['name']} [{badge}]", model["model_id"])
         except Exception as e:
             logger.warning(f"Failed to load cloud models: {e}")
-            # Fallback
-            from ..utils.constants import CLAUDE_MODELS
-            for m in CLAUDE_MODELS:
-                combo.addItem(m["display_name"], m["id"])
+
+    def _get_selected_model_provider(self) -> tuple:
+        """v11.5.0: 現在選択モデルの (model_id, provider) を返す"""
+        if hasattr(self, 'cloud_model_combo') and self.cloud_model_combo.count() > 0:
+            model_id = self.cloud_model_combo.currentData() or ""
+        else:
+            model_id = self.model_combo.currentData() if hasattr(self, 'model_combo') else ""
+            model_id = model_id or ""
+
+        if not model_id:
+            return "", "unknown"
+
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                data = json.loads(config_path.read_text(encoding='utf-8'))
+                for m in data.get("models", []):
+                    if m.get("model_id") == model_id:
+                        return model_id, m.get("provider", "anthropic_api")
+        except Exception:
+            pass
+
+        # v11.5.1: prefix fallback 撤廃 — cloud_models.json に provider が未設定の場合は unknown を返す
+        return model_id, "unknown"
+
+    def _get_first_model_by_provider(self, provider: str) -> str:
+        """v11.5.0: cloud_models.json から指定プロバイダーの最初のモデル ID を返す"""
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                data = json.loads(config_path.read_text(encoding='utf-8'))
+                for m in data.get("models", []):
+                    if m.get("provider") == provider:
+                        return m.get("model_id", "")
+        except Exception:
+            pass
+        return ""
 
     def _on_cloud_model_changed(self, index: int):
         """v11.0.0: ヘッダーのモデル選択変更時に設定タブのmodel_comboも同期"""
@@ -1704,7 +1838,7 @@ class ClaudeTab(QWidget):
             logger.info(f"[ClaudeTab] Cloud model changed to: {model_id}")
 
     def _refresh_cloud_model_list(self):
-        """v11.0.0: cloud_models.json からリストウィジェットを更新"""
+        """v11.5.0: cloud_models.json からリストウィジェットを更新（provider バッジ付き）"""
         if not hasattr(self, 'cloud_model_list'):
             return
         self.cloud_model_list.clear()
@@ -1713,64 +1847,185 @@ class ClaudeTab(QWidget):
             import json
             config_path = Path("config/cloud_models.json")
             if config_path.exists():
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
+                data = json.loads(config_path.read_text(encoding='utf-8'))
                 for i, model in enumerate(data.get("models", []), 1):
+                    provider = model.get("provider", "unknown")
+                    provider_badge = {
+                        "anthropic_api": "Anthropic API",
+                        "openai_api":    "OpenAI API",
+                        "google_api":    "Google API",
+                        "anthropic_cli": "Anthropic CLI",
+                        "openai_cli":    "OpenAI CLI",
+                        "google_cli":    "Google CLI",
+                    }.get(provider, f"? {provider}")
                     self.cloud_model_list.addItem(
-                        f"{i}. {model['name']}  |  {model.get('command', '')}"
+                        f"{i}. {model['name']}  |  {model.get('model_id', '')}  [{provider_badge}]"
                     )
         except Exception as e:
             logger.warning(f"Failed to refresh cloud model list: {e}")
+        # v11.5.0: banner check
+        if hasattr(self, '_check_models_configured'):
+            self._check_models_configured()
 
     def _on_add_cloud_model(self):
-        """v11.0.0: モデル追加ダイアログ"""
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLineEdit, QDialogButtonBox
+        """v11.5.0: プロバイダー選択 + モデル ID 例示付き追加ダイアログ"""
+        from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout,
+                                      QLineEdit, QComboBox, QLabel,
+                                      QDialogButtonBox, QFrame)
         dialog = QDialog(self)
         dialog.setWindowTitle(t('desktop.cloudAI.addModelTitle'))
-        dialog.setMinimumWidth(400)
+        dialog.setMinimumWidth(520)
         layout = QVBoxLayout(dialog)
+        layout.setSpacing(10)
 
-        layout.addWidget(QLabel(t('desktop.cloudAI.addModelName')))
+        # description
+        desc_label = QLabel(t('desktop.cloudAI.addModelDesc'))
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        layout.addWidget(desc_label)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet("color: #374151;")
+        layout.addWidget(sep)
+
+        form = QFormLayout()
+        form.setSpacing(8)
+
+        # provider combo
+        provider_combo = QComboBox()
+        provider_combo.addItem(t('desktop.cloudAI.providerAnthropicApi'), "anthropic_api")
+        provider_combo.addItem(t('desktop.cloudAI.providerOpenaiApi'), "openai_api")
+        provider_combo.addItem(t('desktop.cloudAI.providerGoogleApi'), "google_api")
+        provider_combo.addItem(t('desktop.cloudAI.providerAnthropicCli'), "anthropic_cli")
+        provider_combo.addItem(t('desktop.cloudAI.providerOpenaiCli'), "openai_cli")
+        provider_combo.addItem(t('desktop.cloudAI.providerGoogleCli'), "google_cli")
+        provider_combo.setToolTip(t('desktop.cloudAI.providerTooltip'))
+        form.addRow(t('desktop.cloudAI.providerLabel'), provider_combo)
+
+        # model ID input
+        model_id_input = QLineEdit()
+        model_id_input.setPlaceholderText("e.g. claude-sonnet-4-5-20250929")
+        model_id_input.setToolTip(t('desktop.cloudAI.modelIdTooltip'))
+        form.addRow(t('desktop.cloudAI.addModelCommand'), model_id_input)
+
+        # example text
+        EXAMPLES = {
+            "anthropic_api": (
+                "【Anthropic API Model ID Examples】\n"
+                "  claude-opus-4-6\n"
+                "  claude-sonnet-4-6\n"
+                "  claude-haiku-4-5-20251001\n"
+                "Docs: https://docs.anthropic.com/en/docs/about-claude/models"
+            ),
+            "openai_api": (
+                "【OpenAI API Model ID Examples】\n"
+                "  gpt-4o  /  gpt-4o-mini\n"
+                "  gpt-4.1  /  o3  /  o4-mini\n"
+                "Docs: https://platform.openai.com/docs/models"
+            ),
+            "anthropic_cli": (
+                "【Claude CLI Model Examples】\n"
+                "  claude-opus-4-6\n"
+                "  claude-sonnet-4-6\n"
+                "Requires: npm install -g @anthropic-ai/claude-code"
+            ),
+            "openai_cli": (
+                "【Codex CLI Model Examples】\n"
+                "  gpt-5.3-codex\n"
+                "  gpt-4o\n"
+                "Requires: npm install -g @openai/codex"
+            ),
+            "google_api": (
+                "【Google Gemini API Model ID Examples】\n"
+                "  gemini-2.5-flash          ← Recommended (stable)\n"
+                "  gemini-2.5-pro            ← High performance\n"
+                "  gemini-2.5-flash-lite     ← Low cost\n"
+                "API Key: https://aistudio.google.com/app/apikey\n"
+                "SDK: pip install google-genai"
+            ),
+            "google_cli": (
+                "【Google Gemini CLI Model ID Examples】\n"
+                "  gemini-2.5-flash          ← Recommended\n"
+                "  gemini-2.5-pro\n"
+                "Install: npm install -g @google/gemini-cli\n"
+                "Auth: export GEMINI_API_KEY='AIza...'"
+            ),
+        }
+
+        example_label = QLabel(EXAMPLES["anthropic_api"])
+        example_label.setStyleSheet(
+            "color: #6b7280; font-size: 10px; font-family: monospace; "
+            "background: #1a1a2e; padding: 8px; border-radius: 4px;"
+        )
+        example_label.setWordWrap(True)
+
+        def _update_example(index):
+            key = provider_combo.currentData()
+            example_label.setText(EXAMPLES.get(key, ""))
+            placeholders = {
+                "anthropic_api": "e.g. claude-sonnet-4-6",
+                "openai_api": "e.g. gpt-4o",
+                "anthropic_cli": "e.g. claude-opus-4-6",
+                "openai_cli": "e.g. gpt-5.3-codex",
+            }
+            model_id_input.setPlaceholderText(placeholders.get(key, ""))
+
+        provider_combo.currentIndexChanged.connect(_update_example)
+
+        # display name input
         name_input = QLineEdit()
-        name_input.setPlaceholderText("例: Claude Opus 4.6")
-        layout.addWidget(name_input)
+        name_input.setPlaceholderText(t('desktop.cloudAI.addModelNamePlaceholder'))
+        name_input.setToolTip(t('desktop.cloudAI.addModelNameTooltip'))
+        form.addRow(t('desktop.cloudAI.addModelName'), name_input)
 
-        layout.addWidget(QLabel(t('desktop.cloudAI.addModelCommand')))
-        cmd_input = QLineEdit()
-        cmd_input.setPlaceholderText("例: claude --model claude-opus-4-6")
-        layout.addWidget(cmd_input)
+        layout.addLayout(form)
+        layout.addWidget(example_label)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
         buttons.accepted.connect(dialog.accept)
         buttons.rejected.connect(dialog.reject)
         layout.addWidget(buttons)
 
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            name = name_input.text().strip()
-            command = cmd_input.text().strip()
-            if not name or not command:
-                return
-            try:
-                from pathlib import Path
-                import json
-                config_path = Path("config/cloud_models.json")
-                data = {"models": []}
-                if config_path.exists():
-                    with open(config_path, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                # model_id をコマンドから推定
-                model_id = command.split("--model")[-1].strip().split()[0] if "--model" in command else name.lower().replace(" ", "-")
-                data["models"].append({
-                    "name": name, "model_id": model_id,
-                    "command": command, "builtin": False
-                })
-                with open(config_path, 'w', encoding='utf-8') as f:
-                    json.dump(data, f, indent=2, ensure_ascii=False)
-                self._refresh_cloud_model_list()
-                self._load_cloud_models_to_combo(self.cloud_model_combo)
-                self.statusChanged.emit(f"Model added: {name}")
-            except Exception as e:
-                QMessageBox.warning(self, "Error", str(e))
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        model_id = model_id_input.text().strip()
+        name = name_input.text().strip()
+        provider = provider_combo.currentData()
+
+        if not model_id:
+            QMessageBox.warning(self, t('desktop.cloudAI.addModelErrorTitle'),
+                                t('desktop.cloudAI.addModelIdRequired'))
+            return
+
+        if not name:
+            name = model_id
+
+        try:
+            from pathlib import Path
+            import json
+            config_path = Path("config/cloud_models.json")
+            data = {"models": []}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            data["models"].append({
+                "name": name,
+                "model_id": model_id,
+                "provider": provider,
+                "builtin": False,
+            })
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            self._refresh_cloud_model_list()
+            self._load_cloud_models_to_combo(self.cloud_model_combo)
+            self.statusChanged.emit(f"Model added: {name} ({provider})")
+        except Exception as e:
+            QMessageBox.warning(self, "Error", str(e))
 
     def _on_delete_cloud_model(self):
         """v11.0.0: 選択モデルを削除"""
@@ -1854,7 +2109,7 @@ class ClaudeTab(QWidget):
         if not settings_path.exists():
             settings_path.parent.mkdir(parents=True, exist_ok=True)
             import json
-            default = {"effortLevel": "high", "permissions": {}, "env": {}}
+            default = {"permissions": {}, "env": {}}
             with open(settings_path, 'w', encoding='utf-8') as f:
                 json.dump(default, f, indent=2, ensure_ascii=False)
         try:
@@ -2037,8 +2292,10 @@ class ClaudeTab(QWidget):
         self.continue_send_btn_main.clicked.connect(self._on_continue_send_main)
         btn_layout.addWidget(self.continue_send_btn_main)
 
-        self.send_btn = QPushButton(t('common.send') + " ▶")
+        self.send_btn = QPushButton(t('desktop.cloudAI.sendBtnMain'))  # v11.5.3: 統一ラベル
         self.send_btn.setDefault(True)
+        self.send_btn.setFixedHeight(32)           # v11.5.2: localAI統一
+        self.send_btn.setStyleSheet(PRIMARY_BTN)   # v11.5.2: localAI統一
         self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
         btn_layout.addWidget(self.send_btn)
 
@@ -2050,9 +2307,10 @@ class ClaudeTab(QWidget):
         continue_frame.setObjectName("continueFrame")
         continue_frame.setStyleSheet("""
             #continueFrame {
-                background-color: #1e1e1e;
-                border: 1px solid #3c3c3c;
-                border-radius: 4px;
+                background-color: #1a1a2e;
+                border: 1px solid #2a2a3e;
+                border-radius: 6px;
+                padding: 4px;
             }
         """)
         continue_layout = QVBoxLayout(continue_frame)
@@ -2075,7 +2333,8 @@ class ClaudeTab(QWidget):
         # 継続入力フィールド (v9.6: CloudAIContinueInput - 上/下キーでカーソル先頭/末尾へ)
         self.continue_input = CloudAIContinueInput()
         self.continue_input.setPlaceholderText(t('desktop.cloudAI.continuePlaceholder'))
-        self.continue_input.setMaximumHeight(50)
+        self.continue_input.setMinimumHeight(60)
+        self.continue_input.setMaximumHeight(100)
         self.continue_input.setStyleSheet("""
             QTextEdit {
                 background-color: #252526;
@@ -2261,6 +2520,10 @@ class ClaudeTab(QWidget):
 
     def retranslateUi(self):
         """言語変更時に全UIテキストを再適用"""
+        # === Chat tab ===
+        if hasattr(self, 'chat_display'):
+            self.chat_display.setPlaceholderText(t('desktop.cloudAI.chatReady'))
+
         # === Sub tabs ===
         self.sub_tabs.setTabText(0, t('desktop.cloudAI.chatSubTab'))
         self.sub_tabs.setTabText(1, t('desktop.cloudAI.settingsSubTab'))
@@ -2278,6 +2541,7 @@ class ClaudeTab(QWidget):
         self.auth_mode_combo.blockSignals(True)
         self.auth_mode_combo.clear()
         self.auth_mode_combo.addItems([
+            t('desktop.cloudAI.authAutoOption'),
             t('desktop.cloudAI.authCliOption'),
             t('desktop.cloudAI.authApiOption'),
             t('desktop.cloudAI.authOllamaOption'),
@@ -2316,10 +2580,7 @@ class ClaudeTab(QWidget):
         # v10.1.0: Browser Use checkbox (旧 search_mode_combo は削除)
         if hasattr(self, 'browser_use_checkbox'):
             self.browser_use_checkbox.setText(t('desktop.cloudAI.browserUseLabel'))
-            if self._browser_use_available:
-                self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
-            else:
-                self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseNotInstalled'))
+            self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
 
         # === Settings tab - MCP & options section ===
         self.mcp_checkbox.setText(t('desktop.cloudAI.soloMcpLabel'))
@@ -2353,7 +2614,7 @@ class ClaudeTab(QWidget):
         self.attach_btn.setToolTip(t('desktop.cloudAI.attachTooltip'))
         self.snippet_btn.setText(t('desktop.cloudAI.snippetBtnLabel'))
         self.snippet_btn.setToolTip(t('desktop.cloudAI.snippetTooltip'))
-        self.send_btn.setText(t('common.send') + " ▶")
+        self.send_btn.setText(t('desktop.cloudAI.sendBtnMain'))
         self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
         # v11.0.0: BIBLE toggle button
         if hasattr(self, 'bible_btn'):
@@ -2539,12 +2800,6 @@ class ClaudeTab(QWidget):
         # Get model from header combo
         selected_model = self.cloud_model_combo.currentData() or self.model_combo.currentData() or ""
 
-        # v11.0.0: Read effort from config
-        effort_level = self._get_effort_from_config()
-        from ..utils.constants import EffortLevel
-        if not EffortLevel.is_opus_46(selected_model):
-            effort_level = "default"
-
         import os
         working_dir = os.getcwd()
         skip_permissions = self.permission_skip_checkbox.isChecked()
@@ -2557,7 +2812,7 @@ class ClaudeTab(QWidget):
 
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
-            f"[CLI Mode --resume {self._claude_session_id[:8]}...] effort={effort_level}"
+            f"[CLI Mode --resume {self._claude_session_id[:8]}...]"
             f"</div>"
         )
 
@@ -2566,7 +2821,6 @@ class ClaudeTab(QWidget):
             prompt=message,
             model=selected_model,
             working_dir=working_dir,
-            effort_level=effort_level,
             resume_session_id=self._claude_session_id
         )
         self._cli_worker.chunkReceived.connect(self._on_cli_chunk)
@@ -2669,7 +2923,7 @@ class ClaudeTab(QWidget):
             app_dir = Path(__file__).parent.parent.parent
 
         data_dir = app_dir / "data"
-        unipet_dir = app_dir / "ユニペット"
+        unipet_dir = app_dir / "snippets"
 
         # ユニペットフォルダがなければ作成
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -3096,89 +3350,91 @@ class ClaudeTab(QWidget):
             except Exception:
                 pass
 
-            # v3.2.0: 認証モードに応じてバックエンド選択
-            # v3.9.2: Ollamaモード時は設定タブのモデルを強制使用
-            auth_mode = self.auth_mode_combo.currentIndex()  # 0: CLI, 1: API, 2: Ollama
+            # v11.5.0: provider ベースルーティング
+            auth_mode = self.auth_mode_combo.currentIndex()  # 0=Auto, 1=CLI, 2=API, 3=Ollama
+            model_id, provider = self._get_selected_model_provider()
 
-            # v9.9.1: GPT-5.3-Codex (CLI) モード
-            selected_model_id = self.model_combo.currentData() or ""
-            if selected_model_id == "gpt-5.3-codex":
-                # v10.1.0: Browser Use が有効な場合は事前にページ内容を取得
-                if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
-                    processed_message = self._prepend_browser_use_results(processed_message)
-                self._send_via_codex(processed_message, session_id)
-                return
-
-            # v10.1.0: Browser Use 事前収集（チェックボックス化）
+            # v10.1.0: Browser Use 事前収集
             if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
                 processed_message = self._prepend_browser_use_results(processed_message)
 
-            # v11.0.0: BIBLE context injection (Phase 4)
+            # v11.0.0: BIBLE context injection
             if hasattr(self, 'bible_btn') and self.bible_btn.isChecked():
                 from ..mixins.bible_context_mixin import BibleContextMixin
                 mixin = BibleContextMixin()
                 processed_message = mixin._inject_bible_to_prompt(processed_message)
 
-            if auth_mode == 0 and hasattr(self, '_use_cli_mode') and self._use_cli_mode:
-                # === CLIモード (Max/Proプラン) ===
-                # RoutingExecutorを経由せず、直接CLIバックエンドを使用
-                logger.info("[ClaudeTab._send_message] Using CLI mode (Max/Pro plan)")
+            # Ollama モード（auth_mode=3）
+            if auth_mode == 3 and hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
+                ollama_model = getattr(self, '_ollama_model', '') or self._auto_select_ollama_model()
+                ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
+                if not ollama_model:
+                    self.chat_display.append(
+                        "<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                        "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
+                    )
+                    return
+                logger.info(f"[ClaudeTab._send_message] Ollama mode: model={ollama_model}")
+                self._send_via_ollama(processed_message, ollama_url, ollama_model)
+                return
+
+            # モデル未設定チェック
+            if not model_id:
+                self.chat_display.append(
+                    "<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                    "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
+                )
+                return
+
+            # provider 別ルーティング
+            from ..backends.api_priority_resolver import (
+                resolve_anthropic_connection, resolve_openai_connection, ConnectionMode
+            )
+
+            if provider == "anthropic_api":
+                method, kwargs = resolve_anthropic_connection(ConnectionMode.API_ONLY)
+                if method == "anthropic_api":
+                    self._send_via_anthropic_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
+                else:
+                    self.chat_display.append(
+                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'Anthropic API key not configured')}</div>"
+                    )
+
+            elif provider == "openai_api":
+                method, kwargs = resolve_openai_connection(ConnectionMode.API_ONLY)
+                if method == "openai_api":
+                    self._send_via_openai_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
+                else:
+                    self.chat_display.append(
+                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'OpenAI API key not configured')}</div>"
+                    )
+
+            elif provider == "anthropic_cli":
                 self._send_via_cli(processed_message, session_id, phase)
 
-            elif auth_mode == 2 and hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
-                # === v3.9.2: Ollamaモード (ローカル) - 設定タブのモデルを強制使用 ===
-                ollama_model = getattr(self, '_ollama_model', 'qwen3-coder')
-                ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
-                logger.info(f"[ClaudeTab._send_message] Using Ollama mode: model={ollama_model}, url={ollama_url}")
-                self._send_via_ollama(processed_message, ollama_url, ollama_model)
+            elif provider == "google_api":
+                from ..backends.api_priority_resolver import resolve_google_connection
+                method, kwargs = resolve_google_connection(ConnectionMode.API_ONLY)
+                if method == "google_api":
+                    self._send_via_google_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
+                else:
+                    self.chat_display.append(
+                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'Google API key not configured')}</div>"
+                    )
+
+            elif provider == "openai_cli":
+                self._send_via_codex(processed_message, session_id)
+
+            elif provider == "google_cli":
+                self._send_via_google_cli(processed_message, session_id, model_id=model_id)
 
             else:
-                # === APIモード ===
-                # Phase 2.x: RoutingExecutorを使用した統合送信
-                # ユーザーが明示的にモデルを選択している場合はそれを優先
-                # v7.1.0: userDataからmodel_idを取得
-                user_forced_backend = None
-                model_id = self.model_combo.currentData()
-                if model_id and model_id != DEFAULT_CLAUDE_MODEL_ID:
-                    user_forced_backend = model_id
-
-                # 承認状態のスナップショットを作成
-                approval_snapshot_dict = {}
-                if self.approval_state:
-                    for scope in self.approval_state.get_approved_scopes():
-                        approval_snapshot_dict[str(scope)] = True
-
-                # リクエストを作成
-                request = BackendRequest(
-                    session_id=session_id,
-                    phase=phase,
-                    user_text=processed_message,
-                    toggles={
-                        "mcp": self.mcp_checkbox.isChecked(),
-                        "diff": self.diff_checkbox.isChecked(),
-                        "context": self.context_checkbox.isChecked(),
-                    },
-                    context={
-                        "phase": phase,
-                        "session_id": session_id,
-                    }
+                # v11.5.1: unknown provider → ユーザーガイド表示
+                guide_msg = t('desktop.cloudAI.unknownProviderGuide').format(model_id=model_id)
+                self.chat_display.append(
+                    f"<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                    f"border-radius: 4px;'>&#9888; {guide_msg}</div>"
                 )
-
-                # 承認状態をRoutingExecutorに更新
-                self.routing_executor.update_approval_state(approval_snapshot_dict)
-
-                # ステータス表示
-                self.statusChanged.emit(t('desktop.cloudAI.aiGenerating'))
-
-                # RoutingExecutor経由で送信（スレッドで非同期実行）
-                self.executor_thread = RoutingExecutorThread(
-                    self.routing_executor,
-                    request,
-                    user_forced_backend,
-                    approval_snapshot_dict
-                )
-                self.executor_thread.responseReady.connect(self._on_executor_response)
-                self.executor_thread.start()
 
         except Exception as e:
             # 送信処理中に例外が発生した場合
@@ -3219,6 +3475,136 @@ class ClaudeTab(QWidget):
     # =========================================================================
     # v9.9.1: Codex CLI モード
     # =========================================================================
+
+    # =========================================================================
+    # v11.5.0 L-G: Google Gemini 送信
+    # =========================================================================
+
+    def _send_via_google_api(self, prompt: str, session_id: str, api_key: str, model_id: str = None):
+        """v11.5.0 L-G: Google Gemini API 経由でストリーミング送信"""
+        import threading
+        from ..backends.google_api_backend import call_google_api_stream, is_google_genai_sdk_available
+
+        if not is_google_genai_sdk_available():
+            self.chat_display.append(
+                "<div style='color: #ef4444;'>google-genai SDK not installed.<br>"
+                "Run: <code>pip install google-genai</code></div>"
+            )
+            return
+
+        if not model_id:
+            model_id = self._get_first_model_by_provider("google_api") or "gemini-2.5-flash"
+
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[ClaudeTab._send_via_google_api] model={model_id}")
+        self.statusChanged.emit(f"Google Gemini API ({model_id})...")
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        self.chat_display.append(
+            f"<div style='color: #888; font-size: 9pt;'>[Gemini API: {model_id}]</div>"
+        )
+
+        def _on_done(full_text, error, sid):
+            if hasattr(self, 'solo_status_bar'):
+                self.solo_status_bar.set_status("idle")
+            if error:
+                self.chat_display.append(
+                    f"<div style='color: #ef4444;'><b>Gemini API Error:</b> {error}</div>"
+                )
+            else:
+                self._display_ai_response(full_text, model_id, "google_api")
+
+        def _thread_run():
+            full_text = ""
+            error = ""
+            try:
+                for chunk in call_google_api_stream(
+                    prompt=prompt,
+                    model_id=model_id,
+                    api_key=api_key,
+                ):
+                    full_text += chunk
+                    if self._streaming_callback_enabled and hasattr(self, '_on_cli_chunk'):
+                        from PyQt6.QtCore import QMetaObject, Qt
+                        QMetaObject.invokeMethod(
+                            self.chat_display, "append",
+                            Qt.ConnectionType.QueuedConnection,
+                        )
+            except Exception as e:
+                error = str(e)
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: _on_done(full_text, error, session_id))
+
+        self._streaming_callback_enabled = False  # Gemini はバッチ表示
+        threading.Thread(target=_thread_run, daemon=True).start()
+
+    def _send_via_google_cli(self, prompt: str, session_id: str, model_id: str = None):
+        """v11.5.0 L-G: Google Gemini CLI 経由で送信（非対話モード）"""
+        import threading
+        import shutil
+
+        if not shutil.which("gemini"):
+            self.chat_display.append(
+                "<div style='color: #ef4444;'>"
+                "Gemini CLI not found.<br>"
+                "Install: <code>npm install -g @google/gemini-cli</code>"
+                "</div>"
+            )
+            return
+
+        if not model_id:
+            model_id = self._get_first_model_by_provider("google_cli") or "gemini-2.5-flash"
+
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"[ClaudeTab._send_via_google_cli] model={model_id}")
+        self.statusChanged.emit(f"Gemini CLI ({model_id})...")
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        timeout_sec = self.solo_timeout_spin.value() * 60 if hasattr(self, 'solo_timeout_spin') else 300
+
+        def _thread_run():
+            import subprocess, json as _json, os as _os
+            full_text = ""
+            error = ""
+            try:
+                env = _os.environ.copy()
+                if not env.get("GEMINI_API_KEY") and not env.get("GOOGLE_API_KEY"):
+                    from ..backends.google_api_backend import get_google_api_key
+                    key = get_google_api_key()
+                    if key:
+                        env["GEMINI_API_KEY"] = key
+
+                cmd = ["gemini", "-p", prompt, "--model", model_id, "--yolo"]
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True,
+                    timeout=timeout_sec, env=env,
+                )
+                full_text = result.stdout.strip()
+                if result.returncode != 0 and not full_text:
+                    error = result.stderr or f"Gemini CLI returned code {result.returncode}"
+            except subprocess.TimeoutExpired:
+                error = f"Gemini CLI timeout ({timeout_sec}s)"
+            except Exception as e:
+                error = str(e)
+
+            def _on_done():
+                if hasattr(self, 'solo_status_bar'):
+                    self.solo_status_bar.set_status("idle" if not error else "error")
+                if error:
+                    self.chat_display.append(
+                        f"<div style='color: #ef4444;'><b>Gemini CLI Error:</b> {error}</div>"
+                    )
+                elif full_text:
+                    self._display_ai_response(full_text, model_id, "google_cli")
+
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, _on_done)
+
+        threading.Thread(target=_thread_run, daemon=True).start()
 
     _codex_response_ready = pyqtSignal(str, str)   # (response_text, session_id)
     _codex_error_ready = pyqtSignal(str)            # (error_message)
@@ -3301,50 +3687,172 @@ class ClaudeTab(QWidget):
         self.statusChanged.emit(t('desktop.cloudAI.codexError'))
 
     def _prepend_browser_use_results(self, prompt: str) -> str:
-        """v10.0.0: Browser Use ライブラリで事前取得した結果をプロンプトに注入
+        """v11.3.0: URL自動取得（httpx ベース）。プロンプト先頭に URL 内容を注入。
 
-        トークン削減ロジック:
-        - HTML/Markdownタグを除去してプレーンテキスト化
-        - 合計上限: config search_max_tokens (デフォルト2000トークン≈6000文字)
-        - 上限超過時は先頭からトリムし省略マーカー付与
+        browser_use パッケージ不要。Claude CLI / Codex CLI / Ollama すべてで動作する。
+        JS レンダリングが必要なページには localAI の browser_use ツールを使用すること。
         """
         try:
             import re
+            import httpx
             urls = re.findall(r'https?://[^\s\'"<>]+', prompt)
             if not urls:
                 return prompt
-            from browser_use import Browser
             results = []
-            browser = Browser()
-
-            # configから上限取得（デフォルト: 2000トークン ≈ 6000文字）
             max_chars = getattr(self, '_search_max_chars', 6000)
-
+            headers = {"User-Agent": "Mozilla/5.0 (compatible; HelixAI/1.0)"}
             for url in urls[:3]:
                 try:
-                    content = browser.get_text(url, timeout=15)
-                    if content:
-                        # HTML/Markdownタグ除去
-                        clean = re.sub(r'<[^>]+>', '', content)
-                        clean = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', clean)
-                        clean = re.sub(r'#{1,6}\s*', '', clean)
-                        clean = re.sub(r'\n{3,}', '\n\n', clean).strip()
-                        results.append(f"[{url}]\n{clean}")
-                except Exception:
-                    pass
+                    resp = httpx.get(url, timeout=15, follow_redirects=True, headers=headers)
+                    resp.raise_for_status()
+                    text = resp.text
+                    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                    text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL | re.IGNORECASE)
+                    text = re.sub(r'<[^>]+>', '', text)
+                    text = re.sub(r'\[([^\]]*)\]\([^)]*\)', r'\1', text)
+                    text = re.sub(r'\s+', ' ', text).strip()
+                    if text:
+                        results.append(f"[{url}]\n{text[:2000]}")
+                except Exception as e:
+                    logger.debug(f"URL fetch failed for {url}: {e}")
             if results:
                 combined = "\n\n".join(results)
-                # トークン上限クリッピング
                 if len(combined) > max_chars:
                     combined = combined[:max_chars] + "\n\n... [truncated]"
-                return f"<browser_results>\n{combined}\n</browser_results>\n\n{prompt}"
-        except ImportError:
-            logger.debug("browser_use not installed, skipping Browser Use fetch")
+                return f"<url_contents>\n{combined}\n</url_contents>\n\n{prompt}"
         except Exception as e:
-            logger.warning(f"Browser Use fetch failed: {e}")
+            logger.warning(f"URL fetch failed: {e}")
         return prompt
 
     # =========================================================================
+
+    def _send_via_anthropic_api(self, prompt: str, session_id: str, api_key: str, model_id: str = None):
+        """v11.5.0: Anthropic Direct API 経由で送信（ストリーミング）"""
+        import threading
+        from ..backends.anthropic_api_backend import call_anthropic_api_stream, is_anthropic_sdk_available
+
+        if not is_anthropic_sdk_available():
+            logger.warning("[ClaudeTab] anthropic SDK not installed")
+            self.chat_display.append(
+                "<div style='color: #ef4444;'>Anthropic SDK not installed. Run: pip install anthropic</div>"
+            )
+            return
+
+        if not model_id:
+            model_id = self._get_first_model_by_provider("anthropic_api")
+        logger.info(f"[ClaudeTab._send_via_anthropic_api] model={model_id}")
+
+        self.statusChanged.emit(f"Anthropic API ({model_id})...")
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        self.chat_display.append(
+            f"<div style='color: #888; font-size: 9pt;'>[API Mode: {model_id}]</div>"
+        )
+
+        def _on_done(full_text, error, sid):
+            if hasattr(self, 'solo_status_bar'):
+                self.solo_status_bar.set_status("idle")
+            if error:
+                self.chat_display.append(
+                    f"<div style='color: #ef4444;'><b>API Error:</b> {error}</div>"
+                )
+            else:
+                if hasattr(self, '_chat_logger') and self._chat_logger:
+                    try:
+                        self._chat_logger.log_exchange(
+                            user_msg=getattr(self, '_last_user_message', ''),
+                            ai_msg=full_text,
+                            model=model_id,
+                            method="anthropic_api",
+                        )
+                    except Exception:
+                        pass
+
+        def _thread_run():
+            full_text = ""
+            error = ""
+            try:
+                for chunk in call_anthropic_api_stream(
+                    prompt=prompt,
+                    model_id=model_id,
+                    api_key=api_key,
+                ):
+                    full_text += chunk
+                    # CLI chunk handler を流用してストリーミング表示
+                    if hasattr(self, '_on_cli_chunk'):
+                        from PyQt6.QtCore import QMetaObject, Qt, Q_ARG
+                        QMetaObject.invokeMethod(
+                            self, "_on_cli_chunk_invoke",
+                            Qt.ConnectionType.QueuedConnection,
+                            Q_ARG(str, chunk)
+                        )
+            except Exception as e:
+                error = str(e)
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: _on_done(full_text, error, session_id))
+
+        threading.Thread(target=_thread_run, daemon=True).start()
+
+    def _send_via_openai_api(self, prompt: str, session_id: str, api_key: str, model_id: str = None):
+        """v11.5.0: OpenAI Direct API 経由で送信（ストリーミング）"""
+        import threading
+        from ..backends.openai_api_backend import call_openai_api_stream, is_openai_sdk_available
+
+        if not is_openai_sdk_available():
+            logger.warning("[ClaudeTab] openai SDK not installed")
+            self.chat_display.append(
+                "<div style='color: #ef4444;'>OpenAI SDK not installed. Run: pip install openai</div>"
+            )
+            return
+
+        if not model_id:
+            model_id = self._get_first_model_by_provider("openai_api") or "gpt-4o"
+        logger.info(f"[ClaudeTab._send_via_openai_api] model={model_id}")
+
+        self.statusChanged.emit(f"OpenAI API ({model_id})...")
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("running")
+
+        self.chat_display.append(
+            f"<div style='color: #888; font-size: 9pt;'>[OpenAI API Mode: {model_id}]</div>"
+        )
+
+        def _on_done(full_text, error, sid):
+            if hasattr(self, 'solo_status_bar'):
+                self.solo_status_bar.set_status("idle")
+            if error:
+                self.chat_display.append(
+                    f"<div style='color: #ef4444;'><b>API Error:</b> {error}</div>"
+                )
+            else:
+                if hasattr(self, '_chat_logger') and self._chat_logger:
+                    try:
+                        self._chat_logger.log_exchange(
+                            user_msg=getattr(self, '_last_user_message', ''),
+                            ai_msg=full_text,
+                            model=model_id,
+                            method="openai_api",
+                        )
+                    except Exception:
+                        pass
+
+        def _thread_run():
+            full_text = ""
+            error = ""
+            try:
+                for chunk in call_openai_api_stream(
+                    prompt=prompt,
+                    model_id=model_id,
+                    api_key=api_key,
+                ):
+                    full_text += chunk
+            except Exception as e:
+                error = str(e)
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(0, lambda: _on_done(full_text, error, session_id))
+
+        threading.Thread(target=_thread_run, daemon=True).start()
 
     def _send_via_cli(self, prompt: str, session_id: str, phase: str):
         """
@@ -3379,17 +3887,6 @@ class ClaudeTab(QWidget):
         self._cli_session_id = session_id
         self._cli_phase = phase
 
-        # v11.0.0: Read effort from config.json (hidden setting)
-        effort_level = self._get_effort_from_config()
-
-        # Opus 4.6以外の場合はeffortを無効化
-        from ..utils.constants import EffortLevel
-        if not EffortLevel.is_opus_46(selected_model):
-            effort_level = "default"
-
-        if effort_level != "default":
-            logger.info(f"[ClaudeTab._send_via_cli] Effort level: {effort_level}")
-
         # 作業ディレクトリを取得（プロジェクトディレクトリ）
         import os
         working_dir = os.getcwd()
@@ -3403,7 +3900,7 @@ class ClaudeTab(QWidget):
         # 認証モード情報をチャットに表示
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
-            f"[CLI Mode] effort={effort_level}"
+            f"[CLI Mode]"
             f"</div>"
         )
 
@@ -3411,7 +3908,7 @@ class ClaudeTab(QWidget):
         skip_permissions = self.permission_skip_checkbox.isChecked()
 
         # v7.1.0: selected_model は currentData() で取得済み
-        logger.info(f"[ClaudeTab._send_via_cli] Starting CLI request: model={selected_model}, effort={effort_level}, working_dir={working_dir}, skip_permissions={skip_permissions}")
+        logger.info(f"[ClaudeTab._send_via_cli] Starting CLI request: model={selected_model}, working_dir={working_dir}, skip_permissions={skip_permissions}")
 
         # CLIバックエンドへの参照を取得 (v3.5.0: 権限スキップ設定, v3.9.4: モデル選択を渡す)
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions, model=selected_model)
@@ -3422,7 +3919,6 @@ class ClaudeTab(QWidget):
             prompt=prompt,
             model=selected_model,  # v3.9.4: モデルを渡す
             working_dir=working_dir,
-            effort_level=effort_level
         )
         self._cli_worker.chunkReceived.connect(self._on_cli_chunk)
         self._cli_worker.completed.connect(self._on_cli_response)
@@ -3593,31 +4089,6 @@ class ClaudeTab(QWidget):
                 )
 
                 self.statusChanged.emit(t('desktop.cloudAI.fallbackSonnet'))
-
-                # 再送信
-                if hasattr(self, '_cli_prompt') and self._cli_prompt:
-                    self._send_via_cli(self._cli_prompt, self._cli_session_id, self._cli_phase)
-                return
-
-            # v9.8.0: effortレベルエラーを検出してフォールバック
-            effort_errors = [
-                "effort", "CLAUDE_CODE_EFFORT_LEVEL", "unsupported",
-                "unknown option", "invalid parameter", "not supported"
-            ]
-            is_effort_error = any(err in error_text for err in effort_errors)
-
-            if is_effort_error and self._get_effort_from_config() != "default":
-                logger.warning(f"[ClaudeTab._on_cli_response] Effort error detected: {error_text[:100]}")
-
-                # v11.0.0: effort is now in config.json; log a warning
-                self.chat_display.append(
-                    f"<div style='color: #ffa500; margin-top: 10px;'>"
-                    f"<b>⚠️ Effort Error:</b><br>"
-                    f"{t('desktop.cloudAI.effortFallbackWarn')}"
-                    f"</div>"
-                )
-
-                self.statusChanged.emit(t('desktop.cloudAI.effortFallbackWarn'))
 
                 # 再送信
                 if hasattr(self, '_cli_prompt') and self._cli_prompt:
@@ -4448,8 +4919,8 @@ class ClaudeTab(QWidget):
             return
 
         # CLIモードのみサポート
-        auth_mode = self.auth_mode_combo.currentIndex()  # 0: CLI, 1: API, 2: Ollama
-        if auth_mode != 0 or not hasattr(self, '_use_cli_mode') or not self._use_cli_mode:
+        auth_mode = self.auth_mode_combo.currentIndex()  # v11.4.0: 0=Auto, 1=CLI, 2=API, 3=Ollama
+        if auth_mode != 1 or not hasattr(self, '_use_cli_mode') or not self._use_cli_mode:
             QMessageBox.information(
                 self,
                 t('desktop.cloudAI.conversationContinueTitle'),
@@ -4481,14 +4952,6 @@ class ClaudeTab(QWidget):
         # ステータス表示
         self.statusChanged.emit(t('desktop.cloudAI.continuationProcessing'))
 
-        # v11.0.0: effort from config.json (hidden setting)
-        effort_level = self._get_effort_from_config()
-        # Opus 4.6以外はeffort無効
-        from ..utils.constants import EffortLevel
-        model_id = self.model_combo.currentData() or ""
-        if not EffortLevel.is_opus_46(model_id):
-            effort_level = "default"
-
         # 作業ディレクトリを取得
         import os
         working_dir = os.getcwd()
@@ -4498,7 +4961,6 @@ class ClaudeTab(QWidget):
 
         # CLIバックエンドを取得
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions)
-        self._cli_backend.effort_level = effort_level
 
         # BackendRequestを作成（use_continue フラグを設定）
         session_id = self.session_manager.get_current_session_id() or "continue_session"
@@ -4524,7 +4986,6 @@ class ClaudeTab(QWidget):
             backend=self._cli_backend,
             prompt=message,
             working_dir=working_dir,
-            effort_level=effort_level
         )
         # CLIWorkerでは直接コマンドを実行するため、send_continueを使用するには
         # 別のアプローチが必要。ここではsend_continueを呼び出す専用スレッドを使用。

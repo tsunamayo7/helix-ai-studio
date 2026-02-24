@@ -29,9 +29,49 @@ from ..utils.constants import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-EMBEDDING_MODEL = "qwen3-embedding:4b"
-CONTROL_MODEL = "ministral-3:8b"
-KG_MODEL = "command-a:latest"
+EMBEDDING_MODEL = ""   # v11.5.0: 動的取得（_get_ctrl/emb_model()）
+CONTROL_MODEL = ""     # v11.5.0: 動的取得
+KG_MODEL = ""          # v11.5.0: 動的取得
+
+_FALLBACK_EMBEDDING = "nomic-embed-text:latest"
+_FALLBACK_CONTROL = "mistral:latest"
+_FALLBACK_KG = "mistral:latest"
+
+
+def _get_rag_ctrl_model() -> str:
+    """v11.5.0: RAG用制御モデルを動的取得"""
+    try:
+        from ..memory.model_config import get_quality_llm
+        m = get_quality_llm()
+        if m:
+            return m
+    except Exception:
+        pass
+    return CONTROL_MODEL or _FALLBACK_CONTROL
+
+
+def _get_rag_emb_model() -> str:
+    """v11.5.0: RAG用Embeddingモデルを動的取得"""
+    try:
+        from ..memory.model_config import get_embedding_model
+        m = get_embedding_model()
+        if m:
+            return m
+    except Exception:
+        pass
+    return EMBEDDING_MODEL or _FALLBACK_EMBEDDING
+
+
+def _get_rag_kg_model() -> str:
+    """v11.5.0: RAG用KGモデルを動的取得"""
+    try:
+        from ..memory.model_config import get_quality_llm
+        m = get_quality_llm()
+        if m:
+            return m
+    except Exception:
+        pass
+    return KG_MODEL or _FALLBACK_KG
 
 
 def _embedding_to_blob(embedding: List[float]) -> bytes:
@@ -170,6 +210,11 @@ class RAGExecutor:
                            progress_callback: Optional[Callable] = None) -> List[Chunk]:
         """qwen3-embedding:4bでEmbedding生成（同期実行）"""
         import requests
+        try:
+            from ..memory.model_config import get_embedding_model
+            embedding_model = get_embedding_model()
+        except Exception:
+            embedding_model = EMBEDDING_MODEL  # フォールバック
 
         for i, chunk in enumerate(chunks):
             if self._cancelled:
@@ -177,7 +222,7 @@ class RAGExecutor:
 
             try:
                 url = f"{self.ollama_host}/api/embed"
-                payload = {"model": EMBEDDING_MODEL, "input": chunk.content}
+                payload = {"model": embedding_model, "input": chunk.content}
                 resp = requests.post(url, json=payload, timeout=30)
 
                 if resp.status_code == 200:
@@ -206,6 +251,11 @@ class RAGExecutor:
                                progress_callback: Optional[Callable] = None) -> List[Chunk]:
         """ministral-3:8bで要約/キーワード抽出"""
         import requests
+        try:
+            from ..memory.model_config import get_quality_llm
+            quality_llm = get_quality_llm()
+        except Exception:
+            quality_llm = CONTROL_MODEL  # フォールバック
 
         EXTRACT_PROMPT = """以下のテキストチャンクについて、JSON形式のみ出力してください。
 説明文やマークダウンは不要です。
@@ -228,7 +278,7 @@ JSON:"""
                 prompt = EXTRACT_PROMPT.format(chunk_text=chunk.content[:1000])
                 url = f"{self.ollama_host}/api/generate"
                 payload = {
-                    "model": CONTROL_MODEL,
+                    "model": quality_llm,
                     "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0.1, "num_predict": 512},
@@ -423,7 +473,7 @@ JSON:"""
                     try:
                         url = f"{self.ollama_host}/api/generate"
                         payload = {
-                            "model": CONTROL_MODEL,
+                            "model": _get_rag_ctrl_model(),
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.1, "num_predict": 512},
@@ -467,7 +517,7 @@ JSON:"""
                     try:
                         url = f"{self.ollama_host}/api/generate"
                         payload = {
-                            "model": CONTROL_MODEL,
+                            "model": _get_rag_ctrl_model(),
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.1, "num_predict": 800},
@@ -592,7 +642,7 @@ JSON:"""
                     try:
                         url = f"{self.ollama_host}/api/generate"
                         payload = {
-                            "model": CONTROL_MODEL,
+                            "model": _get_rag_ctrl_model(),
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.1, "num_predict": 256},
@@ -679,6 +729,11 @@ JSON:"""
         """ministral-3:8bで検証クエリを生成し、RAG検索品質をセルフチェック"""
         import requests
         import random
+        try:
+            from ..memory.model_config import get_quality_llm
+            quality_llm = get_quality_llm()
+        except Exception:
+            quality_llm = CONTROL_MODEL  # フォールバック
 
         QUERY_GEN_PROMPT = """以下のテキストの内容について、検索テストに使える質問を1つ生成してください。
 質問のみ出力してください（日本語）。
@@ -700,7 +755,7 @@ JSON:"""
                 prompt = QUERY_GEN_PROMPT.format(chunk_text=chunk.content[:500])
                 url = f"{self.ollama_host}/api/generate"
                 payload = {
-                    "model": CONTROL_MODEL,
+                    "model": quality_llm,
                     "prompt": prompt,
                     "stream": False,
                     "options": {"temperature": 0.3, "num_predict": 128},
@@ -975,8 +1030,13 @@ JSON:"""
         """同期Embedding取得"""
         import requests
         try:
+            from ..memory.model_config import get_embedding_model
+            _embedding_model = get_embedding_model()
+        except Exception:
+            _embedding_model = EMBEDDING_MODEL  # フォールバック
+        try:
             url = f"{self.ollama_host}/api/embed"
-            payload = {"model": EMBEDDING_MODEL, "input": text}
+            payload = {"model": _embedding_model, "input": text}
             resp = requests.post(url, json=payload, timeout=15)
             if resp.status_code == 200:
                 data = resp.json()

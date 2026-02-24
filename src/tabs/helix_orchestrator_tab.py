@@ -968,6 +968,20 @@ mixAI 動作検証 JSON を検索
         return "\n".join(sections)
 
 
+class _ContinueTextEdit(QPlainTextEdit):
+    """会話継続パネル用テキスト入力（Enter=送信、Shift+Enter=改行）"""
+    def __init__(self, send_callback, parent=None):
+        super().__init__(parent)
+        self._send_cb = send_callback
+
+    def keyPressEvent(self, e):
+        from PyQt6.QtCore import Qt as _Qt
+        if e.key() in (_Qt.Key.Key_Return, _Qt.Key.Key_Enter) and not (e.modifiers() & _Qt.KeyboardModifier.ShiftModifier):
+            self._send_cb()
+            return
+        super().keyPressEvent(e)
+
+
 class HelixOrchestratorTab(QWidget):
     """
     mixAI v7.0.0 タブ
@@ -1211,7 +1225,7 @@ class HelixOrchestratorTab(QWidget):
     def _on_continue_send(self):
         """v10.1.0: 会話継続パネルの送信"""
         if hasattr(self, 'mixai_continue_input'):
-            message = self.mixai_continue_input.text().strip()
+            message = self.mixai_continue_input.toPlainText().strip()
             if message:
                 self.mixai_continue_input.clear()
                 self._on_continue_with_message(message)
@@ -1319,13 +1333,17 @@ class HelixOrchestratorTab(QWidget):
 
         # Engine combo (preserve selection, update display names)
         engine_idx = self.engine_combo.currentIndex()
-        self._engine_options = [
-            ("claude-opus-4-6", t('desktop.mixAI.engineOpus46')),
-            ("claude-sonnet-4-6", t('desktop.mixAI.engineSonnet46')),
-            ("gpt-5.3-codex", t('desktop.mixAI.engineGpt53Codex')),
-            ("claude-opus-4-5-20250929", t('desktop.mixAI.engineOpus45')),
-            ("claude-sonnet-4-5-20250929", t('desktop.mixAI.engineSonnet45')),
-        ]
+        # v11.5.0: cloud_models.json から動的取得（ハードコード廃止）
+        from ..utils.model_catalog import get_cloud_models
+        cloud_models = get_cloud_models()
+        if cloud_models:
+            self._engine_options = [
+                (m.get("model_id", ""), m.get("name", m.get("model_id", "")))
+                for m in cloud_models
+            ]
+        else:
+            # cloud_models.json が空の場合はフォールバック表示なし
+            self._engine_options = []
         self._add_ollama_engines()
         self.engine_combo.blockSignals(True)
         self.engine_combo.clear()
@@ -1418,11 +1436,7 @@ class HelixOrchestratorTab(QWidget):
             self.mixai_browser_use_group.setTitle(t('desktop.mixAI.browserUseGroup'))
         if hasattr(self, 'mixai_browser_use_cb'):
             self.mixai_browser_use_cb.setText(t('desktop.mixAI.browserUseLabel'))
-            try:
-                import browser_use  # noqa: F401
-                self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseTip'))
-            except ImportError:
-                self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseNotInstalled'))
+            self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseTip'))
 
     def _create_chat_panel(self) -> QWidget:
         """チャットパネルを作成 (v11.0.0: cloudAI風レイアウトに統一)"""
@@ -1458,6 +1472,7 @@ class HelixOrchestratorTab(QWidget):
         # === 上部: チャット表示エリア（メイン領域） ===
         self.chat_display = QTextEdit()
         self.chat_display.setReadOnly(True)
+        self.chat_display.setFont(QFont("Yu Gothic UI", 10))  # v11.5.2: 統一
         self.chat_display.setPlaceholderText(t('desktop.mixAI.outputPlaceholder'))
         self.chat_display.setStyleSheet(
             "QTextEdit { background-color: #0a0a1a; border: none; "
@@ -1528,8 +1543,9 @@ class HelixOrchestratorTab(QWidget):
 
         # メッセージ入力欄
         self.input_text = MixAIEnhancedInput()
+        self.input_text.setFont(QFont("Yu Gothic UI", 11))  # v11.5.2: 統一
         self.input_text.setPlaceholderText(t('desktop.mixAI.inputPlaceholder'))
-        self.input_text.setMaximumHeight(100)
+        self.input_text.setMaximumHeight(150)
         self.input_text.file_dropped.connect(self.attachment_bar.add_files)
         left_layout.addWidget(self.input_text)
 
@@ -1638,14 +1654,15 @@ class HelixOrchestratorTab(QWidget):
         layout.addWidget(self.mixai_continue_sub)
 
         # テキスト入力
-        self.mixai_continue_input = QLineEdit()
+        self.mixai_continue_input = _ContinueTextEdit(self._on_continue_send)
         self.mixai_continue_input.setPlaceholderText(t('desktop.mixAI.continuePlaceholder'))
+        self.mixai_continue_input.setMinimumHeight(60)
+        self.mixai_continue_input.setMaximumHeight(90)
         self.mixai_continue_input.setStyleSheet("""
-            QLineEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
+            QPlainTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
                         border-radius: 4px; padding: 4px 8px; font-size: 11px; }
-            QLineEdit:focus { border-color: #007acc; }
+            QPlainTextEdit:focus { border-color: #007acc; }
         """)
-        self.mixai_continue_input.returnPressed.connect(self._on_continue_send)
         layout.addWidget(self.mixai_continue_input)
 
         # クイックボタン行 (cloudAIと同一スタイル)
@@ -1739,6 +1756,12 @@ class HelixOrchestratorTab(QWidget):
         engine_combo_row.addStretch()
         claude_layout.addRow(self.p1p3_engine_label, engine_combo_row)
 
+        # v11.3.0: エンジン説明ラベル
+        self.engine_desc_label = QLabel("")
+        self.engine_desc_label.setStyleSheet("color: #94a3b8; font-size: 11px; padding: 2px 0;")
+        self.engine_desc_label.setWordWrap(True)
+        claude_layout.addRow("", self.engine_desc_label)
+
         # v11.0.0: engine_type_label removed
 
         # v9.7.1: Claudeモデル選択は engine_combo (P1/P3モデル) に統合済み
@@ -1794,7 +1817,7 @@ class HelixOrchestratorTab(QWidget):
         self.phase4_model_combo = NoScrollComboBox()
         populate_combo(self.phase4_model_combo,
                        get_phase4_candidates(skip_label=t('desktop.mixAI.phase4Disabled')),
-                       current_value="Claude Sonnet 4.6")
+                       current_value="")
         self.phase4_label = QLabel(t('desktop.mixAI.phase4Model'))
         phase4_layout.addRow(self.phase4_label, self.phase4_model_combo)
         phase4_layout.addRow(create_section_save_button(self._save_all_settings_section))
@@ -1803,6 +1826,8 @@ class HelixOrchestratorTab(QWidget):
         # 初期エンジン状態に合わせてClaudeモデル/思考モードを有効/無効化
         initial_engine_id = self.engine_combo.currentData() or ""
         self._update_claude_controls_availability(initial_engine_id.startswith("claude-"))
+        self._update_engine_desc(initial_engine_id)
+        self._update_engine_desc(initial_engine_id)
 
         # === Ollama接続設定 ===
         self.ollama_group = QGroupBox(t('desktop.mixAI.ollamaGroup'))
@@ -1883,7 +1908,6 @@ class HelixOrchestratorTab(QWidget):
         # === v11.0.0: Phase 2設定 — 説明文ツールチップ化、候補は動的、editable=False ===
         from ..utils.model_catalog import get_phase2_candidates, populate_combo as _populate
         self.phase_group = QGroupBox(t('desktop.mixAI.phase2GroupLabel'))
-        self.phase_group.setToolTip(t('desktop.mixAI.phaseDesc'))
         phase_layout = QVBoxLayout()
 
         # v11.0.0: 説明文QLabel廃止（ツールチップに移行）
@@ -1988,13 +2012,9 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_browser_use_group.setStyleSheet(SECTION_CARD_STYLE)
         browser_use_layout = QVBoxLayout()
         self.mixai_browser_use_cb = QCheckBox(t('desktop.mixAI.browserUseLabel'))
-        try:
-            import browser_use  # noqa: F401
-            self.mixai_browser_use_cb.setEnabled(True)
-            self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseTip'))
-        except ImportError:
-            self.mixai_browser_use_cb.setEnabled(False)
-            self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseNotInstalled'))
+        # v11.3.0: httpxベースのため常時有効（browser_use パッケージ不要）
+        self.mixai_browser_use_cb.setEnabled(True)
+        self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseTip'))
         browser_use_layout.addWidget(self.mixai_browser_use_cb)
         browser_use_layout.addWidget(_csb(self._save_all_settings_section))
         self.mixai_browser_use_group.setLayout(browser_use_layout)
@@ -2211,13 +2231,28 @@ class HelixOrchestratorTab(QWidget):
     # ═══ v9.3.0: P1/P3エンジン切替 ═══
 
     def _populate_engine_combo(self):
-        """v11.0.0: cloudAI登録済みモデルをengine_comboに動的設定"""
-        from ..utils.model_catalog import get_cloud_models
+        """v11.2.2: cloudAI登録済みモデル + localAIインストール済みモデルをengine_comboに動的設定"""
+        from ..utils.model_catalog import get_cloud_models, get_ollama_installed_models
         self.engine_combo.blockSignals(True)
         saved = self.engine_combo.currentData()
         self.engine_combo.clear()
+
+        # ── Cloud AI ──
         for m in get_cloud_models():
             self.engine_combo.addItem(m.get("name", ""), m.get("model_id", ""))
+
+        # ── Local LLM ──
+        ollama_models = get_ollama_installed_models()
+        if ollama_models:
+            sep_idx = self.engine_combo.count()
+            self.engine_combo.addItem("── Local LLM ──", "")
+            # セパレーターを選択不可にする
+            sep_item = self.engine_combo.model().item(sep_idx)
+            if sep_item:
+                sep_item.setEnabled(False)
+            for model_name in ollama_models:
+                self.engine_combo.addItem(model_name, model_name)
+
         # 保存値を復元
         if saved:
             for i in range(self.engine_combo.count()):
@@ -2250,17 +2285,51 @@ class HelixOrchestratorTab(QWidget):
         self.statusChanged.emit("Model lists refreshed")
 
     def _add_ollama_engines(self):
-        """v11.0.0: 後方互換スタブ"""
-        pass
+        """v11.2.2: _populate_engine_combo() に統合（後方互換エイリアス）"""
+        self._populate_engine_combo()
 
     def _on_engine_changed(self, index):
         """エンジン変更時の処理"""
         engine_id = self.engine_combo.currentData()
-        if engine_id:
-            self._save_engine_setting(engine_id)
-            # v9.9.0: is_claude excludes gpt-5.3-codex (not a Claude engine)
-            is_claude = engine_id.startswith("claude-")
-            self._update_claude_controls_availability(is_claude)
+        # セパレーター（data=""）が選択された場合はスキップ
+        if not engine_id:
+            return
+        self._save_engine_setting(engine_id)
+        # v9.9.0: is_claude excludes gpt-5.3-codex (not a Claude engine)
+        is_claude = engine_id.startswith("claude-")
+        self._update_claude_controls_availability(is_claude)
+        self._update_engine_desc(engine_id)
+        self._update_engine_desc(engine_id)
+
+    def _update_engine_desc(self, engine_id: str):
+        """エンジン説明ラベルを更新（v11.3.0）"""
+        if not hasattr(self, 'engine_desc_label'):
+            return
+        if not engine_id:
+            self.engine_desc_label.setText("")
+            return
+        if engine_id.startswith("claude-"):
+            desc = t('desktop.mixAI.engineDescClaude')
+        elif "codex" in engine_id.lower() or engine_id.startswith("gpt-"):
+            desc = t('desktop.mixAI.engineDescCodex')
+        else:
+            desc = t('desktop.mixAI.engineDescLocal')
+        self.engine_desc_label.setText(desc)
+
+    def _update_engine_desc(self, engine_id: str):
+        """エンジン説明ラベルを更新（v11.3.0）"""
+        if not hasattr(self, 'engine_desc_label'):
+            return
+        if not engine_id:
+            self.engine_desc_label.setText("")
+            return
+        if engine_id.startswith("claude-"):
+            desc = t('desktop.mixAI.engineDescClaude')
+        elif "codex" in engine_id.lower() or engine_id.startswith("gpt-"):
+            desc = t('desktop.mixAI.engineDescCodex')
+        else:
+            desc = t('desktop.mixAI.engineDescLocal')
+        self.engine_desc_label.setText(desc)
 
     def _update_claude_controls_availability(self, is_claude: bool):
         """Claudeエンジン選択時のみモデル/タイムアウトを有効化 (v11.0.0: effort/engine_type removed)"""
@@ -2268,16 +2337,17 @@ class HelixOrchestratorTab(QWidget):
         self.p1p3_timeout_spin.setEnabled(is_claude)
 
     def _load_engine_setting(self) -> str:
-        """config.jsonからエンジン設定を読み込み"""
+        """config.jsonからエンジン設定を読み込み（v11.3.0: get_default_claude_model()使用）"""
+        from ..utils.constants import get_default_claude_model
         try:
             config_path = Path("config/config.json")
             if config_path.exists():
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                return config.get("orchestrator_engine", "claude-opus-4-6")
+                return config.get("orchestrator_engine", get_default_claude_model())
         except Exception:
             pass
-        return "claude-opus-4-6"
+        return get_default_claude_model()
 
     def _load_config_value(self, key: str, default=None):
         """v11.0.0: config.jsonから任意のキーを読み込むヘルパー"""
@@ -2505,7 +2575,7 @@ class HelixOrchestratorTab(QWidget):
             app_dir = Path(__file__).parent.parent.parent
 
         data_dir = app_dir / "data"
-        unipet_dir = app_dir / "ユニペット"
+        unipet_dir = app_dir / "snippets"
 
         # フォルダがなければ作成
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -2924,8 +2994,6 @@ class HelixOrchestratorTab(QWidget):
             self.config.claude_model = DEFAULT_CLAUDE_MODEL_ID
 
         self.config.claude_auth_mode = "cli"
-        # v11.0.0: effort level read from config.json (UI combo removed)
-        self.config.effort_level = self._load_config_value("mixai_effort_level", "default")
 
         # P1/P3タイムアウト設定
         if hasattr(self, 'p1p3_timeout_spin'):
@@ -2974,9 +3042,9 @@ class HelixOrchestratorTab(QWidget):
         config_json_path = Path("config/config.json")
 
         new_model_assignments = self._get_model_assignments()
-        engine_id = self.engine_combo.currentData() or "claude-opus-4-6"
-        # v11.0.0: effort values preserved from existing config (UI combos removed)
-        effort_val = self._load_config_value("mixai_effort_level", "default")
+        # v11.5.0: ハードコードフォールバック廃止
+        from ..utils.constants import get_default_claude_model
+        engine_id = self.engine_combo.currentData() or get_default_claude_model() or ""
         gpt_effort_val = self._load_config_value("gpt_reasoning_effort", "default")
         phase35_model = self.phase35_model_combo.currentText() if hasattr(self, 'phase35_model_combo') else ""
         phase4_model = self.phase4_model_combo.currentText() if hasattr(self, 'phase4_model_combo') else ""
@@ -2999,7 +3067,6 @@ class HelixOrchestratorTab(QWidget):
             config_data["phase4_model"] = phase4_model
             config_data["mixai_search_mode"] = config_data.get("mixai_search_mode", 0)  # v11.0.0: preserved from existing config
             config_data["mixai_browser_use_enabled"] = self.mixai_browser_use_cb.isChecked() if hasattr(self, 'mixai_browser_use_cb') else False
-            config_data["mixai_effort_level"] = effort_val
             config_data["gpt_reasoning_effort"] = gpt_effort_val
             config_data["max_phase2_retries"] = max_retries
             config_data["p1p3_timeout_minutes"] = p1p3_timeout

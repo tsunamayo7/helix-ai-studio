@@ -1,21 +1,27 @@
 # Helix AI Studio - Dependencies
-# Version: 1.0.0
+# Version: 11.5.3
 
 # Core GUI Framework
 PyQt6>=6.6.0
 PyQt6-WebEngine>=6.6.0
 
-# AI/LLM Integration
-# v6.0.0: anthropic パッケージを削除（CLI専用化）
-# anthropic>=0.39.0
-google-genai>=0.4.0              # Used by gemini_backend.py
+# AI/LLM Integration (v11.5.0: API-first architecture)
+anthropic>=0.40.0                # Claude API direct connection (v11.4.0+)
+openai>=1.0.0                    # OpenAI / Codex API direct connection (v11.4.0+)
+google-genai>=1.0.0              # Google Gemini API (v11.5.0+, GA unified SDK)
+# NOTE: google-generativeai is EOL (2025/11/30) — use google-genai instead
+
+# Web Server (Web UI backend)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.5.0
+httpx>=0.25.0                    # URL fetch fallback for localAI
 
 # MCP (Model Context Protocol)
 mcp>=1.0.0
 
 # Knowledge Graph / RAG
 networkx>=3.2
-# pyvis>=0.3.2                   # Currently unused (Knowledge Graph visualization, may be needed later)
 
 # Data Processing
 numpy>=1.26.0
@@ -24,13 +30,7 @@ pandas>=2.1.0
 # Async Support
 aiohttp>=3.9.0
 
-# Browser Automation (for future Auto-Debug feature)
-# playwright>=1.40.0
-
-# Browser Use - LLM web automation (v11.1.0: localAI/mixAI Browser Use integration)
-# browser-use>=0.1.0
-
-# PDF Document Processing (v8.5.0: RAG構築用)
+# PDF Document Processing (v8.5.0: RAG)
 PyMuPDF>=1.23.0
 
 # Utilities
@@ -39,8 +39,31 @@ pyyaml>=6.0.1
 cryptography>=41.0.0
 requests>=2.31.0
 
-# QR Code generation (v10.0.0: Discord通知用)
+# QR Code generation (v10.0.0: Discord notification)
 qrcode[pil]>=7.4.0
+
+# ============================================================
+# Optional Packages (install to unlock additional features)
+# ============================================================
+
+# --- Browser Use (JS-rendered page fetching for localAI) ---
+# Without it, only static pages can be fetched (httpx fallback works).
+# Install: pip install browser-use && python -m playwright install chromium
+# Or install from within the app: Settings > Optional Tools Status
+# browser-use>=0.2.0
+
+# --- sentence-transformers (Local Embedding for RAG) ---
+# Without it, Ollama Embedding is used (requires Ollama running).
+# Install: pip install sentence-transformers
+# sentence-transformers>=2.2.0
+
+# ============================================================
+# External CLI Tools (install separately)
+# ============================================================
+# Claude Code CLI:   npm install -g @anthropic-ai/claude-code
+#   Docs: https://docs.anthropic.com/en/docs/claude-code
+# Codex CLI:         npm install -g @openai/codex
+# Ollama:            https://ollama.com/download
 
 # Development (optional)
 # pyinstaller>=6.3.0

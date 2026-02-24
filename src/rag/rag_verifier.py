@@ -57,11 +57,15 @@ VERIFICATION_PROMPT = """あなたはRAG品質検証AIです。構築されたRA
 
 
 class RAGVerifier:
-    """Claude Opus 4.6 によるRAG品質検証"""
+    """クラウドAIによるRAG品質検証"""
 
     def __init__(self, db_path: str = "data/helix_memory.db",
-                 claude_model: str = "claude-opus-4-6"):
+                 claude_model: str = ""):
         self.db_path = db_path
+        # v11.5.0: 動的モデル解決
+        if not claude_model:
+            from ..utils.constants import get_default_claude_model
+            claude_model = get_default_claude_model()
         self.claude_model = claude_model
 
     def verify(self, plan: dict, folder_path: str) -> dict:

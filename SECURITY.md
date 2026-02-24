@@ -6,18 +6,17 @@ We actively support the latest major and minor versions with security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 8.4.x   | :white_check_mark: |
-| 8.3.x   | :white_check_mark: |
-| 8.2.x   | :x:                |
-| < 8.0   | :x:                |
+| 11.5.x  | :white_check_mark: |
+| 11.x    | :white_check_mark: |
+| < 11.0  | :x:                |
 
 ## Reporting a Vulnerability
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Instead, please report security vulnerabilities to:
+Instead, please report security vulnerabilities via:
 
-**Email**: tomotomlo@gmail.com
+**GitHub Security Advisories**: [Report a vulnerability](https://github.com/tsunamayo7/helix-ai-studio/security/advisories/new)
 
 ### What to Include
 
@@ -48,7 +47,7 @@ Please include the following information in your report:
 
 ### MCP (Model Context Protocol) Servers
 
-âš EE**Third-party MCP servers can introduce security risks, including:**
+âš ï¿½Eï¿½E**Third-party MCP servers can introduce security risks, including:**
 
 - Prompt injection attacks via MCP server responses
 - Filesystem access beyond intended scope

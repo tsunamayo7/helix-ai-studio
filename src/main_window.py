@@ -86,6 +86,14 @@ class MainWindow(QMainWindow):
         self._web_lock_timer.start()
         self._web_locked = False
 
+        # v11.2.1: 週次自動クリーンアップタイマー
+        self._cleanup_timer = QTimer(self)
+        self._cleanup_timer.setSingleShot(False)
+        self._cleanup_timer.setInterval(7 * 24 * 60 * 60 * 1000)
+        self._cleanup_timer.timeout.connect(self._auto_cleanup)
+        QTimer.singleShot(30_000, self._auto_cleanup)
+        self._cleanup_timer.start()
+
     def _restore_window_geometry(self):
         """v5.0.0: 前回のウィンドウサイズ・位置を復元"""
         geometry = self.settings.value("geometry")
@@ -814,6 +822,38 @@ QMenu::separator {
 
         event.accept()
 
+    def _auto_cleanup(self):
+        """v11.2.1: 週次自動クリーンアップ（サイレント実行）"""
+        import logging
+        import time
+        from pathlib import Path
+        _logger = logging.getLogger(__name__)
+
+        # 孤立メモリのクリーンアップ
+        try:
+            if hasattr(self, 'settings_tab') and hasattr(self.settings_tab, '_memory_manager'):
+                mm = self.settings_tab._memory_manager
+                if hasattr(mm, 'cleanup_orphaned_memories'):
+                    mm.cleanup_orphaned_memories()
+                    _logger.info("[AutoCleanup] Orphaned memory cleanup done")
+        except Exception as e:
+            _logger.warning(f"[AutoCleanup] Memory cleanup failed: {e}")
+
+        # web_uploads の 30日以上前のファイルを削除
+        try:
+            uploads_dir = Path("data/web_uploads")
+            if uploads_dir.exists():
+                cutoff = time.time() - 30 * 24 * 60 * 60
+                removed = 0
+                for f in uploads_dir.iterdir():
+                    if f.is_file() and f.stat().st_mtime < cutoff:
+                        f.unlink()
+                        removed += 1
+                if removed:
+                    _logger.info(f"[AutoCleanup] Removed {removed} old upload file(s)")
+        except Exception as e:
+            _logger.warning(f"[AutoCleanup] Upload cleanup failed: {e}")
+
     def _cleanup_workers(self):
         """v3.9.6: ワーカースレッドをクリーンアップ"""
         import logging
@@ -843,6 +883,9 @@ QMenu::separator {
                     if worker.isRunning():
                         worker.terminate()
                         worker.wait(1000)
+
+        if hasattr(self, '_cleanup_timer'):
+            self._cleanup_timer.stop()
 
         logger.info("[MainWindow] Worker cleanup completed")
 

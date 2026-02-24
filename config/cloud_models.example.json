@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy this file to config/cloud_models.json. Add models via cloudAI tab > Settings > Cloud Model Management. / このファイルを config/cloud_models.json にコピー。cloudAI タブ > 設定 > クラウドモデル管理 でモデルを追加してください。",
+  "models": []
+}

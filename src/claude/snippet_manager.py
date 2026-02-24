@@ -25,7 +25,7 @@ def _get_default_app_dir() -> Path:
 
 _APP_DIR = _get_default_app_dir()
 DATA_DIR = _APP_DIR / "data"
-UNIPET_DIR = _APP_DIR / "ユニペット"
+UNIPET_DIR = _APP_DIR / "snippets"
 
 
 def load_json(path: Path, default=None):

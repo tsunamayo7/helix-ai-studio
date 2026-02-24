@@ -46,12 +46,16 @@ def get_ollama_installed_models(ollama_url: str = None) -> list[str]:
     return []
 
 
-def get_phase13_candidates(skip_label: str = "") -> list[str]:
-    """Phase 1/3: cloudAI登録済みモデル全て"""
+def get_phase13_candidates(ollama_url: str = None, skip_label: str = "") -> list[str]:
+    """Phase 1/3: cloudAI登録済みモデル + localAIインストール済みモデル"""
     items = []
     if skip_label:
         items.append(skip_label)
     items.extend(get_cloud_model_names())
+    local = get_ollama_installed_models(ollama_url)
+    if local:
+        items.append("--- Local LLM ---")
+        items.extend(local)
     return items
 
 

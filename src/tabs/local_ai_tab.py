@@ -15,7 +15,7 @@ from typing import Optional
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QTextEdit, QPushButton, QLabel, QComboBox,
+    QTextEdit, QPlainTextEdit, QPushButton, QLabel, QComboBox,
     QFrame, QTabWidget, QLineEdit, QGroupBox,
     QScrollArea, QFormLayout, QMessageBox, QSizePolicy,
     QTableWidget, QTableWidgetItem, QHeaderView,
@@ -122,7 +122,6 @@ class OllamaWorkerThread(QThread):
         runner = LocalAgentRunner.__new__(LocalAgentRunner)
         from pathlib import Path
         runner.project_dir = Path(self._project_dir)
-        runner.require_write_confirmation = False
         runner.on_write_confirm = None
         if name == "read_file":
             return runner._tool_read_file(args.get("path", ""))
@@ -130,16 +129,37 @@ class OllamaWorkerThread(QThread):
             return runner._tool_list_dir(args.get("path", ""))
         elif name == "search_files":
             return runner._tool_search_files(args.get("query", ""), args.get("search_content", False))
-        elif name == "write_file":
-            return runner._tool_write_file(args.get("path", ""), args.get("content", ""))
-        elif name == "create_file":
-            return runner._tool_create_file(args.get("path", ""), args.get("content", ""))
+        elif name in ("write_file", "create_file"):
+            return {"error": "localAI チャットでのファイル書き込みは無効化されています。mixAI Phaseを使用してください。"}
         elif name == "web_search":
             return runner._tool_web_search(args.get("query", ""), args.get("max_results", 5))
         elif name == "fetch_url":
             return runner._tool_fetch_url(args.get("url", ""), args.get("max_chars", 3000))
+        elif name == "browser_use":
+            # v11.3.1: JS レンダリング対応 URL 取得
+            # browser_use インストール済み → JS レンダリング取得
+            # 未インストール または失敗時 → httpx 静的取得にフォールバック（例外なし）
+            return runner._tool_browser_use(
+                args.get("url", ""),
+                args.get("task", ""),
+                args.get("max_chars", 6000),
+            )
         else:
             return {"error": f"Unknown tool: {name}"}
+
+
+class _ContinueTextEdit(QPlainTextEdit):
+    """会話継続パネル用テキスト入力（Enter=送信、Shift+Enter=改行）"""
+    def __init__(self, send_callback, parent=None):
+        super().__init__(parent)
+        self._send_cb = send_callback
+
+    def keyPressEvent(self, e):
+        from PyQt6.QtCore import Qt as _Qt
+        if e.key() in (_Qt.Key.Key_Return, _Qt.Key.Key_Enter) and not (e.modifiers() & _Qt.KeyboardModifier.ShiftModifier):
+            self._send_cb()
+            return
+        super().keyPressEvent(e)
 
 
 class LocalAITab(QWidget):
@@ -154,6 +174,20 @@ class LocalAITab(QWidget):
 
         self._ollama_host = OLLAMA_HOST
         self._messages = []  # チャット履歴
+        # v11.3.1: browser_use 有効時はツール使い分けガイドをシステムメッセージとして注入
+        try:
+            from ..backends.local_agent import LOCALAI_WEB_TOOL_GUIDE
+            from pathlib import Path as _P
+            import json as _j
+            _cfg = (_j.loads(_P("config/config.json").read_text(encoding="utf-8"))
+                    if _P("config/config.json").exists() else {})
+            if _cfg.get("localai_browser_use_enabled", False):
+                self._messages.append({
+                    "role": "system",
+                    "content": LOCALAI_WEB_TOOL_GUIDE.strip()
+                })
+        except Exception:
+            pass
         self._worker = None
         self._streaming_div_open = False
 
@@ -229,20 +263,26 @@ class LocalAITab(QWidget):
         chat_layout.addWidget(self.chat_display, stretch=1)
 
         # === 下部: 入力欄(左) + 会話継続(右) ===
-        bottom_layout = QHBoxLayout()
+        bottom_frame = QFrame()
+        bottom_frame.setObjectName("inputFrame")
+        bottom_frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")  # v11.5.3: cloudAI統一
+        bottom_layout = QHBoxLayout(bottom_frame)
+        bottom_layout.setContentsMargins(10, 5, 10, 5)
 
         # --- 左側: 入力欄 + ボタン行 ---
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(8, 4, 8, 4)
-        left_layout.setSpacing(4)
+        left_layout.setContentsMargins(0, 0, 0, 0)  # v11.5.3: cloudAI統一
+        left_layout.setSpacing(5)                   # v11.5.3: cloudAI統一
 
         self.input_field = QTextEdit()
+        self.input_field.setFont(QFont("Yu Gothic UI", 11))  # v11.5.2: 統一
         self.input_field.setPlaceholderText(t('desktop.localAI.inputPlaceholder'))
-        self.input_field.setMaximumHeight(100)
+        self.input_field.setMinimumHeight(40)  # v11.5.2: cloudAI統一
+        self.input_field.setMaximumHeight(150)
         self.input_field.setStyleSheet(
-            "QTextEdit { background: #0d0d1f; color: #e0e0e0; border: 1px solid #333; "
-            "border-radius: 4px; padding: 8px; }" + SCROLLBAR_STYLE
+            "QTextEdit { background: #252526; color: #e0e0e0; border: none; "
+            "padding: 8px; }" + SCROLLBAR_STYLE  # v11.5.2: cloudAI統一スタイル
         )
         left_layout.addWidget(self.input_field)
 
@@ -297,7 +337,7 @@ class LocalAITab(QWidget):
         continue_frame = self._create_continue_panel()
         bottom_layout.addWidget(continue_frame, stretch=1)
 
-        chat_layout.addLayout(bottom_layout)
+        chat_layout.addWidget(bottom_frame)  # v11.5.3: QFrame化
 
         return chat_widget
 
@@ -325,14 +365,15 @@ class LocalAITab(QWidget):
         layout.addWidget(self.continue_sub)
 
         # テキスト入力
-        self.continue_input = QLineEdit()
+        self.continue_input = _ContinueTextEdit(self._on_continue_send)
         self.continue_input.setPlaceholderText(t('desktop.localAI.continuePlaceholder'))
+        self.continue_input.setMinimumHeight(60)
+        self.continue_input.setMaximumHeight(90)
         self.continue_input.setStyleSheet("""
-            QLineEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
+            QPlainTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
                         border-radius: 4px; padding: 4px 8px; font-size: 11px; }
-            QLineEdit:focus { border-color: #007acc; }
+            QPlainTextEdit:focus { border-color: #007acc; }
         """)
-        self.continue_input.returnPressed.connect(self._on_continue_send)
         layout.addWidget(self.continue_input)
 
         # クイックボタン行 (cloudAIと同一スタイル)
@@ -467,26 +508,6 @@ class LocalAITab(QWidget):
         model_mgmt_row.addStretch()
         ollama_layout.addLayout(model_mgmt_row)
 
-        # v10.1.0: Brave Search API キー設定
-        brave_row = QHBoxLayout()
-        self.brave_api_label = QLabel(t('desktop.localAI.braveApiKeyLabel'))
-        brave_row.addWidget(self.brave_api_label)
-        self.brave_api_input = QLineEdit()
-        self.brave_api_input.setPlaceholderText(t('desktop.localAI.braveApiKeyPlaceholder'))
-        self.brave_api_input.setEchoMode(QLineEdit.EchoMode.Password)
-        brave_row.addWidget(self.brave_api_input, 1)
-        self.brave_api_page_btn = QPushButton(t('desktop.localAI.braveApiPageBtn'))
-        self.brave_api_page_btn.setStyleSheet(SECONDARY_BTN)
-        self.brave_api_page_btn.clicked.connect(self._open_brave_api_page)
-        brave_row.addWidget(self.brave_api_page_btn)
-        self.brave_api_save_btn = QPushButton(t('common.save'))
-        self.brave_api_save_btn.setStyleSheet(PRIMARY_BTN)
-        self.brave_api_save_btn.clicked.connect(self._save_brave_api_key)
-        brave_row.addWidget(self.brave_api_save_btn)
-        ollama_layout.addLayout(brave_row)
-        # 保存済みキーを復元
-        self._load_brave_api_key()
-
         ollama_group.setLayout(ollama_layout)
         scroll_layout.addWidget(ollama_group)
 
@@ -540,13 +561,13 @@ class LocalAITab(QWidget):
         self.localai_browser_use_group.setStyleSheet(SECTION_CARD_STYLE)
         browser_use_layout = QVBoxLayout()
         self.localai_browser_use_cb = QCheckBox(t('desktop.localAI.browserUseLabel'))
+        # v11.3.1: httpx フォールバックがあるため常時有効。インストール状況はツールチップで案内
+        self.localai_browser_use_cb.setEnabled(True)
         try:
             import browser_use  # noqa: F401
-            self.localai_browser_use_cb.setEnabled(True)
             self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseTip'))
         except ImportError:
-            self.localai_browser_use_cb.setEnabled(False)
-            self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseNotInstalled'))
+            self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseHttpxMode'))
         browser_use_layout.addWidget(self.localai_browser_use_cb)
         browser_use_layout.addWidget(create_section_save_button(self._save_localai_browser_use_setting))
         self.localai_browser_use_group.setLayout(browser_use_layout)
@@ -573,7 +594,7 @@ class LocalAITab(QWidget):
 
     def _on_continue_send(self):
         """継続パネルから送信"""
-        message = self.continue_input.text().strip()
+        message = self.continue_input.toPlainText().strip()
         if message:
             self.continue_input.clear()
             self._send_message(message)
@@ -665,8 +686,24 @@ class LocalAITab(QWidget):
         )
         self._streaming_div_open = True
 
-        # v10.1.0: ツール定義を取得
-        from ..backends.local_agent import AGENT_TOOLS
+        # v11.3.1: ツール定義を動的ビルド（browser_use 設定に応じて追加）
+        from ..backends.local_agent import AGENT_TOOLS, BROWSER_USE_TOOL
+
+        dynamic_tools = list(AGENT_TOOLS)
+        try:
+            from pathlib import Path as _P
+            import json as _j
+            _cfg_path = _P("config/config.json")
+            if _cfg_path.exists():
+                _cfg = _j.loads(_cfg_path.read_text(encoding="utf-8"))
+                if _cfg.get("localai_browser_use_enabled", False):
+                    # v11.3.1: browser_use 設定ON時はツールリストに追加
+                    # _tool_browser_use() は未インストール時も httpx でフォールバックするため常に追加可
+                    dynamic_tools.append(BROWSER_USE_TOOL)
+                    logger.debug("[LocalAITab] browser_use tool added to tools list")
+        except Exception as _e:
+            logger.debug(f"[LocalAITab] tools dynamic build error: {_e}")
+
         project_dir = "."
         try:
             from pathlib import Path as _P
@@ -681,7 +718,7 @@ class LocalAITab(QWidget):
         # v11.0.1: モデルのcapabilityを確認してtoolsを条件付きで渡す
         caps_data = getattr(self, '_pending_caps', {})
         model_supports_tools = caps_data.get(model, {}).get("tools", False)
-        tools_to_use = AGENT_TOOLS if model_supports_tools else None
+        tools_to_use = dynamic_tools if model_supports_tools else None
 
         # ワーカー開始
         self._worker = OllamaWorkerThread(
@@ -766,6 +803,20 @@ class LocalAITab(QWidget):
     def _on_new_session(self):
         """新規セッション"""
         self._messages.clear()
+        # v11.3.1: browser_use 有効時はツール使い分けガイドをシステムメッセージとして注入
+        try:
+            from ..backends.local_agent import LOCALAI_WEB_TOOL_GUIDE
+            from pathlib import Path as _P
+            import json as _j
+            _cfg = (_j.loads(_P("config/config.json").read_text(encoding="utf-8"))
+                    if _P("config/config.json").exists() else {})
+            if _cfg.get("localai_browser_use_enabled", False):
+                self._messages.append({
+                    "role": "system",
+                    "content": LOCALAI_WEB_TOOL_GUIDE.strip()
+                })
+        except Exception:
+            pass
         self.chat_display.clear()
         self.chat_display.setPlaceholderText(t('desktop.localAI.chatReady'))
         if hasattr(self, 'monitor_widget'):
@@ -960,6 +1011,8 @@ class LocalAITab(QWidget):
 
     def retranslateUi(self):
         """言語変更時にUIテキストを再適用"""
+        if hasattr(self, 'chat_display'):
+            self.chat_display.setPlaceholderText(t('desktop.localAI.chatReady'))
         self.sub_tabs.setTabText(0, t('desktop.localAI.chatSubTab'))
         self.sub_tabs.setTabText(1, t('desktop.localAI.settingsSubTab'))
         self.local_title.setText(t('desktop.localAI.title'))
@@ -1003,11 +1056,12 @@ class LocalAITab(QWidget):
             self.localai_browser_use_group.setTitle(t('desktop.localAI.browserUseGroup'))
         if hasattr(self, 'localai_browser_use_cb'):
             self.localai_browser_use_cb.setText(t('desktop.localAI.browserUseLabel'))
+            # v11.3.1: 常時有効。未インストール時は httpx フォールバックモードをツールチップで案内
             try:
                 import browser_use  # noqa: F401
                 self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseTip'))
             except ImportError:
-                self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseNotInstalled'))
+                self.localai_browser_use_cb.setToolTip(t('desktop.localAI.browserUseHttpxMode'))
         # Continue panel
         if hasattr(self, 'continue_header'):
             self.continue_header.setText(t('desktop.localAI.continueHeader'))
@@ -1017,12 +1071,6 @@ class LocalAITab(QWidget):
         # Monitor
         if hasattr(self, 'monitor_widget') and hasattr(self.monitor_widget, 'retranslateUi'):
             self.monitor_widget.retranslateUi()
-        # v10.1.0: Brave Search API
-        if hasattr(self, 'brave_api_label'):
-            self.brave_api_label.setText(t('desktop.localAI.braveApiKeyLabel'))
-            self.brave_api_input.setPlaceholderText(t('desktop.localAI.braveApiKeyPlaceholder'))
-            self.brave_api_page_btn.setText(t('desktop.localAI.braveApiPageBtn'))
-            self.brave_api_save_btn.setText(t('common.save'))
         # v10.1.0: GitHub
         if hasattr(self, 'github_group'):
             self.github_group.setTitle(t('desktop.localAI.githubSection'))
@@ -1038,45 +1086,6 @@ class LocalAITab(QWidget):
             self.localai_mcp_git.setToolTip(t('desktop.settings.mcpGitTip'))
             self.localai_mcp_brave.setText(t('desktop.settings.mcpBrave'))
             self.localai_mcp_brave.setToolTip(t('desktop.settings.mcpBraveTip'))
-
-    def _open_brave_api_page(self):
-        """v10.1.0: Brave Search API 取得ページを開く"""
-        from PyQt6.QtGui import QDesktopServices
-        from PyQt6.QtCore import QUrl
-        QDesktopServices.openUrl(QUrl("https://brave.com/search/api/"))
-
-    def _save_brave_api_key(self):
-        """v10.1.0: Brave Search API キーを general_settings.json に保存"""
-        from pathlib import Path
-        key = self.brave_api_input.text().strip()
-        settings_path = Path("config/general_settings.json")
-        try:
-            settings_path.parent.mkdir(parents=True, exist_ok=True)
-            data = {}
-            if settings_path.exists():
-                with open(settings_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-            data["brave_search_api_key"] = key
-            with open(settings_path, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            self.brave_api_save_btn.setText("✅")
-            QTimer.singleShot(1500, lambda: self.brave_api_save_btn.setText(t('common.save')))
-        except Exception as e:
-            logger.warning(f"Brave API key save failed: {e}")
-
-    def _load_brave_api_key(self):
-        """v10.1.0: 保存済み Brave Search API キーを復元"""
-        from pathlib import Path
-        settings_path = Path("config/general_settings.json")
-        try:
-            if settings_path.exists():
-                with open(settings_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                key = data.get("brave_search_api_key", "")
-                if key:
-                    self.brave_api_input.setText(key)
-        except Exception:
-            pass
 
     def _test_github_connection(self):
         """v10.1.0: GitHub API 接続テスト"""

@@ -25,9 +25,12 @@ Helix AI Studio - REST API Routes (v9.3.0)
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
+import time
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -54,7 +57,7 @@ class LoginResponse(BaseModel):
 
 class SoloExecuteRequest(BaseModel):
     prompt: str
-    model_id: str = "claude-opus-4-6"
+    model_id: str = ""
     attached_files: list[str] = []
     project_dir: str = ""
     timeout: int = 0  # 0 = 設定ファイルから読み込み
@@ -81,6 +84,12 @@ class ModelInfo(BaseModel):
 
 security = HTTPBearer()
 auth_manager = WebAuthManager()
+
+# v11.2.1: ブルートフォース対策
+_login_attempts: dict = defaultdict(list)
+LOGIN_MAX_ATTEMPTS = 5
+LOGIN_WINDOW_SECONDS = 300
+LOGIN_LOCKOUT_SECONDS = 900
 
 
 async def verify_jwt(
@@ -139,10 +148,30 @@ async def login(request: Request, body: LoginRequest):
     if not auth_manager.check_ip(client_ip):
         raise HTTPException(status_code=403, detail="Access denied: IP not in allowed range")
 
+    # v11.2.1: レート制限チェック
+    now = time.time()
+    attempts = _login_attempts[client_ip]
+    # 古いタイムスタンプを除去
+    _login_attempts[client_ip] = [t for t in attempts if now - t < LOGIN_WINDOW_SECONDS]
+    attempts = _login_attempts[client_ip]
+    if len(attempts) >= LOGIN_MAX_ATTEMPTS:
+        oldest = min(attempts)
+        retry_after = int(LOGIN_LOCKOUT_SECONDS - (now - oldest))
+        logger.warning(f"Login rate limit exceeded from {client_ip}")
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(max(retry_after, 1))},
+        )
+
     # PIN検証
     if not auth_manager.verify_pin(body.pin):
+        _login_attempts[client_ip].append(now)
         logger.warning(f"Failed login attempt from {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid PIN")
+
+    # 認証成功: 試行履歴をクリア
+    _login_attempts[client_ip] = []
 
     # JWT発行
     token = auth_manager.create_token(client_ip)
@@ -178,22 +207,24 @@ async def get_status(payload: dict = Depends(verify_jwt)):
 
 @router.get("/api/config/models", response_model=list[ModelInfo])
 async def get_models(payload: dict = Depends(verify_jwt)):
-    """利用可能なClaudeモデル一覧"""
-    # 既存のconstants.pyからインポート（読み取りのみ）
+    """v11.5.0: cloud_models.json からモデル一覧を動的取得"""
+    models = []
     try:
-        from ..utils.constants import CLAUDE_MODELS
-        return [ModelInfo(**m) for m in CLAUDE_MODELS]
-    except ImportError:
-        # フォールバック
-        return [
-            ModelInfo(
-                id="claude-opus-4-6",
-                display_name="Claude Opus 4.6 (最高知能)",
-                description="最も高度で知的なモデル",
-                tier="opus",
-                is_default=True,
-            )
-        ]
+        config_path = Path("config/cloud_models.json")
+        if config_path.exists():
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            model_list = data.get("models", []) if isinstance(data, dict) else data
+            for i, m in enumerate(model_list):
+                models.append(ModelInfo(
+                    id=m.get("model_id", ""),
+                    display_name=m.get("name", m.get("display_name", m.get("model_id", ""))),
+                    description=m.get("provider", ""),
+                    tier=m.get("provider", "unknown"),
+                    is_default=(i == 0),
+                ))
+    except Exception as e:
+        logger.warning(f"Failed to load cloud_models.json: {e}")
+    return models
 
 
 @router.post("/api/solo/execute")
@@ -357,10 +388,10 @@ def _get_project_dir() -> str | None:
 # =============================================================================
 
 class SettingsResponse(BaseModel):
-    claude_model_id: str = "claude-opus-4-6"
+    claude_model_id: str = ""
     claude_timeout_minutes: int = 90
     model_assignments: dict = {}
-    orchestrator_engine: str = "claude-opus-4-6"
+    orchestrator_engine: str = ""
     local_agent_tools: dict = {}
     project_dir: str = ""
     ollama_host: str = "http://localhost:11434"
@@ -437,11 +468,13 @@ async def update_settings(update: SettingsUpdate, payload: dict = Depends(verify
 
 def _load_merged_settings() -> dict:
     """general_settings.json + app_settings.json + config.json + web_config.json を統合読み込み"""
+    from ..utils.constants import get_default_claude_model
+    _default_model = get_default_claude_model()
     result = {
-        "claude_model_id": "claude-opus-4-6",
+        "claude_model_id": _default_model,
         "claude_timeout_minutes": 90,
         "model_assignments": {},
-        "orchestrator_engine": "claude-opus-4-6",
+        "orchestrator_engine": _default_model,
         "local_agent_tools": {},
         "project_dir": "",
         "ollama_host": "http://localhost:11434",
@@ -814,8 +847,13 @@ async def upload_file(file: UploadFile = File(...),
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_name = f"{timestamp}_{filename}"
+    # v11.2.1: パストラバーサル防止 — ベース名のみ取得し特殊文字をアンダースコアに置換
+    base_name = Path(filename).name
+    safe_base = re.sub(r'[^\w\-.]', '_', base_name)
+    safe_name = f"{timestamp}_{safe_base}"
     save_path = UPLOAD_DIR / safe_name
+    if not save_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid filename")
 
     # ストリーミング書き込み（メモリ効率）
     total_size = 0

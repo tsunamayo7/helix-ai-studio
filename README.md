@@ -6,7 +6,7 @@
 **Claude-centric multi-model AI orchestration platform with dual interface (Desktop + Web)**
 Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI with cross-device Web UI.
 
-![Version](https://img.shields.io/badge/version-9.9.1-00d4ff)
+![Version](https://img.shields.io/badge/version-11.5.3-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -31,7 +31,7 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ---
 
-## Key Features (v9.9.1 "Memory & Codex")
+## Key Features (v11.5.3 "Web LocalAI + Discord")
 
 ### Orchestration (mixAI)
 - **3+1 Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates → (optional) Sonnet applies changes
@@ -131,38 +131,50 @@ Official docs:
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
 
+# Interactive installer (recommended)
+install.bat
+
+# Or manual install:
 pip install -r requirements.txt
-
-# Install Claude Code CLI (Node.js 18+)
-npm install -g @anthropic-ai/claude-code
-
-# (Optional) Pull local models for Phase 2 via Ollama
-ollama pull devstral-2:123b
-ollama pull command-a:latest
-ollama pull gpt-oss:120b
-ollama pull translategemma:27b
-ollama pull gemma3:27b
-
-# Resident models (optional)
-ollama pull ministral-3:8b
-ollama pull qwen3-embedding:4b
-
-# Run the app
 python HelixAIStudio.py
 ```
 
-### Web UI Setup (optional)
+### API Direct Connection (v11.5.0+)
+
+Claude / GPT / Gemini models can be used directly via API keys.
+Get your keys from each provider and enter them in **Settings > API Key Setup**.
+
+| Provider | Get API Key | SDK |
+|---|---|---|
+| Anthropic (Claude) | [console.anthropic.com](https://console.anthropic.com/settings/keys) | `pip install anthropic` |
+| OpenAI (GPT / Codex) | [platform.openai.com](https://platform.openai.com/api-keys) | `pip install openai` |
+| Google (Gemini) | [aistudio.google.com](https://aistudio.google.com/app/apikey) (free) | `pip install google-genai` |
+
+> **Security**: API keys are stored in `config/general_settings.json` (git-ignored). Never commit this file. Environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`) are also supported.
+
+### CLI Tools (optional)
 
 ```bash
-# Build the Web UI frontend
-cd frontend
-npm install
-npm run build
-cd ..
+# Claude Code CLI (required for CLI-mode and mixAI Phase 1/3)
+npm install -g @anthropic-ai/claude-code
 
-# The Web UI is served automatically when the desktop app starts
-# Access from any device on your network via Tailscale VPN
+# Codex CLI (optional, for OpenAI CLI mode)
+npm install -g @openai/codex
 ```
+
+### Local LLMs via Ollama (optional)
+
+```bash
+# Install Ollama: https://ollama.com/download
+# Pull models for Phase 2 (examples — any Ollama model works)
+ollama pull qwen3:32b          # general purpose
+ollama pull devstral:24b       # coding
+```
+
+### Web UI (pre-built, no setup required)
+
+The Web UI frontend is pre-built and served automatically when the desktop app starts.
+Access from any device on your network at `http://<your-ip>:8500`.
 
 ### Build standalone executable (Windows)
 
@@ -223,7 +235,8 @@ Desktop (PyQt6)                Web UI (React + Vite)
 | Desktop GUI      | PyQt6                                          |
 | Web UI           | React + Vite + Tailwind CSS                    |
 | Web Server       | FastAPI + Uvicorn (WebSocket)                  |
-| Claude           | Claude Code CLI (`claude`)                     |
+| Cloud AI         | Anthropic API / OpenAI API / Google Gemini API |
+| CLI Backends     | Claude Code CLI / Codex CLI                    |
 | Local LLM        | Ollama API (`http://localhost:11434/api`)       |
 | Memory/Knowledge | SQLite + vector embeddings + graph utilities   |
 | i18n             | Shared JSON (ja/en) for Desktop + Web          |
@@ -267,7 +280,12 @@ Helix AI Studio/
 
 | Version | Codename | Highlights |
 |---------|----------|------------|
-| v9.9.1 | Memory & Codex | HelixMemoryManager強化(private除外/段階注入/ビューア), Codex CLI soloAI対応, mixAI Opus4.6/Codexプリセット, 検索選択式, 設定保存修正, 差分ダイアログ修正, スクロール誤操作防止, 保存UIボタン統一 |
+| v11.5.3 | Web LocalAI + Discord | Web LocalAI tab (Ollama WebSocket), Discord notifications, visual parity cloudAI/localAI |
+| v11.5.2 | Safety & Hygiene | Log rotation, path traversal fix, brute-force login protection, auto-cleanup, RAG 2-step |
+| v11.5.1 | Provider Pure | Provider routing cleanup, README API docs, API key security UI |
+| v11.5.0 | Model Agnostic | Multi-provider API (Anthropic/OpenAI/Google), API-first with CLI fallback, dynamic model catalog, Gemini support |
+| v11.0.0 | Smart History | History tab with JSONL search, BIBLE cross-tab toggle, cloud model selector, 6-tab layout |
+| v9.9.1 | Memory & Codex | HelixMemoryManager, Codex CLI soloAI, mixAI presets |
 | v9.8.0 | GitHub Ready | Sonnet 4.6, Adaptive thinking (effort), Phase 4, resident model relocation, Phase 2 skip, context bar fix |
 | v9.7.1 | Desktop Chat History | SpinBox UX fix, mixAI/soloAI header cleanup, model selector dedup, timeout i18n fix, NoScrollSpinBox for RAG, Ollama settings reorder |
 | v9.7.0 | Desktop Chat History | Desktop chat history side panel, settings UI cleanup, Ollama settings consolidation |
@@ -281,6 +299,28 @@ Helix AI Studio/
 | v8.4.0 | Contextual Intelligence | 4-layer memory, RAPTOR summaries, mid-session context |
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+---
+
+## Discord Notification Setup
+
+1. Get a [Discord Webhook URL](https://support.discord.com/hc/en-us/articles/228383668)
+2. Helix AI Studio → General Settings tab → Web UI Server section
+3. Paste the Webhook URL and save
+4. Select notification events (chat start / complete / error) via checkboxes
+
+## Web UI Build (for developers)
+
+`frontend/dist/` is not tracked by git. Run the following after cloning or making frontend changes:
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+The pre-built `dist/` is served automatically when the desktop app starts.
 
 ---
 

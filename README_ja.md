@@ -6,7 +6,7 @@
 **Claude中心のマルチモデルAIオーケストレーション デュアルインターフェースアプリ (Desktop + Web)**
 Claude Code CLIを「頭脳」、ローカルLLM（Ollama）を「専門チーム」として配置 — Cyberpunk Minimal GUIとクロスデバイスWeb UIで統合。
 
-![Version](https://img.shields.io/badge/version-9.9.1-00d4ff)
+![Version](https://img.shields.io/badge/version-11.5.3-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -31,7 +31,7 @@ Helix AI Studioは **3+1Phaseパイプライン** で動作します：
 
 ---
 
-## 主な機能 (v9.9.1 "Memory & Codex")
+## 主な機能 (v11.5.3 "Web LocalAI + Discord")
 
 ### オーケストレーション (mixAI)
 - **3+1Phaseパイプライン**: Claude計画 → ローカルチーム実行 → Claude統合・検証 → (任意) Sonnetが変更適用
@@ -254,6 +254,10 @@ cd ..
 
 | バージョン | コードネーム | 主な変更 |
 |-----------|------------|---------|
+| v11.5.3 | Web LocalAI + Discord | Web LocalAI (Ollama WebSocket)、Discord通知、cloudAI/localAI表示統一 |
+| v11.5.2 | Safety & Hygiene | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |
+| v11.5.1 | Provider Pure | プロバイダールーティング整理、APIキーセキュリティUI |
+| v11.5.0 | Model Agnostic | マルチプロバイダーAPI (Anthropic/OpenAI/Google)、APIファースト |
 | v9.9.1 | Memory & Codex | HelixMemoryManager強化(private除外/段階注入/ビューアAPI)、Codex CLI soloAI対応、mixAI Opus4.6/Codexプリセット、検索選択式、設定保存修正、差分ダイアログ修正、スクロール誤操作防止、保存UIボタン統一 |
 | v9.8.0 | GitHub Ready | Sonnet 4.6追加、Adaptive thinking (effort)、Phase 4実装適用、常駐モデル一般設定移設、Phase 2スキップ、コンテキストバー修正 |
 | v9.7.1 | Desktop Chat History | SpinBox UX修正、mixAI/soloAIヘッダー整理、モデルセレクタ重複排除、タイムアウトi18n修正、RAG設定NoScrollSpinBox、Ollama設定並び順変更 |
@@ -267,6 +271,28 @@ cd ..
 | v8.4.0 | Contextual Intelligence | 4層メモリ、RAPTOR要約 |
 
 詳細は [CHANGELOG.md](CHANGELOG.md) を参照してください。
+
+---
+
+## Discord通知の設定
+
+1. [Discord Webhook URL](https://support.discord.com/hc/ja/articles/228383668) を取得
+2. Helix AI Studio → 一般設定タブ → Web UI Server セクション
+3. Discord Webhook URL 欄に貼り付けて保存
+4. 通知イベント（チャット開始/完了/エラー）を各チェックボックスで選択
+
+## Web UIのビルド（開発者向け）
+
+`frontend/dist/` はgit管理外です。クローン後または変更後に以下を実行してください：
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+デスクトップアプリ起動時に `dist/` が自動的に配信されます。
 
 ---
 

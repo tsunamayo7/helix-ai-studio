@@ -52,11 +52,12 @@ class RAGChatWorkerThread(QThread):
     errorOccurred = pyqtSignal(str)
 
     def __init__(self, messages: list, rag_context: str,
-                 model_id: str = "claude-sonnet-4-6", parent=None):
+                 model_id: str = None, parent=None):
         super().__init__(parent)
         self._messages = messages
         self._rag_context = rag_context
-        self._model_id = model_id
+        from ..utils.constants import get_default_claude_model
+        self._model_id = model_id or get_default_claude_model()
 
     def run(self):
         try:
@@ -258,12 +259,19 @@ class InformationCollectionTab(QWidget):
         self.rag_add_files_btn.clicked.connect(self._on_rag_add_files)
         action_row.addWidget(self.rag_add_files_btn)
 
-        self.rag_build_btn = QPushButton(t('desktop.infoTab.ragBuildBtn'))
-        self.rag_build_btn.setStyleSheet(SECONDARY_BTN)
-        self.rag_build_btn.setFixedHeight(32)
-        self.rag_build_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
-        self.rag_build_btn.clicked.connect(self._on_rag_build_click)
-        action_row.addWidget(self.rag_build_btn)
+        self.rag_plan_preview_btn = QPushButton(t('desktop.infoTab.ragPlanPreviewBtn'))
+        self.rag_plan_preview_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_plan_preview_btn.setFixedHeight(32)
+        self.rag_plan_preview_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
+        self.rag_plan_preview_btn.clicked.connect(self._on_rag_plan_preview_click)
+        action_row.addWidget(self.rag_plan_preview_btn)
+
+        self.rag_build_execute_btn = QPushButton(t('desktop.infoTab.ragBuildExecuteBtn'))
+        self.rag_build_execute_btn.setStyleSheet(SECONDARY_BTN)
+        self.rag_build_execute_btn.setFixedHeight(32)
+        self.rag_build_execute_btn.setEnabled(False)
+        self.rag_build_execute_btn.clicked.connect(self._on_rag_build_execute_click)
+        action_row.addWidget(self.rag_build_execute_btn)
 
         self.rag_build_stop_btn = QPushButton(t('desktop.infoTab.ragBuildStopBtn'))
         self.rag_build_stop_btn.setStyleSheet(SECONDARY_BTN)
@@ -514,8 +522,8 @@ class InformationCollectionTab(QWidget):
 
     def _create_settings_section(self) -> QGroupBox:
         """RAG設定セクション（v11.0.0: 外枠タイトル削除）"""
-        self.settings_group = QGroupBox("")  # v11.0.0: 外枠タイトル削除
-        self.settings_group.setStyleSheet("QGroupBox { border: none; margin: 0; padding: 0; }")
+        self.settings_group = QGroupBox(t('desktop.infoTab.ragSettingsGroupTitle'))
+        self.settings_group.setStyleSheet("QGroupBox { border: none; margin-top: 16px; padding: 0; } QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 8px; padding: 2px 8px; color: #9ca3af; font-size: 11px; }")
         layout = QVBoxLayout(self.settings_group)
 
         # 想定実行時間
@@ -551,8 +559,9 @@ class InformationCollectionTab(QWidget):
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
+                subcontrol-position: top left;
                 left: 10px;
-                padding: 0 4px;
+                padding: 2px 8px;
             }}
         """)
         models_layout = QVBoxLayout(self.model_settings_group)
@@ -625,6 +634,30 @@ class InformationCollectionTab(QWidget):
         models_layout.addLayout(embed_row)
         self.model_combo_labels.append(self.embedding_label)
         self.model_combos.append(self.embedding_combo)
+
+        # 計画担当モデル — クラウド + ローカル全表示（v11.3.0）
+        from ..utils.constants import get_default_claude_model
+        planner_row = QHBoxLayout()
+        self.planner_model_label = QLabel(t('desktop.infoTab.plannerModelSelect'))
+        self.planner_model_label.setStyleSheet(_label_style)
+        self.planner_model_label.setFixedWidth(130)
+        planner_row.addWidget(self.planner_model_label)
+        self.planner_model_combo = NoScrollComboBox()
+        self.planner_model_combo.setStyleSheet(COMBO_BOX_STYLE)
+        _all_candidates = get_rag_cloud_candidates() + get_rag_local_candidates()
+        _planner_default = get_default_claude_model()
+        populate_combo(self.planner_model_combo, _all_candidates, current_value=_planner_default)
+        planner_row.addWidget(self.planner_model_combo)
+        models_layout.addLayout(planner_row)
+        self.model_combo_labels.append(self.planner_model_label)
+        self.model_combos.append(self.planner_model_combo)
+
+        # 計画担当モデル警告ラベル（ローカルLLM選択時）
+        self.planner_model_warning = QLabel(t('desktop.infoTab.plannerModelWarning'))
+        self.planner_model_warning.setStyleSheet("color: #f59e0b; font-size: 11px;")
+        self.planner_model_warning.setVisible(False)
+        models_layout.addWidget(self.planner_model_warning)
+        self.planner_model_combo.currentTextChanged.connect(self._on_planner_model_changed)
 
         # モデル一覧更新ボタン
         refresh_row = QHBoxLayout()
@@ -1002,6 +1035,8 @@ class InformationCollectionTab(QWidget):
         self.sub_tab_widget.setTabText(2, t('desktop.infoTab.settingsSubTab'))
 
         # --- v11.0.0: チャットタブウィジェット ---
+        if hasattr(self, 'rag_chat_display'):
+            self.rag_chat_display.setPlaceholderText(t('desktop.infoTab.ragChatPlaceholder'))
         if hasattr(self, 'rag_chat_status'):
             self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
         if hasattr(self, 'rag_chat_input'):
@@ -1009,9 +1044,11 @@ class InformationCollectionTab(QWidget):
         if hasattr(self, 'rag_add_files_btn'):
             self.rag_add_files_btn.setText(t('desktop.infoTab.ragAddFilesBtn'))
             self.rag_add_files_btn.setToolTip(t('desktop.infoTab.ragAddFilesTooltip'))
-        if hasattr(self, 'rag_build_btn'):
-            self.rag_build_btn.setText(t('desktop.infoTab.ragBuildBtn'))
-            self.rag_build_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
+        if hasattr(self, 'rag_plan_preview_btn'):
+            self.rag_plan_preview_btn.setText(t('desktop.infoTab.ragPlanPreviewBtn'))
+            self.rag_plan_preview_btn.setToolTip(t('desktop.infoTab.ragBuildTooltip'))
+        if hasattr(self, 'rag_build_execute_btn'):
+            self.rag_build_execute_btn.setText(t('desktop.infoTab.ragBuildExecuteBtn'))
         if hasattr(self, 'rag_build_stop_btn'):
             self.rag_build_stop_btn.setText(t('desktop.infoTab.ragBuildStopBtn'))
         if hasattr(self, 'rag_delete_btn'):
@@ -1049,6 +1086,18 @@ class InformationCollectionTab(QWidget):
         self.folder_path_label.setText(t('desktop.infoTab.folderPath', path=self._folder_path))
         self.open_folder_btn.setText(t('desktop.infoTab.openFolder'))
         self.file_tree.setHeaderLabels(t('desktop.infoTab.fileTreeHeaders'))
+        # ファイルツリーのステータス列を現在言語で再翻訳
+        _status_map = {
+            "new": t('desktop.infoTab.ragStatusNew'),
+            "modified": t('desktop.infoTab.ragStatusChanged'),
+            "unchanged": t('desktop.infoTab.ragStatusBuilt'),
+            "deleted": t('desktop.infoTab.ragStatusDeleted'),
+        }
+        for i in range(self.file_tree.topLevelItemCount()):
+            item = self.file_tree.topLevelItem(i)
+            status_key = item.data(3, Qt.ItemDataRole.UserRole)
+            if status_key in _status_map:
+                item.setText(3, _status_map[status_key])
         self.refresh_btn.setText(t('desktop.infoTab.refresh'))
 
         # --- Settings section ---
@@ -1263,7 +1312,8 @@ class InformationCollectionTab(QWidget):
         except Exception as e:
             logger.debug(f"RAG context build skipped: {e}")
 
-        model_id = self.claude_model_combo.currentData() or "claude-sonnet-4-6"
+        from ..utils.constants import get_default_claude_model
+        model_id = self.claude_model_combo.currentData() or get_default_claude_model()
         self._rag_chat_worker = RAGChatWorkerThread(
             messages=list(self._rag_chat_messages),
             rag_context=rag_context,
@@ -1323,19 +1373,24 @@ class InformationCollectionTab(QWidget):
                     f"📄 ファイル追加: {names_str} (要再構築)"
                 )
 
-    def _on_rag_build_click(self):
-        """チャットタブから構築開始"""
+    def _on_rag_plan_preview_click(self):
+        """チャットタブからプランプレビューを開始（v11.3.0）"""
         self._append_rag_chat_msg("system", "📋 プランを作成中...")
-        self.rag_build_btn.setEnabled(False)
-        self.rag_build_stop_btn.setEnabled(True)
-        self.rag_chat_status.setText(t('desktop.infoTab.ragStatusBuilding'))
-        QTimer.singleShot(100, self._do_rag_build_plan)
+        if hasattr(self, 'rag_plan_preview_btn'):
+            self.rag_plan_preview_btn.setEnabled(False)
+        if hasattr(self, 'rag_chat_status'):
+            self.rag_chat_status.setText(t('desktop.infoTab.ragStatusBuilding'))
+        QTimer.singleShot(100, self._do_rag_build_plan_only)
 
     def _do_rag_build_plan(self):
         """構築プランを作成して実行"""
         try:
             from ..rag.rag_planner import RAGPlanner
-            planner = RAGPlanner()
+            from ..memory.model_config import _load_rag_settings
+            _planner_model = _load_rag_settings().get("planner_model") or ""
+            if not _planner_model and hasattr(self, 'planner_model_combo'):
+                _planner_model = self.planner_model_combo.currentText()
+            planner = RAGPlanner(planner_engine=_planner_model or None)
             plan = planner.create_plan(
                 self._folder_path,
                 self.time_spin.value(),
@@ -1353,6 +1408,88 @@ class InformationCollectionTab(QWidget):
             self.rag_build_btn.setEnabled(True)
             self.rag_build_stop_btn.setEnabled(False)
             self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+
+    def _do_rag_build_plan_only(self):
+        """プランを作成してチャットに表示・構築実行ボタンを有効化（v11.3.0）"""
+        try:
+            from ..rag.rag_planner import RAGPlanner
+            from ..memory.model_config import _load_rag_settings
+            _planner_model = _load_rag_settings().get("planner_model") or ""
+            if not _planner_model and hasattr(self, 'planner_model_combo'):
+                _planner_model = self.planner_model_combo.currentText()
+            planner = RAGPlanner(planner_engine=_planner_model or None)
+            plan = planner.create_plan(
+                self._folder_path,
+                self.time_spin.value(),
+            )
+            self._current_plan = plan
+
+            # プランサマリーをチャットに表示
+            analysis = plan.get("analysis", {})
+            exec_plan = plan.get("execution_plan", {})
+            total_files = analysis.get("total_files", 0)
+            total_kb = analysis.get("total_size_kb", 0)
+            total_mb = round(total_kb / 1024, 1)
+            total_min = round(exec_plan.get("total_estimated_minutes", 0), 1)
+
+            classifications = analysis.get("file_classifications", [])
+            file_lines = []
+            for fc in classifications[:5]:
+                file_lines.append(
+                    f"  • {fc.get('file','')} → {fc.get('category','')} / {fc.get('priority','')}"
+                )
+            if len(classifications) > 5:
+                file_lines.append(f"  他{len(classifications) - 5}件")
+            file_section = "\n".join(file_lines) if file_lines else "  (なし)"
+
+            steps = exec_plan.get("steps", [])
+            step_lines = []
+            for s in steps:
+                step_lines.append(
+                    f"  {s.get('step_id','?')}. {s.get('name','')} "
+                    f"({s.get('model','')}) ~{round(s.get('estimated_minutes', 0), 1)}分"
+                )
+            step_section = "\n".join(step_lines) if step_lines else "  (なし)"
+
+            msg = (
+                f"📋 プラン策定完了\n"
+                f"────────────────\n"
+                f"ファイル数: {total_files}件 (合計 {total_mb}MB)\n"
+                f"推定実行時間: 約 {total_min}分\n"
+                f"\n[ファイル分類]\n{file_section}\n"
+                f"\n[実行ステップ]\n{step_section}\n"
+                f"\n「▶ 構築実行」ボタンで構築を開始してください。"
+            )
+            self._append_rag_chat_msg("system", msg)
+
+            if hasattr(self, 'rag_build_execute_btn'):
+                self.rag_build_execute_btn.setEnabled(True)
+            if hasattr(self, 'rag_plan_preview_btn'):
+                self.rag_plan_preview_btn.setEnabled(True)
+            if hasattr(self, 'rag_chat_status'):
+                self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+        except Exception as e:
+            logger.error(f"RAG plan preview failed: {e}")
+            self._append_rag_chat_msg("system", f"❌ プラン作成失敗: {str(e)[:200]}")
+            if hasattr(self, 'rag_plan_preview_btn'):
+                self.rag_plan_preview_btn.setEnabled(True)
+            if hasattr(self, 'rag_chat_status'):
+                self.rag_chat_status.setText(t('desktop.infoTab.ragStatusReady'))
+
+    def _on_rag_build_execute_click(self):
+        """構築実行ボタンクリック（v11.3.0）"""
+        if not getattr(self, '_current_plan', None):
+            self._append_rag_chat_msg("system", f"⚠️ {t('desktop.infoTab.ragPlanPreviewHint')}")
+            return
+        if hasattr(self, 'rag_build_execute_btn'):
+            self.rag_build_execute_btn.setEnabled(False)
+        if hasattr(self, 'rag_plan_preview_btn'):
+            self.rag_plan_preview_btn.setEnabled(False)
+        if hasattr(self, 'rag_build_stop_btn'):
+            self.rag_build_stop_btn.setEnabled(True)
+        if hasattr(self, 'rag_chat_status'):
+            self.rag_chat_status.setText(t('desktop.infoTab.ragStatusBuilding'))
+        self._start_build()
 
     def _on_rag_build_stop_click(self):
         """チャットタブから構築停止"""
@@ -1547,6 +1684,7 @@ class InformationCollectionTab(QWidget):
         status_label = status_labels.get(status, status)
 
         item = QTreeWidgetItem([name, size_str, date_str, status_label])
+        item.setData(3, Qt.ItemDataRole.UserRole, status)   # 言語切替時の再翻訳用
         # 読み取り専用（チェックボックスなし）
         item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsUserCheckable)
 
@@ -1649,7 +1787,11 @@ class InformationCollectionTab(QWidget):
         """プラン作成の実行"""
         try:
             from ..rag.rag_planner import RAGPlanner
-            planner = RAGPlanner()
+            from ..memory.model_config import _load_rag_settings
+            _planner_model = _load_rag_settings().get("planner_model") or ""
+            if not _planner_model and hasattr(self, 'planner_model_combo'):
+                _planner_model = self.planner_model_combo.currentText()
+            planner = RAGPlanner(planner_engine=_planner_model or None)
             selected = self._get_selected_files()
             plan = planner.create_plan(
                 self._folder_path,
@@ -1876,9 +2018,11 @@ class InformationCollectionTab(QWidget):
         self.rebuild_btn.setEnabled(True)
         self.create_plan_btn.setEnabled(True)
 
-        # v11.0.0: チャット用ボタン状態を更新
-        if hasattr(self, 'rag_build_btn'):
-            self.rag_build_btn.setEnabled(True)
+        # v11.3.0: チャット用ボタン状態を更新
+        if hasattr(self, 'rag_plan_preview_btn'):
+            self.rag_plan_preview_btn.setEnabled(True)
+        if hasattr(self, 'rag_build_execute_btn'):
+            self.rag_build_execute_btn.setEnabled(False)
         if hasattr(self, 'rag_build_stop_btn'):
             self.rag_build_stop_btn.setEnabled(False)
         if hasattr(self, 'rag_progress_widget'):
@@ -2024,6 +2168,12 @@ class InformationCollectionTab(QWidget):
     # ユーティリティ
     # =========================================================================
 
+    def _on_planner_model_changed(self, text: str):
+        """計画担当モデル変更時の警告表示制御（v11.3.0）"""
+        if hasattr(self, 'planner_model_warning'):
+            is_local = text and not text.startswith("claude-") and "codex" not in text.lower()
+            self.planner_model_warning.setVisible(is_local)
+
     def _save_rag_settings(self):
         """RAG構築設定をapp_settings.jsonに保存（v10.1.0: モデル選択含む）"""
         try:
@@ -2044,6 +2194,7 @@ class InformationCollectionTab(QWidget):
                 "exec_llm": self.exec_llm_combo.currentText(),
                 "quality_llm": self.quality_llm_combo.currentText(),
                 "embedding_model": self.embedding_combo.currentText(),
+                "planner_model": self.planner_model_combo.currentText() if hasattr(self, 'planner_model_combo') else "",
                 # v11.0.0: RAG Auto-Enhancement (Phase 6-E)
                 "auto_kg_update": self.auto_kg_check.isChecked() if hasattr(self, 'auto_kg_check') else True,
                 "hype_enabled": self.hype_check.isChecked() if hasattr(self, 'hype_check') else True,
@@ -2090,6 +2241,8 @@ class InformationCollectionTab(QWidget):
                 self.quality_llm_combo.setCurrentText(rag["quality_llm"])
             if "embedding_model" in rag:
                 self.embedding_combo.setCurrentText(rag["embedding_model"])
+            if "planner_model" in rag and hasattr(self, 'planner_model_combo') and rag["planner_model"]:
+                self.planner_model_combo.setCurrentText(rag["planner_model"])
 
             # v11.0.0: RAG Auto-Enhancement (Phase 6-E)
             if hasattr(self, 'auto_kg_check'):
