@@ -213,12 +213,13 @@ class SettingsCortexTab(QWidget):
         layout = QVBoxLayout(group)
 
         # 説明ラベル
-        desc = QLabel(t('desktop.settings.optionalToolsDesc'))
-        desc.setStyleSheet("color: #9ca3af; font-size: 11px;")
-        desc.setWordWrap(True)
-        layout.addWidget(desc)
+        self.opt_tools_desc_label = QLabel(t('desktop.settings.optionalToolsDesc'))
+        self.opt_tools_desc_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.opt_tools_desc_label.setWordWrap(True)
+        layout.addWidget(self.opt_tools_desc_label)
 
         # パッケージ定義
+        self.opt_tools_status_labels = []
         optional_packages = [
             {
                 "label": "Browser Use",
@@ -255,6 +256,7 @@ class SettingsCortexTab(QWidget):
                 status_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
             status_label.setToolTip(t(f"desktop.settings.{pkg['desc_key']}"))
             row.addWidget(status_label)
+            self.opt_tools_status_labels.append((status_label, pkg['desc_key']))
             row.addStretch()
 
             # インストールボタン（未インストール時のみ）
@@ -1823,6 +1825,11 @@ class SettingsCortexTab(QWidget):
         # v11.3.1: Optional tools group
         if hasattr(self, 'optional_tools_group'):
             self.optional_tools_group.setTitle(t('desktop.settings.optionalToolsGroup'))
+            if hasattr(self, 'opt_tools_desc_label'):
+                self.opt_tools_desc_label.setText(t('desktop.settings.optionalToolsDesc'))
+            if hasattr(self, 'opt_tools_status_labels'):
+                for lbl, desc_key in self.opt_tools_status_labels:
+                    lbl.setToolTip(t(f'desktop.settings.{desc_key}'))
 
         # API Keys group (v11.2.0 → v11.4.0: Anthropic/OpenAI追加)
         if hasattr(self, 'api_keys_group'):
