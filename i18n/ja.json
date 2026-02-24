@@ -80,7 +80,10 @@
       "unsupportedExt": "非対応の拡張子: {ext}",
       "uploadFailed": "アップロード失敗 ({status})",
       "uploadError": "アップロードエラー: {message}",
-      "sourceUpload": "(upload)"
+      "sourceUpload": "(upload)",
+      "localUpload": "デバイスからアップロード",
+      "serverFile": "サーバーファイルを選択",
+      "uploading": "アップロード中..."
     },
     "contextMode": {
       "single": "単発",
@@ -177,7 +180,9 @@
       "saveButton": "設定を保存",
       "language": "言語 / Language",
       "langJa": "日本語",
-      "langEn": "English"
+      "langEn": "English",
+      "managedByDesktop": "設定はデスクトップアプリで管理されています",
+      "managedByDesktopDesc": "設定を変更するには Helix AI Studio デスクトップアプリをお使いください。"
     },
     "markdown": {
       "copy": "コピー",

@@ -15,13 +15,19 @@ function ModelSelector({ token, selectedModel, onModelChange, disabled }) {
       const res = await fetch('/api/config/ollama-models', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (res.ok) {
-        const data = await res.json();
-        setModels(data);
-        // 最初のモデルを自動選択
-        if (data.length > 0 && !selectedModel) {
-          onModelChange(data[0].name);
-        }
+      if (res.status === 401) {
+        console.warn('[LocalAI] Ollama models: authentication failed');
+        return;
+      }
+      if (!res.ok) {
+        console.warn(`[LocalAI] Ollama models fetch failed: HTTP ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      setModels(data);
+      // 最初のモデルを自動選択
+      if (data.length > 0 && !selectedModel) {
+        if (onModelChange) onModelChange(data[0].name);
       }
     } catch (e) {
       console.error('Failed to fetch Ollama models:', e);
@@ -40,7 +46,7 @@ function ModelSelector({ token, selectedModel, onModelChange, disabled }) {
       </span>
       <select
         value={selectedModel}
-        onChange={(e) => onModelChange(e.target.value)}
+        onChange={(e) => onModelChange && onModelChange(e.target.value)}
         disabled={disabled || loading}
         className="flex-1 bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg
                    px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500

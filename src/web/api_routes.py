@@ -378,8 +378,8 @@ def _get_project_dir() -> str | None:
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return config.get("project_dir", "")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[api_routes] Failed to load project_dir: {e}")
     return None
 
 
@@ -897,7 +897,9 @@ async def delete_upload(filename: str, payload: dict = Depends(verify_jwt)):
     target = UPLOAD_DIR / filename
     if not target.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    if not str(target.resolve()).startswith(str(UPLOAD_DIR.resolve())):
+    try:
+        target.resolve().relative_to(UPLOAD_DIR.resolve())
+    except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
     target.unlink()
     return {"status": "ok"}
@@ -913,7 +915,9 @@ async def download_file(path: str, payload: dict = Depends(verify_jwt)):
     target = Path(project_dir) / path
 
     # パストラバーサル防止
-    if not str(target.resolve()).startswith(str(Path(project_dir).resolve())):
+    try:
+        target.resolve().relative_to(Path(project_dir).resolve())
+    except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
 
     if not target.is_file():
@@ -946,7 +950,9 @@ async def copy_upload_to_project(filename: str, dest_dir: str = "",
     dest = project_dir / dest_dir / original_name
 
     # パストラバーサル防止
-    if not str(dest.resolve()).startswith(str(project_dir.resolve())):
+    try:
+        dest.resolve().relative_to(project_dir.resolve())
+    except ValueError:
         raise HTTPException(status_code=403, detail="Access denied")
 
     dest.parent.mkdir(parents=True, exist_ok=True)
