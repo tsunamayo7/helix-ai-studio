@@ -455,18 +455,20 @@ class InformationCollectionTab(QWidget):
         # 凡例
         legend_row = QHBoxLayout()
         legend_row.setSpacing(12)
-        for color, label in [
-            ("#00c853", t('desktop.infoTab.legendNew')),
-            ("#ffd600", t('desktop.infoTab.legendModified')),
-            ("#9e9e9e", t('desktop.infoTab.legendUnchanged')),
-            ("#ef5350", t('desktop.infoTab.legendDeleted')),
+        self._legend_labels = []
+        for color, key in [
+            ("#00c853", "legendNew"),
+            ("#ffd600", "legendModified"),
+            ("#9e9e9e", "legendUnchanged"),
+            ("#ef5350", "legendDeleted"),
         ]:
             dot = QLabel("●")
             dot.setStyleSheet(f"color: {color}; font-size: 10px;")
-            lbl = QLabel(label)
+            lbl = QLabel(t(f'desktop.infoTab.{key}'))
             lbl.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px;")
             legend_row.addWidget(dot)
             legend_row.addWidget(lbl)
+            self._legend_labels.append((lbl, key))
         legend_row.addStretch()
         layout.addLayout(legend_row)
 
@@ -1086,6 +1088,10 @@ class InformationCollectionTab(QWidget):
         self.folder_path_label.setText(t('desktop.infoTab.folderPath', path=self._folder_path))
         self.open_folder_btn.setText(t('desktop.infoTab.openFolder'))
         self.file_tree.setHeaderLabels(t('desktop.infoTab.fileTreeHeaders'))
+        # 凡例ラベルを現在言語で再翻訳
+        if hasattr(self, '_legend_labels'):
+            for lbl, key in self._legend_labels:
+                lbl.setText(t(f'desktop.infoTab.{key}'))
         # ファイルツリーのステータス列を現在言語で再翻訳
         _status_map = {
             "new": t('desktop.infoTab.ragStatusNew'),
