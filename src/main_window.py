@@ -247,6 +247,9 @@ class MainWindow(QMainWindow):
         # シグナル接続
         self._connect_signals()
 
+        # v11.5.3: 起動時に保存済み言語を全タブに適用（init_language() で読んだ言語を確定反映）
+        self.retranslateUi()
+
     def _set_window_icon(self):
         """ウィンドウアイコンを設定 (v3.3.0: タスクバー・タイトルバー両方に反映)"""
         import sys
@@ -809,6 +812,13 @@ QMenu::separator {
         # v5.0.0: ウィンドウサイズ・位置を保存
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
+
+        # v11.5.3: 終了時に現在の言語設定を確実に保存
+        try:
+            set_language(get_language())
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to save language on close: {e}")
 
         # ワーカースレッドを停止
         self._cleanup_workers()
