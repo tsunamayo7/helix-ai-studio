@@ -105,9 +105,13 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ## Screenshots
 
-| mixAI Chat | mixAI Settings | soloAI Chat | General Settings |
-|---|---|---|---|
-| ![mixAI](docs/screenshots/HelixAIStudio_20260211_152431.png) | ![mixAI settings](docs/screenshots/HelixAIStudio_20260211_152438.png) | ![soloAI](docs/screenshots/HelixAIStudio_20260211_152448.png) | ![general](docs/screenshots/HelixAIStudio_20260211_152457.png) |
+| mixAI Chat | mixAI Settings | cloudAI Chat | cloudAI Settings | localAI Chat |
+|---|---|---|---|---|
+| ![mixAI Chat](docs/screenshots/HelixAIStudio_20260225_073402.png) | ![mixAI Settings](docs/screenshots/HelixAIStudio_20260225_073404.png) | ![cloudAI Chat](docs/screenshots/HelixAIStudio_20260225_073406.png) | ![cloudAI Settings](docs/screenshots/HelixAIStudio_20260225_073407.png) | ![localAI Chat](docs/screenshots/HelixAIStudio_20260225_073408.png) |
+
+| localAI Settings | History | RAG Chat | RAG Build | RAG Settings |
+|---|---|---|---|---|
+| ![localAI Settings](docs/screenshots/HelixAIStudio_20260225_073410.png) | ![History](docs/screenshots/HelixAIStudio_20260225_073411.png) | ![RAG Chat](docs/screenshots/HelixAIStudio_20260225_073412.png) | ![RAG Build](docs/screenshots/HelixAIStudio_20260225_074153.png) | ![RAG Settings](docs/screenshots/HelixAIStudio_20260225_074155.png) |
 
 ---
 
