@@ -80,7 +80,10 @@
       "unsupportedExt": "Unsupported extension: {ext}",
       "uploadFailed": "Upload failed ({status})",
       "uploadError": "Upload error: {message}",
-      "sourceUpload": "(upload)"
+      "sourceUpload": "(upload)",
+      "localUpload": "Upload from device",
+      "serverFile": "Browse server files",
+      "uploading": "Uploading..."
     },
     "contextMode": {
       "single": "Single",
@@ -177,7 +180,9 @@
       "saveButton": "Save Settings",
       "language": "Language",
       "langJa": "日本語",
-      "langEn": "English"
+      "langEn": "English",
+      "managedByDesktop": "Settings managed by desktop app",
+      "managedByDesktopDesc": "Please use the Helix AI Studio desktop application to configure settings."
     },
     "markdown": {
       "copy": "Copy",
@@ -717,7 +722,12 @@
       "addModelCommand": "Command",
       "deleteModelConfirm": "Delete this model?",
       "editJsonTitle": "Edit cloud_models.json",
-      "unknownProviderGuide": "Provider not configured for model '{model_id}'.\nGo to cloudAI tab → Registered Models → delete and re-add this model, then set the provider."
+      "unknownProviderGuide": "Provider not configured for model '{model_id}'.\nGo to cloudAI tab → Registered Models → delete and re-add this model, then set the provider.",
+      "effortLabel": "Adaptive thinking:",
+      "effortDefault": "Not set (normal)",
+      "effortOpusOnly": "Only effective with Opus 4.6",
+      "effortFallbackWarn": "Error in effort setting. Retrying in normal mode",
+      "effortTip": "Adaptive thinking settings for Opus 4.6\nReflected via CLAUDE_CODE_EFFORT_LEVEL env var"
     },
     "mixAI": {
       "chatTab": "💬 Chat",
@@ -1018,7 +1028,12 @@
       "refreshPhaseModelsTip": "Refresh model lists from cloudAI/localAI into all Phase combos",
       "browserUseGroup": "URL Fetch Settings",
       "browserUseLabel": "Enable Auto URL Fetch",
-      "browserUseTip": "Automatically fetch URLs found in the prompt and inject content into context (static pages, httpx-based, no extra install required)"
+      "browserUseTip": "Automatically fetch URLs found in the prompt and inject content into context (static pages, httpx-based, no extra install required)",
+      "effortLabel": "Adaptive thinking:",
+      "effortDefault": "Not set (normal)",
+      "effortOpusOnly": "Only effective with Opus 4.6",
+      "effortFallbackWarn": "Error in effort setting. Retrying in normal mode",
+      "effortTip": "Adaptive thinking settings for Opus 4.6\nNot set = CLI default / low / medium / high"
     },
     "soloAI": {
       "title": "🚀 soloAI - Claude Code",
@@ -1297,7 +1312,12 @@
       "addModelIdRequired": "Model ID is required",
       "addModelErrorTitle": "Input Error",
       "noModelsConfigured": "No models registered. Go to Settings → Cloud Model Management → Add to register a model.",
-      "goToModelSettings": "Go to Settings →"
+      "goToModelSettings": "Go to Settings →",
+      "effortLabel": "Adaptive thinking:",
+      "effortDefault": "Not set (normal)",
+      "effortOpusOnly": "Only effective with Opus 4.6",
+      "effortFallbackWarn": "Error in effort setting. Retrying in normal mode",
+      "effortTip": "Adaptive thinking settings for Opus 4.6\nReflected via CLAUDE_CODE_EFFORT_LEVEL env var"
     },
     "infoTab": {
       "folderGroupTitle": "Information Collection Folder",
@@ -1841,7 +1861,13 @@
       "browserUseLabel": "Enable Auto URL Fetch",
       "browserUseTip": "When enabled, the local LLM can fetch web pages with JS rendering via browser-use\n(httpx fallback used automatically when browser_use is not installed)",
       "browserUseNotInstalled": "browser_use not installed (using httpx fallback)",
-      "browserUseHttpxMode": "When enabled, fetches URLs in prompts and injects content (current: static pages only, httpx-based)\nInstall browser-use for JavaScript-rendered pages:\npip install browser-use && python -m playwright install chromium"
+      "browserUseHttpxMode": "When enabled, fetches URLs in prompts and injects content (current: static pages only, httpx-based)\nInstall browser-use for JavaScript-rendered pages:\npip install browser-use && python -m playwright install chromium",
+      "anthropicApiKeyLabel": "Anthropic API Key:",
+      "anthropicApiKeyPlaceholder": "sk-ant-... (leave empty to use CLI)",
+      "googleApiKeyLabel": "Google API Key (Gemini) - Get: https://aistudio.google.com/app/apikey (free, no credit card)",
+      "googleApiKeyPlaceholder": "AIza... (if empty, Gemini API unavailable)",
+      "openaiApiKeyLabel": "OpenAI API Key:",
+      "openaiApiKeyPlaceholder": "sk-... (leave empty to use CLI)"
     }
   },
   "widget": {

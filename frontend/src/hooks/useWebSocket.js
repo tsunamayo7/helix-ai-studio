@@ -215,6 +215,13 @@ export function useWebSocket(token, endpoint = 'solo') {
   const sendLocalMessage = useCallback((prompt, options = {}) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.error('WebSocket not connected');
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'WebSocket is not connected. Please wait and try again.',
+        timestamp: new Date().toISOString(),
+        status: 'error',
+      }]);
       return;
     }
 
@@ -241,6 +248,7 @@ export function useWebSocket(token, endpoint = 'solo') {
   }, []);
 
   const loadChat = useCallback(async (chatId) => {
+    const controller = new AbortController();
     setActiveChatId(chatId);
     if (!chatId) {
       clearMessages();
@@ -250,6 +258,7 @@ export function useWebSocket(token, endpoint = 'solo') {
     try {
       const res = await fetch(`/api/chats/${chatId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
+        signal: controller.signal,
       });
       if (res.ok) {
         const data = await res.json();
@@ -262,7 +271,11 @@ export function useWebSocket(token, endpoint = 'solo') {
         }));
         setMessages(restored);
       }
-    } catch (e) { console.error('Failed to load chat:', e); }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      console.error('Failed to load chat:', e);
+    }
+    return () => controller.abort();
   }, [token, clearMessages]);
 
   return {

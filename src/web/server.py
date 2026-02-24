@@ -93,8 +93,8 @@ def _release_execution_lock():
     """Web実行ロックを解除"""
     try:
         LOCK_FILE.write_text('{"locked": false}', encoding='utf-8')
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[server] Failed to release execution lock: {e}")
 
 
 # =============================================================================
@@ -384,7 +384,7 @@ async def _handle_local_execute(client_id: str, data: dict):
         await ws_manager.send_error(client_id, "No model specified. Please select a model.")
         return
 
-    ollama_host = _load_merged_settings().get("ollama_host", "http://localhost:11434")
+    ollama_host = settings.get("ollama_host", "http://localhost:11434")
 
     # 実行ロック
     _set_execution_lock("localAI", client_info, prompt)
@@ -1043,8 +1043,8 @@ def _load_orchestrator_engine() -> str:
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return config.get("orchestrator_engine") or ""
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[server] Failed to load orchestrator engine: {e}")
     return ""
 
 
