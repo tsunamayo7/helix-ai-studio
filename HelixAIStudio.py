@@ -276,10 +276,11 @@ def main():
             app.processEvents()
 
         if splash:
+            from PyQt6.QtGui import QColor
             splash.showMessage(
                 "  Loading modules...",
                 alignment=0x84,
-                color=None
+                color=QColor("#475569")
             )
             app.processEvents()
 
