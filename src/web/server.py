@@ -372,10 +372,12 @@ async def _handle_local_execute(client_id: str, data: dict):
         await ws_manager.send_error(client_id, "Prompt is empty")
         return
 
+    # 設定読み込み（ollama_host等に必要）
+    settings = _load_merged_settings()
+
     # モデル未指定なら設定から取得
     if not model:
         try:
-            settings = _load_merged_settings()
             assignments = settings.get("model_assignments", {})
             model = assignments.get("coding") or ""
         except Exception:

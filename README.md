@@ -98,8 +98,8 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 ### mixAI — 3+1 Phase Pipeline (Claude → Local LLMs → Claude → Sonnet)
 ![mixAI Demo](docs/screenshots/mixai_demo.gif)
 
-### soloAI — Direct Claude CLI
-![soloAI Demo](docs/screenshots/soloai_demo.gif)
+### cloudAI — Direct Claude Chat
+![cloudAI Chat](docs/screenshots/HelixAIStudio_20260225_073406.png)
 
 ---
 
@@ -285,7 +285,7 @@ Helix AI Studio/
 | Version | Codename | Highlights |
 |---------|----------|------------|
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI tab (Ollama WebSocket), Discord notifications, visual parity cloudAI/localAI |
-| v11.5.2 | Safety & Hygiene | Log rotation, path traversal fix, brute-force login protection, auto-cleanup, RAG 2-step |
+| v11.5.2 | Visual Parity | Log rotation, path traversal fix, brute-force login protection, auto-cleanup, RAG 2-step |
 | v11.5.1 | Provider Pure | Provider routing cleanup, README API docs, API key security UI |
 | v11.5.0 | Model Agnostic | Multi-provider API (Anthropic/OpenAI/Google), API-first with CLI fallback, dynamic model catalog, Gemini support |
 | v11.0.0 | Smart History | History tab with JSONL search, BIBLE cross-tab toggle, cloud model selector, 6-tab layout |

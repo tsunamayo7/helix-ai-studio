@@ -7,6 +7,7 @@ __pycache__/
 *.so
 *.egg-info/
 dist/
+!frontend/dist/
 build/
 *.egg
 
@@ -58,6 +59,7 @@ node_modules/
 nul
 
 # Development/debug artifacts
+debug_overnight_log.md
 debug_out*.txt
 patch_z*.py
 patch_z*_i18n.py

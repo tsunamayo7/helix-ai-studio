@@ -93,8 +93,8 @@ Helix AI Studioは **3+1Phaseパイプライン** で動作します：
 ### mixAI — 3+1Phaseパイプライン (Claude → ローカルLLM → Claude → Sonnet)
 ![mixAI デモ](docs/screenshots/mixai_demo.gif)
 
-### soloAI — Claude CLI直接実行
-![soloAI デモ](docs/screenshots/soloai_demo.gif)
+### cloudAI — Claudeチャット
+![cloudAI Chat](docs/screenshots/HelixAIStudio_20260225_073406.png)
 
 ---
 
@@ -259,7 +259,7 @@ cd ..
 | バージョン | コードネーム | 主な変更 |
 |-----------|------------|---------|
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI (Ollama WebSocket)、Discord通知、cloudAI/localAI表示統一 |
-| v11.5.2 | Safety & Hygiene | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |
+| v11.5.2 | Visual Parity | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |
 | v11.5.1 | Provider Pure | プロバイダールーティング整理、APIキーセキュリティUI |
 | v11.5.0 | Model Agnostic | マルチプロバイダーAPI (Anthropic/OpenAI/Google)、APIファースト |
 | v9.9.1 | Memory & Codex | HelixMemoryManager強化(private除外/段階注入/ビューアAPI)、Codex CLI soloAI対応、mixAI Opus4.6/Codexプリセット、検索選択式、設定保存修正、差分ダイアログ修正、スクロール誤操作防止、保存UIボタン統一 |

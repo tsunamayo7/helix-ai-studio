@@ -5,6 +5,40 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.5.3] - 2026-02-25 "Web LocalAI + Discord"
+
+### Added
+- Web UI LocalAI tab: `/ws/local` WebSocket endpoint for Ollama chat via browser
+- `LocalAIView.jsx` component with ModelSelector (auto-fetches Ollama models)
+- `sendLocalMessage` callback in `useWebSocket.js` hook
+- Discord notifications for all three AI tabs (cloudAI/mixAI/localAI): started, completed, error events
+- `install.bat` now builds frontend with `npm install && npm run build` when Node.js is available
+
+### Changed
+- Default web tab changed from cloudAI to mixAI
+- TabBar order: mixAI → cloudAI → localAI → Files
+- `frontend/dist/` now tracked in git (pre-built for users without Node.js)
+- cloudAI send button label uses i18n key `desktop.cloudAI.sendBtnMain`
+- cloudAI continue panel style unified: bg `#1a1a2e`, border `#2a2a3e`, border-radius 6px
+- localAI input area bottom border aligned with cloudAI
+
+### Fixed
+- `_handle_local_execute()` NameError: `settings` variable was conditionally defined, now always loaded
+
+## [11.5.2] - 2026-02-25 "Visual Parity"
+
+### Added
+- Log rotation for web server logs
+- RAG 2-step verification flow
+
+### Changed
+- Desktop cloudAI/localAI input area visual alignment (margins, spacing, borders)
+
+### Fixed
+- Path traversal vulnerability in file transfer API
+- Brute-force login protection added to web auth
+- Auto-cleanup of stale execution locks
+
 ## [11.5.1] - 2026-02-25 "Provider Pure"
 
 ### Changed

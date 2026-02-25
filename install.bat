@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
-title Helix AI Studio v11.5.1 - Installer
+title Helix AI Studio v11.5.3 - Installer
 
 echo ============================================================
-echo  Helix AI Studio v11.5.1 - Installer
+echo  Helix AI Studio v11.5.3 - Installer
 echo ============================================================
 echo.
 
@@ -153,6 +153,39 @@ if /i "!INSTALL_OPENAI!"=="Y" (
 ) else (
     echo [SKIP] openai SDK をスキップしました
     echo        後で手動でインストールできます: pip install openai
+)
+echo.
+
+:: [Optional] Frontend build (requires Node.js)
+echo ============================================================
+echo  Web UI ビルド / Building Web UI
+echo ============================================================
+echo.
+where node >nul 2>&1
+if errorlevel 1 (
+    echo [SKIP] Node.js が見つかりません / Node.js not found
+    echo        Web UI はプリビルド版を使用します / Using pre-built Web UI
+    echo        最新版をビルドするには Node.js をインストールしてください
+    echo        https://nodejs.org/
+) else (
+    echo Node.js が見つかりました / Node.js found:
+    node --version
+    if exist "frontend\package.json" (
+        echo frontend の依存パッケージをインストール中... / Installing frontend dependencies...
+        cd frontend
+        call npm install --silent 2>nul
+        echo Web UI をビルド中... / Building Web UI...
+        call npm run build 2>nul
+        if errorlevel 1 (
+            echo [WARNING] Web UI のビルドに失敗しました / Failed to build Web UI
+            echo           プリビルド版を使用します / Using pre-built version
+        ) else (
+            echo [OK] Web UI ビルド完了 / Web UI built successfully
+        )
+        cd ..
+    ) else (
+        echo [SKIP] frontend/package.json が見つかりません
+    )
 )
 echo.
 
