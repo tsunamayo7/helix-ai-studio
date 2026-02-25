@@ -758,7 +758,7 @@
       "engineDescClaude": "☁ Anthropic API 使用（APIキー設定時は直接接続）",
       "engineDescLocal": "🖥 ローカルLLMエージェントを使用（要 Ollama）。推奨: 32B以上",
       "engineDescCodex": "⚡ GPT-5.3-Codex CLI を使用（要 codex コマンド）",
-      "attachBtn": "📎 ファイルを添付",
+      "attachBtn": "📎 添付",
       "attachTip": "Claude CLIに渡すファイルを添付します\nコード、ドキュメント、画像などを指定できます",
       "historyBtn": "📜 履歴",
       "historyBtnTip": "チャット履歴パネルを表示/非表示",

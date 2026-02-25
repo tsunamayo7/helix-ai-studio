@@ -294,7 +294,7 @@ class LocalAITab(QWidget):
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))
         self.chat_display.setPlaceholderText(t('desktop.localAI.chatReady'))
         self.chat_display.setStyleSheet(
-            "QTextEdit { background-color: #080c14; border: none; "
+            "QTextEdit { background-color: #0a0a1a; border: none; "
             "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
         )
         chat_layout.addWidget(self.chat_display, stretch=1)
@@ -305,6 +305,7 @@ class LocalAITab(QWidget):
         bottom_frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")  # v11.5.3: cloudAI統一
         bottom_layout = QHBoxLayout(bottom_frame)
         bottom_layout.setContentsMargins(10, 5, 10, 5)
+        bottom_layout.setSpacing(10)
 
         # --- 左側: 入力欄 + ボタン行 ---
         left_widget = QWidget()

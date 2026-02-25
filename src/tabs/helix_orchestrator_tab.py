@@ -1528,13 +1528,18 @@ class HelixOrchestratorTab(QWidget):
         layout.addWidget(self.tool_log_group)
 
         # === 下部: 入力エリア(左) + 会話継続パネル(右) ===
-        bottom_layout = QHBoxLayout()
+        bottom_frame = QFrame()
+        bottom_frame.setObjectName("inputFrame")
+        bottom_frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")
+        bottom_layout = QHBoxLayout(bottom_frame)
+        bottom_layout.setContentsMargins(10, 5, 10, 5)
+        bottom_layout.setSpacing(10)
 
         # --- 左側: 入力欄 + ボタン行 ---
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 4, 0, 0)
-        left_layout.setSpacing(4)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(5)
 
         # 添付ファイルバー
         self.attachment_bar = MixAIAttachmentBar()
@@ -1545,6 +1550,7 @@ class HelixOrchestratorTab(QWidget):
         self.input_text = MixAIEnhancedInput()
         self.input_text.setFont(QFont("Yu Gothic UI", 11))  # v11.5.2: 統一
         self.input_text.setPlaceholderText(t('desktop.mixAI.inputPlaceholder'))
+        self.input_text.setMinimumHeight(40)
         self.input_text.setMaximumHeight(150)
         self.input_text.file_dropped.connect(self.attachment_bar.add_files)
         left_layout.addWidget(self.input_text)
@@ -1610,7 +1616,7 @@ class HelixOrchestratorTab(QWidget):
         continue_frame = self._create_mixai_continue_panel()
         bottom_layout.addWidget(continue_frame, stretch=1)
 
-        layout.addLayout(bottom_layout)
+        layout.addWidget(bottom_frame)
 
         # v11.0.0: 後方互換用の非表示属性（削除されたボタンを参照するコード用）
         self.new_session_btn = QPushButton()

@@ -758,7 +758,7 @@
       "engineDescClaude": "☁ Uses Anthropic API (direct connection when API key is set)",
       "engineDescLocal": "🖥 Uses local LLM agent (requires Ollama). Recommended: 32B+",
       "engineDescCodex": "⚡ Uses GPT-5.3-Codex CLI (requires codex command)",
-      "attachBtn": "📎 Attach Files",
+      "attachBtn": "📎 Attach",
       "attachTip": "Attach files for Claude CLI\nCode, documents, images, etc.",
       "historyBtn": "📜 History",
       "historyBtnTip": "Show/hide chat history panel",

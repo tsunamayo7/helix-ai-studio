@@ -33,8 +33,8 @@ def main():
             pass
         return 1
 
-    # システムの pythonw.exe を探す (GUI 用、コンソール窓なし)
-    python_exe = shutil.which('pythonw') or shutil.which('python')
+    # システムの python.exe を探す (pythonw より python を優先)
+    python_exe = shutil.which('python') or shutil.which('pythonw')
     if not python_exe:
         try:
             import ctypes
@@ -51,10 +51,15 @@ def main():
         return 1
 
     # サブプロセスとして起動し、終了を待つ
-    # (EXEプロセスが生き続けることでタスクバーの表示が安定する)
+    # python.exe の場合は CREATE_NO_WINDOW でコンソール窓を非表示にする
+    creation_flags = 0
+    if os.name == 'nt' and 'pythonw' not in os.path.basename(python_exe).lower():
+        creation_flags = subprocess.CREATE_NO_WINDOW
+
     proc = subprocess.Popen(
         [python_exe, entry_point],
         cwd=app_dir,
+        creationflags=creation_flags,
     )
     proc.wait()
     return proc.returncode
