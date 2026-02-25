@@ -8,6 +8,7 @@ output = os.path.join(base, 'helix_source_bundle.txt')
 files = [
     # --- Root ---
     'HelixAIStudio.py',
+    'launcher.py',
 
     # --- src/ core ---
     'src/__init__.py',
@@ -22,6 +23,8 @@ files = [
     'src/utils/model_capabilities.py',
     'src/utils/chat_logger.py',
     'src/utils/model_catalog.py',
+    'src/utils/style_helpers.py',
+    'src/utils/error_utils.py',
     'src/utils/discord_notifier.py',
     'src/utils/prompt_cache.py',
     'src/utils/diagnostics.py',
