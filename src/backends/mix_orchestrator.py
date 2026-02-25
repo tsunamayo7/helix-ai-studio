@@ -721,7 +721,13 @@ class MixAIOrchestrator(QThread):
 
     def _build_phase1_system_prompt(self) -> str:
         """v8.4.0: Phase 1用システムプロンプト — 2段階構造化（設計分析→指示書生成）"""
-        return """あなたはHelix AI Studioの計画立案AIです。
+        from ..utils.i18n import get_language
+        _lang = get_language()
+        _lang_line = "Respond in English." if _lang == "en" else "日本語で回答してください。"
+        _answer_example = "Your direct answer to the user" if _lang == "en" else "ユーザーへの回答"
+        _final_note = "in natural English" if _lang == "en" else "自然な日本語"
+        return f"""あなたはHelix AI Studioの計画立案AIです。
+{_lang_line}
 以下のユーザーの要求に対して、**2段階**で応答してください。
 
 ## Step 1: 設計分析 (Design Analysis)
@@ -759,16 +765,16 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 以下のJSON形式で出力してください（```json で囲んでください）:
 
 ```json
-{
-  "claude_answer": "ユーザーへの回答（自然な日本語）",
-  "design_analysis": {
+{{
+  "claude_answer": "{_answer_example}",
+  "design_analysis": {{
     "requirements": ["要件1", "要件2"],
     "tech_elements": ["技術要素1", "技術要素2"],
     "risks": ["リスク1"],
     "task_distribution": "タスク分配の方針説明"
-  },
-  "local_llm_instructions": {
-    "coding": {
+  }},
+  "local_llm_instructions": {{
+    "coding": {{
       "prompt": "具体的なコーディング指示",
       "expected_output": "期待する出力形式",
       "context": "関連ファイルパス・API仕様等",
@@ -778,44 +784,44 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
       ],
       "expected_output_format": "出力形式の指定",
       "skip": false
-    },
-    "research": {
+    }},
+    "research": {{
       "prompt": "具体的な調査指示",
       "expected_output": "期待する出力形式",
       "context": "",
       "acceptance_criteria": ["基準1"],
       "expected_output_format": "",
       "skip": false
-    },
-    "reasoning": {
+    }},
+    "reasoning": {{
       "prompt": "具体的な推論・検証指示",
       "expected_output": "期待する出力形式",
       "context": "",
       "acceptance_criteria": ["基準1"],
       "expected_output_format": "",
       "skip": false
-    },
-    "vision": {
+    }},
+    "vision": {{
       "prompt": "具体的な画像解析指示",
       "expected_output": "期待する出力形式",
       "context": "",
       "acceptance_criteria": [],
       "expected_output_format": "",
       "skip": true
-    },
-    "translation": {
+    }},
+    "translation": {{
       "prompt": "具体的な翻訳指示",
       "expected_output": "期待する出力形式",
       "context": "",
       "acceptance_criteria": [],
       "expected_output_format": "",
       "skip": true
-    }
-  },
+    }}
+  }},
   "complexity": "simple|moderate|complex",
   "skip_phase2": false,
   "tools_used": ["Read", "WebSearch"]
-}
+}}
 ```
 
 ## complexity判定基準
@@ -1200,6 +1206,11 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 
     def _build_phase3_system_prompt(self, phase1_answer: str, phase2_results: list[SequentialResult]) -> str:
         """v8.4.0: Phase 3用システムプロンプト — Acceptance Criteria評価 + 統合"""
+        from ..utils.i18n import get_language
+        _lang = get_language()
+        _lang_line = "Respond in English." if _lang == "en" else "日本語で回答してください。"
+        _final_note = "in natural English" if _lang == "en" else "自然な日本語で"
+        _answer_example = "Final answer to the user" if _lang == "en" else "ユーザーへの最終回答"
         results_text = self._format_phase2_results(phase2_results)
 
         # v8.4.0: Acceptance Criteriaセクション構築
@@ -1228,6 +1239,7 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 """
 
         return f"""あなたはHelix AI Studioの統合AIです。
+{_lang_line}
 
 ## Phase 1であなたが立案した計画と初回回答:
 {phase1_answer[:MAX_PHASE1_ANSWER_CHARS]}
@@ -1245,7 +1257,7 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 2. 自身のPhase 1の回答と比較し、優れた点を取り込む
 3. 必要に応じてファイルを直接修正（Write/Edit）
 4. テストを実行して品質を検証（Bash）
-5. 最終回答を自然な日本語で生成
+5. 最終回答を{_final_note}生成
 
 ## 出力形式
 以下のJSON形式で出力してください（```json で囲んでください）:
@@ -1254,7 +1266,7 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
 ```json
 {{
   "status": "complete",
-  "final_answer": "ユーザーへの最終回答（自然な日本語）",
+  "final_answer": "{_answer_example}",
   "criteria_evaluation": {{
     "coding": [{{"criterion": "基準1", "result": "PASS", "reason": "根拠"}}],
     "research": [{{"criterion": "基準1", "result": "PASS", "reason": "根拠"}}]

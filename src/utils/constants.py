@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.5.3"
-APP_CODENAME = "Web LocalAI + Discord"
+APP_VERSION = "11.5.4"
+APP_CODENAME = "Model Summary + Language Fix"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.5.3 'Web LocalAI + Discord' - "
-    "localAI Web UI追加・Discord通知接続・チャットUI統一"
+    "Helix AI Studio v11.5.4 'Model Summary + Language Fix' - "
+    "モデルサマリー付記・言語設定プロンプト反映"
 )
 
 # v8.5.0: 情報収集フォルダ

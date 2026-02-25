@@ -435,11 +435,15 @@ async def _handle_local_execute(client_id: str, data: dict):
 
         elapsed = _time.time() - start_time
 
-        # 応答保存
-        chat_store.add_message(chat_id, "assistant", response,
+        # モデルサマリーを末尾に付記
+        model_summary = f"\n\n---\n🤖 **使用モデル (Ollama)**: `{model}`"
+        response_with_summary = response + model_summary
+
+        # 応答保存（サマリー込み）
+        chat_store.add_message(chat_id, "assistant", response_with_summary,
                                metadata={"model": model, "elapsed": round(elapsed, 1)})
 
-        await ws_manager.send_streaming(client_id, response, done=True)
+        await ws_manager.send_streaming(client_id, response_with_summary, done=True)
         await ws_manager.send_status(client_id, "completed", f"実行完了 ({elapsed:.1f}s)")
 
         # Discord: 完了通知
@@ -626,13 +630,17 @@ async def _handle_solo_execute(client_id: str, data: dict):
             except json.JSONDecodeError:
                 response_text = stdout.strip()
 
-            # アシスタント応答保存
-            chat_store.add_message(chat_id, "assistant", response_text,
+            # モデルサマリーを末尾に付記
+            model_summary = f"\n\n---\n🤖 **使用モデル**: `{model_id}`"
+            response_with_summary = response_text + model_summary
+
+            # アシスタント応答保存（サマリー込み）
+            chat_store.add_message(chat_id, "assistant", response_with_summary,
                                    metadata={"model": model_id, "mode": context_result["mode"],
                                              "tokens_estimated": context_result["token_estimate"]})
 
-            # 完了送信
-            await ws_manager.send_streaming(client_id, response_text, done=True)
+            # 完了送信（サマリー込み）
+            await ws_manager.send_streaming(client_id, response_with_summary, done=True)
             await ws_manager.send_status(client_id, "completed", "実行完了")
 
             # v11.5.3: Discord完了通知
@@ -881,11 +889,29 @@ async def _handle_mix_execute(client_id: str, data: dict):
         else:
             final_answer = str(phase3_result)
 
-        # アシスタント応答保存
-        chat_store.add_message(chat_id, "assistant", final_answer,
+        # モデルサマリーを生成（Phase2 カテゴリ別）
+        p2_lines = []
+        for r in phase2_results:
+            status_icon = "✅" if r["success"] else "❌"
+            p2_lines.append(f"  {status_icon} {r['category']}: `{r['model']}`")
+
+        if p2_lines:
+            p2_block = "\n- Phase 2 (ローカルLLM):\n" + "\n".join(p2_lines)
+        else:
+            p2_block = "\n- Phase 2: スキップ（低複雑度）"
+
+        model_summary = (
+            f"\n\n---\n🤖 **使用モデル**\n"
+            f"- Phase 1/3 (オーケストレーター): `{engine_id}`"
+            f"{p2_block}"
+        )
+        final_answer_with_summary = final_answer + model_summary
+
+        # アシスタント応答保存（サマリー込み）
+        chat_store.add_message(chat_id, "assistant", final_answer_with_summary,
                                metadata={"model": model_id, "mode": context_result["mode"]})
 
-        await ws_manager.send_streaming(client_id, final_answer, done=True)
+        await ws_manager.send_streaming(client_id, final_answer_with_summary, done=True)
         await ws_manager.send_status(client_id, "completed", "3Phase実行完了")
 
         # v11.5.3: Discord完了通知
@@ -1135,14 +1161,19 @@ Phase 1の計画とPhase 2のローカルLLM実行結果を比較・統合し、
 
 def _build_phase1_prompt(user_prompt: str) -> str:
     """Phase 1用プロンプト構築（MixAIOrchestratorの_execute_phase1相当）"""
-    return f"""ユーザーの質問に対して、以下の2つを提供してください:
+    from src.utils.i18n import get_language
+    _lang = get_language()
+    _lang_line = "Respond in English." if _lang == "en" else "日本語で回答してください。"
+    _answer_example = "Your direct answer" if _lang == "en" else "あなたの直接回答"
+    return f"""{_lang_line}
+ユーザーの質問に対して、以下の2つを提供してください:
 
 1. あなた自身の回答 (claude_answer)
 2. ローカルLLMへの指示 (local_llm_instructions)
 
 JSON形式で出力してください:
 {{
-  "claude_answer": "あなたの直接回答",
+  "claude_answer": "{_answer_example}",
   "complexity": "low|medium|high",
   "skip_phase2": false,
   "local_llm_instructions": {{
@@ -1181,12 +1212,17 @@ def _build_phase2_tasks(llm_instructions: dict, model_assignments: dict) -> list
 def _build_phase3_prompt(user_prompt: str, claude_answer: str,
                          phase2_results: list) -> str:
     """Phase 3用プロンプト構築"""
+    from src.utils.i18n import get_language
+    _lang = get_language()
+    _lang_line = "Respond in English." if _lang == "en" else "日本語で回答してください。"
+    _answer_example = "Integrated final answer" if _lang == "en" else "統合された最終回答"
     results_text = ""
     for r in phase2_results:
         if r["success"]:
             results_text += f"\n### {r['category']} ({r['model']})\n{r['response'][:5000]}\n"
 
-    return f"""以下の情報を統合して、最高品質の最終回答を作成してください。
+    return f"""{_lang_line}
+以下の情報を統合して、最高品質の最終回答を作成してください。
 
 ## ユーザーの質問
 {user_prompt}
@@ -1199,7 +1235,7 @@ def _build_phase3_prompt(user_prompt: str, claude_answer: str,
 
 ## 指示
 全ての情報を統合し、最終回答をJSON形式で出力してください:
-{{"final_answer": "統合された最終回答"}}"""
+{{"final_answer": "{_answer_example}"}}"""
 
 
 # =============================================================================
