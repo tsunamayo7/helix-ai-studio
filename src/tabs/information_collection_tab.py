@@ -320,23 +320,35 @@ class InformationCollectionTab(QWidget):
         )
         right_layout.addWidget(self.rag_continue_input, stretch=1)
 
+        # v11.8.0: cloudAI/localAI統一スタイルのコンパクトクイックボタン
+        _quick_btn_style = lambda bg, bg_h: f"""
+            QPushButton {{
+                background-color: {bg}; color: white; border: none;
+                border-radius: 4px; padding: 3px 10px;
+                font-size: 10px; font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {bg_h}; }}
+        """
         quick_row = QHBoxLayout()
-        quick_row.setSpacing(3)
+        quick_row.setSpacing(4)
         self.rag_quick_yes_btn = QPushButton(t('desktop.infoTab.ragQuickYes'))
-        self.rag_quick_yes_btn.setStyleSheet(SECONDARY_BTN)
-        self.rag_quick_yes_btn.setFixedHeight(24)
+        self.rag_quick_yes_btn.setStyleSheet(_quick_btn_style("#2d8b4e", "#3d9d56"))
+        self.rag_quick_yes_btn.setFixedHeight(26)
+        self.rag_quick_yes_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_yes_btn.clicked.connect(self._on_rag_quick_yes)
         quick_row.addWidget(self.rag_quick_yes_btn)
 
         self.rag_quick_continue_btn = QPushButton(t('desktop.infoTab.ragQuickContinue'))
-        self.rag_quick_continue_btn.setStyleSheet(SECONDARY_BTN)
-        self.rag_quick_continue_btn.setFixedHeight(24)
+        self.rag_quick_continue_btn.setStyleSheet(_quick_btn_style("#0066aa", "#1177bb"))
+        self.rag_quick_continue_btn.setFixedHeight(26)
+        self.rag_quick_continue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_continue_btn.clicked.connect(self._on_rag_quick_continue)
         quick_row.addWidget(self.rag_quick_continue_btn)
 
         self.rag_quick_exec_btn = QPushButton(t('desktop.infoTab.ragQuickExec'))
-        self.rag_quick_exec_btn.setStyleSheet(SECONDARY_BTN)
-        self.rag_quick_exec_btn.setFixedHeight(24)
+        self.rag_quick_exec_btn.setStyleSheet(_quick_btn_style("#6c5ce7", "#7d6ef8"))
+        self.rag_quick_exec_btn.setFixedHeight(26)
+        self.rag_quick_exec_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_exec_btn.clicked.connect(self._on_rag_quick_exec)
         quick_row.addWidget(self.rag_quick_exec_btn)
 

@@ -237,19 +237,42 @@ class LocalAITab(QWidget):
 
         self.local_title = QLabel(t('desktop.localAI.title'))
         self.local_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
+        self.local_title.setStyleSheet("color: #e2e8f0; margin-right: 12px;")
         header.addWidget(self.local_title)
 
         self.model_label = QLabel(t('desktop.localAI.modelLabel'))
-        self.model_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        self.model_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-right: 4px;")
         header.addWidget(self.model_label)
 
         self.model_combo = NoScrollComboBox()
         self.model_combo.setMinimumWidth(200)
         self.model_combo.setToolTip(t('desktop.localAI.modelTip'))
+        self.model_combo.setStyleSheet("""
+            QComboBox {
+                background: #131921; color: #e2e8f0;
+                border: 1px solid #3d3d3d; border-radius: 4px;
+                padding: 3px 8px; font-size: 11px; min-width: 160px;
+            }
+            QComboBox:hover { border-color: #38bdf8; }
+            QComboBox::drop-down { border: none; }
+            QComboBox QAbstractItemView {
+                background: #131921; color: #e2e8f0;
+                selection-background-color: #0078d4;
+            }
+        """)
         header.addWidget(self.model_combo)
 
         self.refresh_btn = QPushButton(t('desktop.localAI.refreshModelsBtn'))
         self.refresh_btn.setToolTip(t('desktop.localAI.refreshModelsTip'))
+        self.refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.refresh_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #9ca3af;
+                border: 1px solid #3d3d3d; border-radius: 4px;
+                padding: 4px 10px; font-size: 11px;
+            }
+            QPushButton:hover { color: #e2e8f0; border-color: #38bdf8; }
+        """)
         self.refresh_btn.clicked.connect(self._refresh_models)
         header.addWidget(self.refresh_btn)
 
@@ -401,7 +424,7 @@ class LocalAITab(QWidget):
         ]
         for label_key, msg, bg, bg_hover in styles:
             btn = QPushButton(t(f'desktop.localAI.{label_key}'))
-            btn.setMaximumHeight(24)
+            btn.setFixedHeight(26)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(f"""
                 QPushButton {{ background-color: {bg}; color: white; border: none;
@@ -415,7 +438,7 @@ class LocalAITab(QWidget):
 
         # 送信ボタン (cloudAIと同一スタイル)
         self.continue_send_btn = QPushButton(t('desktop.localAI.continueSend'))
-        self.continue_send_btn.setMaximumHeight(28)
+        self.continue_send_btn.setFixedHeight(32)
         self.continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.continue_send_btn.setStyleSheet("""
             QPushButton { background-color: #0078d4; color: white; border: none;

@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""
+Helix AI Studio Launcher (v11.8.0)
+
+薄いランチャーEXE。同ディレクトリの HelixAIStudio.py をシステム Python で起動する。
+- ソースコード変更時にEXE再ビルド不要
+- アイコンは HelixAIStudio.py 側の AppUserModelID + setWindowIcon で制御
+"""
+import sys
+import os
+import subprocess
+import shutil
+
+
+def main():
+    if getattr(sys, 'frozen', False):
+        app_dir = os.path.dirname(sys.executable)
+    else:
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+
+    entry_point = os.path.join(app_dir, 'HelixAIStudio.py')
+
+    if not os.path.exists(entry_point):
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                f"HelixAIStudio.py が見つかりません:\n{entry_point}",
+                "Helix AI Studio - Error",
+                0x10,
+            )
+        except Exception:
+            pass
+        return 1
+
+    # システムの pythonw.exe を探す (GUI 用、コンソール窓なし)
+    python_exe = shutil.which('pythonw') or shutil.which('python')
+    if not python_exe:
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0,
+                "Python が見つかりません。\n\n"
+                "Python 3.10 以上をインストールし、PATH に追加してください。\n"
+                "https://www.python.org/downloads/",
+                "Helix AI Studio - Error",
+                0x10,
+            )
+        except Exception:
+            pass
+        return 1
+
+    # サブプロセスとして起動し、終了を待つ
+    # (EXEプロセスが生き続けることでタスクバーの表示が安定する)
+    proc = subprocess.Popen(
+        [python_exe, entry_point],
+        cwd=app_dir,
+    )
+    proc.wait()
+    return proc.returncode
+
+
+if __name__ == '__main__':
+    sys.exit(main())

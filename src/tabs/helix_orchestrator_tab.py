@@ -1649,7 +1649,7 @@ class HelixOrchestratorTab(QWidget):
         layout.addWidget(self.mixai_continue_header)
 
         self.mixai_continue_sub = QLabel(t('desktop.mixAI.continueSub'))
-        self.mixai_continue_sub.setStyleSheet("color: #888; font-size: 10px; border: none;")
+        self.mixai_continue_sub.setStyleSheet("color: #94a3b8; font-size: 10px; border: none;")
         self.mixai_continue_sub.setWordWrap(True)
         layout.addWidget(self.mixai_continue_sub)
 
@@ -1670,7 +1670,7 @@ class HelixOrchestratorTab(QWidget):
         quick_row.setSpacing(4)
 
         self.mixai_quick_yes = QPushButton(t('desktop.mixAI.continueYes'))
-        self.mixai_quick_yes.setMaximumHeight(24)
+        self.mixai_quick_yes.setFixedHeight(26)
         self.mixai_quick_yes.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mixai_quick_yes.setStyleSheet("""
             QPushButton { background-color: #2d8b4e; color: white; border: none;
@@ -1680,7 +1680,7 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_quick_yes.clicked.connect(lambda: self._on_continue_with_message("Yes"))
 
         self.mixai_quick_continue = QPushButton(t('desktop.mixAI.continueContinue'))
-        self.mixai_quick_continue.setMaximumHeight(24)
+        self.mixai_quick_continue.setFixedHeight(26)
         self.mixai_quick_continue.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mixai_quick_continue.setStyleSheet("""
             QPushButton { background-color: #0066aa; color: white; border: none;
@@ -1690,7 +1690,7 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_quick_continue.clicked.connect(lambda: self._on_continue_with_message("Continue"))
 
         self.mixai_quick_execute = QPushButton(t('desktop.mixAI.continueExecute'))
-        self.mixai_quick_execute.setMaximumHeight(24)
+        self.mixai_quick_execute.setFixedHeight(26)
         self.mixai_quick_execute.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mixai_quick_execute.setStyleSheet("""
             QPushButton { background-color: #6c5ce7; color: white; border: none;
@@ -1706,7 +1706,7 @@ class HelixOrchestratorTab(QWidget):
 
         # 送信ボタン (cloudAIと同一スタイル)
         self.mixai_continue_send_btn = QPushButton(t('desktop.mixAI.continueSend'))
-        self.mixai_continue_send_btn.setMaximumHeight(28)
+        self.mixai_continue_send_btn.setFixedHeight(32)
         self.mixai_continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.mixai_continue_send_btn.setStyleSheet("""
             QPushButton { background-color: #0078d4; color: white; border: none;

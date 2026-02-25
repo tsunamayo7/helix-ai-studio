@@ -2234,12 +2234,13 @@ class ClaudeTab(QWidget):
         self.input_field.send_requested.connect(self._on_send)
         left_layout.addWidget(self.input_field)
 
-        # ボタン行
+        # ボタン行（v11.8.0: mixAI/localAI統一レイアウト）
         btn_layout = QHBoxLayout()
-        btn_layout.setContentsMargins(0, 5, 0, 0)
+        btn_layout.setSpacing(4)
 
         self.attach_btn = QPushButton("📎 " + t('common.attach'))
         self.attach_btn.setFixedHeight(32)
+        self.attach_btn.setStyleSheet(SECONDARY_BTN)
         self.attach_btn.setToolTip(t('desktop.cloudAI.attachTooltip'))
         btn_layout.addWidget(self.attach_btn)
 
@@ -2251,6 +2252,7 @@ class ClaudeTab(QWidget):
         from PyQt6.QtWidgets import QMenu
         self.snippet_btn = QPushButton(t('desktop.cloudAI.snippetBtnLabel'))
         self.snippet_btn.setFixedHeight(32)
+        self.snippet_btn.setStyleSheet(SECONDARY_BTN)
         self.snippet_btn.setToolTip(t('desktop.cloudAI.snippetTooltip'))
         btn_layout.addWidget(self.snippet_btn)
 
@@ -2314,19 +2316,19 @@ class ClaudeTab(QWidget):
             }
         """)
         continue_layout = QVBoxLayout(continue_frame)
-        continue_layout.setContentsMargins(8, 8, 8, 8)
+        continue_layout.setContentsMargins(8, 6, 8, 6)
         continue_layout.setSpacing(6)
 
         # ヘッダー
         self.continue_header = QLabel(t('desktop.cloudAI.conversationContinueLabel'))
         continue_header = self.continue_header
-        continue_header.setStyleSheet("color: #4fc3f7; font-weight: bold; font-size: 11px;")
+        continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px;")
         continue_layout.addWidget(continue_header)
 
         # 説明
         self.continue_desc = QLabel(t('desktop.cloudAI.continueDesc'))
         continue_desc = self.continue_desc
-        continue_desc.setStyleSheet("color: #888; font-size: 10px;")
+        continue_desc.setStyleSheet("color: #94a3b8; font-size: 10px;")
         continue_desc.setWordWrap(True)
         continue_layout.addWidget(continue_desc)
 
@@ -2334,19 +2336,11 @@ class ClaudeTab(QWidget):
         self.continue_input = CloudAIContinueInput()
         self.continue_input.setPlaceholderText(t('desktop.cloudAI.continuePlaceholder'))
         self.continue_input.setMinimumHeight(60)
-        self.continue_input.setMaximumHeight(100)
+        self.continue_input.setMaximumHeight(90)
         self.continue_input.setStyleSheet("""
-            QTextEdit {
-                background-color: #252526;
-                border: 1px solid #3c3c3c;
-                border-radius: 4px;
-                padding: 4px;
-                color: #dcdcdc;
-                font-size: 11px;
-            }
-            QTextEdit:focus {
-                border-color: #007acc;
-            }
+            QTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
+                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }
+            QTextEdit:focus { border-color: #007acc; }
         """)
         continue_layout.addWidget(self.continue_input)
 
@@ -2356,7 +2350,7 @@ class ClaudeTab(QWidget):
 
         # 「はい」ボタン
         self.quick_yes_btn = QPushButton(t('desktop.cloudAI.quickYesLabel'))
-        self.quick_yes_btn.setMaximumHeight(24)
+        self.quick_yes_btn.setFixedHeight(26)
         self.quick_yes_btn.setToolTip(t('desktop.cloudAI.quickYesTooltip'))
         self.quick_yes_btn.setStyleSheet("""
             QPushButton {
@@ -2376,7 +2370,7 @@ class ClaudeTab(QWidget):
 
         # 「続行」ボタン
         self.quick_continue_btn = QPushButton(t('desktop.cloudAI.continueBtn'))
-        self.quick_continue_btn.setMaximumHeight(24)
+        self.quick_continue_btn.setFixedHeight(26)
         self.quick_continue_btn.setToolTip(t('desktop.cloudAI.quickContinueTooltip'))
         self.quick_continue_btn.setStyleSheet("""
             QPushButton {
@@ -2396,7 +2390,7 @@ class ClaudeTab(QWidget):
 
         # 「実行」ボタン
         self.quick_exec_btn = QPushButton(t('desktop.cloudAI.execBtn'))
-        self.quick_exec_btn.setMaximumHeight(24)
+        self.quick_exec_btn.setFixedHeight(26)
         self.quick_exec_btn.setToolTip(t('desktop.cloudAI.quickExecTooltip'))
         self.quick_exec_btn.setStyleSheet("""
             QPushButton {
@@ -2419,20 +2413,14 @@ class ClaudeTab(QWidget):
         # 送信ボタン
         self.continue_send_btn = QPushButton(t('desktop.cloudAI.sendBtnLabel'))
         self.continue_send_btn.setToolTip(t('desktop.cloudAI.continueSendTooltip'))
-        self.continue_send_btn.setMaximumHeight(28)
+        self.continue_send_btn.setFixedHeight(32)
+        self.continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.continue_send_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 4px;
-                font-size: 11px;
-                font-weight: bold;
+                background-color: #0078d4; color: white; border: none;
+                border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold;
             }
-            QPushButton:hover {
-                background-color: #1088e4;
-            }
+            QPushButton:hover { background-color: #1088e4; }
         """)
         continue_layout.addWidget(self.continue_send_btn)
 

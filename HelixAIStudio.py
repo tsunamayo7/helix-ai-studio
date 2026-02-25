@@ -25,6 +25,17 @@ import gc
 from datetime import datetime
 from pathlib import Path
 
+# v11.8.0: Windows タスクバーアイコン固定
+# QApplication 生成前に呼ぶ必要がある
+if os.name == 'nt':
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            'HelixAIStudio.HelixAIStudio.11'
+        )
+    except Exception:
+        pass
+
 
 def get_application_path() -> Path:
     """

@@ -69,6 +69,9 @@ class MainWindow(QMainWindow):
         self.workflow_state = self.session_manager.load_workflow_state()
         self.history_manager = get_history_manager()
 
+        # v11.8.0: retranslateUi() が _init_ui() 内で呼ばれるため、先に初期化
+        self._web_locked = False
+
         self._init_ui()
         self._init_statusbar()
         self._apply_stylesheet()
@@ -418,8 +421,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
         self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
         self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.settingsTip'))
-        # ステータスバー
-        if not self._web_locked:
+        # ステータスバー（_init_statusbar() 完了前は属性未存在）
+        if hasattr(self, 'status_label') and not self._web_locked:
             self.status_label.setText(t('desktop.mainWindow.ready'))
 
         # 子タブにも通知 (v11.0.0: history_tab追加)
