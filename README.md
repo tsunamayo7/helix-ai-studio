@@ -31,7 +31,27 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ---
 
-## Key Features (v11.5.3 "Web LocalAI + Discord")
+## Why Helix?
+
+| | Helix AI Studio | CLI Coding Agents¹ | Local LLM UIs² | Agent Frameworks³ |
+|---|---|---|---|---|
+| **Claude as orchestrator** | ✅ Plans + validates | ✅ Executes code tasks | ❌ | Configurable |
+| **Local LLMs as workers** | ✅ Parallel verification | ❌ | ✅ Inference only | Configurable |
+| **Desktop + Web dual UI** | ✅ Shared DB/config | ❌ | Partial | ❌ |
+| **BIBLE-first context** | ✅ Auto-inject | ❌ | ❌ | ❌ |
+| **Works out of the box** | ✅ App, no code | ❌ | ✅ | ❌ requires code |
+
+¹ OpenCode, Aider, Cline — great for coding tasks, single-model focus
+² OpenWebUI, AnythingLLM, LM Studio — great for local inference UI, no orchestration
+³ CrewAI, LangGraph, AutoGen — powerful frameworks, but require you to write the agent logic
+
+**Helix sits above these layers**: Claude plans and validates quality; local LLMs (Ollama) provide multi-perspective verification; the whole pipeline runs in a ready-to-use desktop + web app with no coding required.
+
+> Research note: Multi-agent orchestration has shown [80–140× quality improvement](https://arxiv.org/abs/2511.15755) over single-agent approaches in controlled trials — the architecture Helix is built on.
+
+---
+
+## Key Features (v11.5.4 "Model Summary + Language Fix")
 
 ### Orchestration (mixAI)
 - **3+1 Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates → (optional) Sonnet applies changes
@@ -227,10 +247,24 @@ Desktop (PyQt6)                Web UI (React + Vite)
 
 ## Security & Privacy Notes
 
-* Helix can run sensitive workflows with **local LLMs** (Ollama) for Phase 2.
-* Web UI access is secured by **PIN authentication + JWT** and designed for **Tailscale VPN** networks.
-* When enabling **MCP tools**, be careful with third-party servers. Treat them as untrusted unless you audit them.
-* Prefer allowlists, confirmations, and scoped access for filesystem / git / network tools.
+### Design principles
+
+* **Local-first for sensitive data** — Phase 2 runs entirely on your local LLMs (Ollama). Sensitive code or documents never leave your machine during the verification stage.
+* **API keys stay local** — Keys are stored in `config/general_settings.json` (git-ignored) or environment variables. Helix never transmits your credentials to third parties.
+* **Web UI is not public** — The built-in web server is designed for [Tailscale VPN](https://tailscale.com) access. Do not expose port 8500 to the public internet.
+* **Memory injection guard** — Stored memories include a safety-gate prompt to prevent prompt-injection attacks from accumulated context.
+
+### MCP (Model Context Protocol)
+
+MCP servers extend what Helix can do — but third-party servers are **untrusted by default**.
+
+* A [security flaw in Anthropic's official Git MCP server](https://www.techradar.com/pro/security/anthropics-official-git-mcp-servers-had-worrying-security-flaws) was disclosed and patched in 2025. The risk class exists.
+* Use allowlists, minimal permissions, and human-approval gates for any MCP server that touches files, git, or the network.
+* Prefer [official reference servers](https://github.com/modelcontextprotocol/servers) over community ones.
+
+### Phase 4 (file changes)
+
+Phase 4 applies file modifications automatically via Sonnet. **Always review** Phase 3 output before enabling Phase 4 in production workflows.
 
 ---
 
@@ -338,6 +372,41 @@ The pre-built `dist/` is served automatically when the desktop app starts.
 3. **BIBLE-first** — Project documentation drives AI behavior, not ad-hoc prompts
 4. **Dual Interface** — Desktop for power users, Web for mobile/remote access
 5. **i18n with Fallback** — Shared translation files (ja.json/en.json); missing keys always fall back to Japanese
+
+---
+
+## Compliance & Data Handling
+
+### Anthropic (Claude)
+
+Helix calls the **official Claude Code CLI** (`claude` binary) or the **Anthropic API** directly — it does not spoof the Claude Code client or use OAuth tokens from consumer subscriptions in unauthorized ways.
+
+> Since January 2026, Anthropic [actively blocks third-party tools that spoof the Claude Code harness](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/). Helix is **not affected** — it invokes the CLI as documented, or uses API keys under Commercial Terms.
+
+Key points:
+* **For automation / high-volume use** → use an [Anthropic API key](https://console.anthropic.com/settings/keys) (Commercial Terms, no training on your data).
+* **For personal / interactive use** → Claude Code CLI with your account login is fine.
+* **Consumer accounts (Free/Pro/Max)** → by default, chats [may be used for model training](https://www.anthropic.com/news/usage-policy-update) since Sept 2025. Opt out in Privacy Settings, or switch to API key.
+* All usage must comply with the [Anthropic Usage Policy](https://www.anthropic.com/legal/usage-policy).
+
+### OpenAI (Codex CLI)
+
+* Codex CLI supports both account login and API key auth — [authentication docs](https://developers.openai.com/codex/auth/).
+* For automated workflows, [API key best practices](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety) apply. Never share your key.
+* Usage is governed by [OpenAI Terms of Use](https://openai.com/policies/row-terms-of-use/).
+
+### Ollama & Local Models
+
+* Ollama itself is [MIT licensed](https://github.com/ollama/ollama/blob/main/LICENSE).
+* **Model licenses vary** — check each model's license in the [Ollama library](https://ollama.com/library) before commercial use. Llama-family models carry Meta's Community License; other models have their own terms.
+
+### Summary
+
+| Access path | Training risk | Best for |
+|---|---|---|
+| Anthropic API key (Commercial) | None | Automation, sensitive data |
+| Claude Code CLI (Pro/Max login) | Opt-out recommended | Interactive personal use |
+| Ollama (local) | None | Privacy-sensitive Phase 2 |
 
 ---
 

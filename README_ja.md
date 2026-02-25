@@ -31,7 +31,27 @@ Helix AI Studioは **3+1Phaseパイプライン** で動作します：
 
 ---
 
-## 主な機能 (v11.5.3 "Web LocalAI + Discord")
+## なぜ Helix なのか？
+
+| | Helix AI Studio | CLIコーディングエージェント¹ | ローカルLLM UI² | エージェントFW³ |
+|---|---|---|---|---|
+| **Claudeがオーケストレーター** | ✅ 計画立案＋品質検証 | ✅ コーディング特化 | ❌ | 構成次第 |
+| **ローカルLLMがワーカー** | ✅ 多角的検証 | ❌ | ✅ 推論のみ | 構成次第 |
+| **デスクトップ＋Web デュアルUI** | ✅ DB/設定共有 | ❌ | 一部 | ❌ |
+| **BIBLEファースト** | ✅ 自動注入 | ❌ | ❌ | ❌ |
+| **すぐ使える（コード不要）** | ✅ アプリとして完結 | ❌ | ✅ | ❌ コード必要 |
+
+¹ OpenCode, Aider, Cline — コーディングタスクに特化、単一モデル中心
+² OpenWebUI, AnythingLLM, LM Studio — ローカル推論UIとして優秀、オーケストレーション機能なし
+³ CrewAI, LangGraph, AutoGen — 強力なフレームワーク、ただしエージェントロジックを自分で書く必要あり
+
+**Helix はこれらの上位レイヤー**に位置します。Claudeが計画立案と品質検証を担い、ローカルLLM（Ollama）が多角的な検証を行う。その全パイプラインが、コードを書かずに使えるデスクトップ＋Webアプリとして動作します。
+
+> 研究メモ: マルチエージェントオーケストレーションは単一エージェントと比較して[80〜140倍の品質向上](https://arxiv.org/abs/2511.15755)を達成した事例があります。
+
+---
+
+## 主な機能 (v11.5.4 "Model Summary + Language Fix")
 
 ### オーケストレーション (mixAI)
 - **3+1Phaseパイプライン**: Claude計画 → ローカルチーム実行 → Claude統合・検証 → (任意) Sonnetが変更適用
@@ -188,9 +208,24 @@ graph LR
 
 ## セキュリティ・プライバシーについて
 
-* Helixは **ローカルLLM** (Ollama) でPhase 2の機密ワークフローを実行可能です。
-* **MCPツール**を有効にする際は、サードパーティサーバーに注意してください。監査しない限り信頼しないでください。
-* ファイルシステム / git / ネットワークツールには、許可リスト・確認・スコープ制限を推奨します。
+### 設計原則
+
+* **機密データはローカル優先** — Phase 2 はすべてローカルLLM (Ollama) で実行されます。検証段階で機密コードやドキュメントがマシン外に送信されることはありません。
+* **APIキーはローカル保存** — キーは `config/general_settings.json` (git-ignored) または環境変数に保存されます。Helix が第三者にクレデンシャルを送信することはありません。
+* **Web UIは非公開設計** — 内蔵Webサーバーは [Tailscale VPN](https://tailscale.com) 経由のアクセスを想定しています。ポート 8500 を公共インターネットに公開しないでください。
+* **メモリ注入ガード** — 保存済みメモリには、蓄積コンテキストからのプロンプトインジェクション攻撃を防止するセーフティゲートプロンプトが含まれます。
+
+### MCP (Model Context Protocol)
+
+MCPサーバーはHelixの機能を拡張しますが、サードパーティサーバーは**デフォルトで信頼されません**。
+
+* 2025年に[AnthropicのGit MCPサーバーにセキュリティ脆弱性](https://www.techradar.com/pro/security/anthropics-official-git-mcp-servers-had-worrying-security-flaws)が発見・修正されました。リスクカテゴリとして実在します。
+* ファイル、git、ネットワークに触れるMCPサーバーには、許可リスト・最小権限・人間承認ゲートを使用してください。
+* コミュニティ製より[公式リファレンスサーバー](https://github.com/modelcontextprotocol/servers)を優先してください。
+
+### Phase 4 (ファイル変更)
+
+Phase 4 は Sonnet 経由でファイル変更を自動適用します。本番ワークフローでは Phase 4 を有効にする前に **Phase 3 の出力を必ずレビュー** してください。
 
 ---
 
@@ -304,6 +339,41 @@ cd ..
 ```
 
 デスクトップアプリ起動時に `dist/` が自動的に配信されます。
+
+---
+
+## コンプライアンス・データ取り扱い
+
+### Anthropic（Claude）
+
+Helixは**公式のClaude Code CLI**（`claude`バイナリ）または**Anthropic APIを直接**呼び出します。コンシューマーサブスクリプションのOAuthトークンを第三者ツールとして流用する設計ではありません。
+
+> 2026年1月以降、Anthropicは[Claude Codeハーネスのなりすましを技術的にブロック](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/)しています。Helixは公式ドキュメント通りのCLI呼び出しまたはAPIキー接続を使用するため**影響なし**です。
+
+重要ポイント:
+* **自動化・大量処理には** → [Anthropic APIキー](https://console.anthropic.com/settings/keys)を使用（Commercial Terms適用、学習データ対象外）
+* **個人利用・対話用途には** → Claude Code CLI でのアカウントログインで問題なし
+* **コンシューマーアカウント（Free/Pro/Max）** → 2025年9月以降、デフォルトで会話が[モデル学習に使用される可能性](https://www.anthropic.com/news/usage-policy-update)あり。プライバシー設定でオプトアウト、またはAPIキーへの切り替えを推奨
+* すべての利用は [Anthropic利用規約](https://www.anthropic.com/legal/usage-policy) に準拠してください
+
+### OpenAI（Codex CLI）
+
+* Codex CLI はアカウントログインとAPIキー認証の両方をサポート — [認証ドキュメント](https://developers.openai.com/codex/auth/)
+* 自動化ワークフローには [APIキーのベストプラクティス](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety) を適用。キーを共有しないでください
+* 利用は [OpenAI利用規約](https://openai.com/policies/row-terms-of-use/) に準拠
+
+### Ollama・ローカルモデル
+
+* Ollama本体は [MITライセンス](https://github.com/ollama/ollama/blob/main/LICENSE)
+* **モデルのライセンスは個別に異なります** — 商用利用前に [Ollamaライブラリ](https://ollama.com/library) で各モデルのライセンスを確認してください（Llama系はMetaのCommunity License等）
+
+### まとめ
+
+| アクセス方法 | 学習リスク | 推奨用途 |
+|---|---|---|
+| Anthropic APIキー (Commercial) | なし | 自動化、機密データ |
+| Claude Code CLI (Pro/Maxログイン) | オプトアウト推奨 | 対話型の個人利用 |
+| Ollama (ローカル) | なし | プライバシー重視のPhase 2 |
 
 ---
 
