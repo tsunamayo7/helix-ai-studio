@@ -4904,29 +4904,36 @@ class ClaudeTab(QWidget):
 
     def _send_continue_message(self, message: str):
         """
-        v3.4.0: 会話継続メッセージを送信
-
-        Claudeの確認質問や続行確認に対して --continue フラグを使用して
-        文脈を維持したまま応答します。
-
-        Args:
-            message: 継続メッセージ（例: "はい", "続行してください"）
+        v11.6.0: プロバイダー対応会話継続。
+        - anthropic_cli: --continue フラグ（従来通り）
+        - その他: 通常送信として転送（セッション維持はAPIセッションIDで管理）
         """
         import logging
         logger = logging.getLogger(__name__)
 
-        if not message.strip():
+        if not message or not message.strip():
             return
 
-        # CLIモードのみサポート
-        auth_mode = self.auth_mode_combo.currentIndex()  # v11.4.0: 0=Auto, 1=CLI, 2=API, 3=Ollama
-        if auth_mode != 1 or not hasattr(self, '_use_cli_mode') or not self._use_cli_mode:
-            QMessageBox.information(
-                self,
-                t('desktop.cloudAI.conversationContinueTitle'),
-                t('desktop.cloudAI.continueModeCLIOnly')
+        # --- v11.6.0: プロバイダー判定 ---
+        model_id, provider = self._get_selected_model_provider()
+
+        # Claude CLI 以外は通常送信に転送
+        if provider not in ("anthropic_cli",):
+            logger.info(
+                f"[ClaudeTab._send_continue_message] Non-CLI provider ({provider}), "
+                f"routing to normal send"
             )
+            self.chat_display.append(
+                f"<div style='color: #888; font-size: 9pt;'>"
+                f"[{t('desktop.cloudAI.continueRoutedNormal', provider=provider)}]"
+                f"</div>"
+            )
+            self._send_message(message)
+            if hasattr(self, 'continue_input'):
+                self.continue_input.clear()
             return
+
+        # --- 以下は Claude CLI 専用 (--continue) ---
 
         # CLIバックエンドの確認
         if not self._cli_backend or not self._cli_backend.is_available():
@@ -4937,7 +4944,7 @@ class ClaudeTab(QWidget):
             )
             return
 
-        logger.info(f"[ClaudeTab] Sending continue message: {message}")
+        logger.info(f"[ClaudeTab] Sending continue message via CLI: {message}")
 
         # チャットに表示
         self.chat_display.append(
@@ -4952,46 +4959,30 @@ class ClaudeTab(QWidget):
         # ステータス表示
         self.statusChanged.emit(t('desktop.cloudAI.continuationProcessing'))
 
-        # 作業ディレクトリを取得
         import os
         working_dir = os.getcwd()
-
-        # v3.5.0: 権限スキップ設定を取得
         skip_permissions = self.permission_skip_checkbox.isChecked()
 
-        # CLIバックエンドを取得
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions)
 
-        # BackendRequestを作成（use_continue フラグを設定）
         session_id = self.session_manager.get_current_session_id() or "continue_session"
         request = BackendRequest(
             session_id=session_id,
-            phase="S4",  # 継続は通常実装フェーズ
+            phase="S4",
             user_text=message,
             toggles={
                 "mcp": self.mcp_checkbox.isChecked(),
                 "diff": self.diff_checkbox.isChecked(),
                 "context": self.context_checkbox.isChecked(),
             },
-            context={
-                "use_continue": True,  # 重要: --continue フラグを使用
-            }
+            context={"use_continue": True},
         )
 
-        # 履歴保存用
         self._pending_user_message = t('desktop.cloudAI.continuePendingPrefix', message=message)
 
-        # CLIWorkerThreadで非同期実行
-        self._cli_worker = CLIWorkerThread(
-            backend=self._cli_backend,
-            prompt=message,
-            working_dir=working_dir,
-        )
-        # CLIWorkerでは直接コマンドを実行するため、send_continueを使用するには
-        # 別のアプローチが必要。ここではsend_continueを呼び出す専用スレッドを使用。
         self._continue_thread = ContinueWorkerThread(
             backend=self._cli_backend,
-            request=request
+            request=request,
         )
         self._continue_thread.completed.connect(self._on_continue_response)
         self._continue_thread.start()

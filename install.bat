@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
-title Helix AI Studio v11.5.4 - Installer
+title Helix AI Studio v11.6.0 - Installer
 
 echo ============================================================
-echo  Helix AI Studio v11.5.4 - Installer
+echo  Helix AI Studio v11.6.0 - Installer
 echo ============================================================
 echo.
 

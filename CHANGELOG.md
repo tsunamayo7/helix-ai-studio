@@ -5,6 +5,28 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.6.0] - 2026-02-25 "Provider Aware"
+
+### Added
+- Dynamic cloud model detection in Phase 2 via `cloud_models.json` provider field (Fix ①)
+- Full provider routing in `_execute_cloud_task()`: anthropic_api, openai_api, google_api, *_cli (Fix ①)
+- Continue button provider-based routing: non-CLI providers routed to normal send (Fix ⑤)
+- Phase 2 combo separator labels `── Cloud AI（コスト発生・要注意）──` with selection disabled (Fix ⑥)
+- Research category cloud model cost warning dialog on settings save (Fix ③)
+- Vision combo filtering: groups models by vision capability via Ollama `/api/show` (Fix ④)
+- Web Phase 2 cloud model support via `asyncio.to_thread()` wrapper (Verification A)
+- `LOCALAI_WEB_TOOL_GUIDE` injection for research category in web Phase 2 (Verification F)
+
+### Changed
+- `_is_cloud_model()` now checks both hardcoded list AND dynamic `cloud_models.json`
+- `populate_combo()` disables separator items (starting with `──` or `---`)
+- `get_phase2_candidates()` uses warning separator instead of plain `--- Cloud AI ---`
+- Web server `_build_phase2_tasks()` injects web tool guide for research tasks
+
+### Fixed
+- Cloud models registered via cloud_models.json but not in hardcoded list were sent to Ollama and failed
+- Continue button blocked all non-CLI providers instead of routing to API send
+
 ## [11.5.3] - 2026-02-25 "Web LocalAI + Discord"
 
 ### Added

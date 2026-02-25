@@ -1906,7 +1906,10 @@ class HelixOrchestratorTab(QWidget):
         self.always_load_group.setVisible(False)  # v9.8.0: Moved to General Settings
 
         # === v11.0.0: Phase 2設定 — 説明文ツールチップ化、候補は動的、editable=False ===
-        from ..utils.model_catalog import get_phase2_candidates, populate_combo as _populate
+        from ..utils.model_catalog import (
+            get_phase2_candidates, get_phase2_vision_candidates,
+            populate_combo as _populate,
+        )
         self.phase_group = QGroupBox(t('desktop.mixAI.phase2GroupLabel'))
         phase_layout = QVBoxLayout()
 
@@ -1929,12 +1932,18 @@ class HelixOrchestratorTab(QWidget):
             "translation": "translategemma:27b",
             "vision": "gemma3:27b",
         }
+        # v11.6.0: vision カテゴリは vision capability フィルタ付き候補を使用
+        _vision_candidates = get_phase2_vision_candidates(
+            skip_label=t('desktop.mixAI.unselected'))
         self._phase2_combos = {}
         for cat, default in _defaults.items():
             row = QHBoxLayout()
             row.addWidget(QLabel(f"{cat}:"))
             combo = NoScrollComboBox()
-            _populate(combo, _p2_candidates, current_value=default)
+            if cat == "vision":
+                _populate(combo, _vision_candidates, current_value=default)
+            else:
+                _populate(combo, _p2_candidates, current_value=default)
             row.addWidget(combo)
             phase_layout.addLayout(row)
             self._phase2_combos[cat] = combo
@@ -2262,18 +2271,22 @@ class HelixOrchestratorTab(QWidget):
         self.engine_combo.blockSignals(False)
 
     def _refresh_all_phase_combos(self):
-        """v11.0.0: cloudAI/localAI変更時に全Phaseコンボを再読み込み"""
+        """v11.6.0: cloudAI/localAI変更時に全Phaseコンボを再読み込み"""
         from ..utils.model_catalog import (
-            get_phase2_candidates, get_phase35_candidates,
-            get_phase4_candidates, populate_combo
+            get_phase2_candidates, get_phase2_vision_candidates,
+            get_phase35_candidates, get_phase4_candidates, populate_combo
         )
         # Phase 1/3
         self._populate_engine_combo()
         # Phase 2
         p2_items = get_phase2_candidates(skip_label=t('desktop.mixAI.unselected'))
+        vision_items = get_phase2_vision_candidates(skip_label=t('desktop.mixAI.unselected'))
         for cat, combo in self._phase2_combos.items():
             current = combo.currentText()
-            populate_combo(combo, p2_items, current_value=current)
+            if cat == "vision":
+                populate_combo(combo, vision_items, current_value=current)
+            else:
+                populate_combo(combo, p2_items, current_value=current)
         # Phase 3.5
         p35_items = get_phase35_candidates(skip_label=t('desktop.mixAI.phase35None'))
         current_35 = self.phase35_model_combo.currentText()
@@ -3042,6 +3055,25 @@ class HelixOrchestratorTab(QWidget):
         config_json_path = Path("config/config.json")
 
         new_model_assignments = self._get_model_assignments()
+
+        # v11.6.0: research カテゴリにクラウドモデルが割り当てられた場合の警告
+        research_model = new_model_assignments.get("research", "")
+        if research_model:
+            from ..utils.model_catalog import get_cloud_model_names
+            cloud_names = get_cloud_model_names()
+            if research_model in cloud_names:
+                reply = QMessageBox.warning(
+                    self,
+                    t('desktop.mixAI.researchCloudWarningTitle'),
+                    t('desktop.mixAI.researchCloudWarningText')
+                    + "\n\n"
+                    + t('desktop.mixAI.researchCloudWarningInfo'),
+                    QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+                    QMessageBox.StandardButton.Cancel,
+                )
+                if reply == QMessageBox.StandardButton.Cancel:
+                    return
+
         # v11.5.0: ハードコードフォールバック廃止
         from ..utils.constants import get_default_claude_model
         engine_id = self.engine_combo.currentData() or get_default_claude_model() or ""

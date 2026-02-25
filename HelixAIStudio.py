@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v11.5.1 "Provider Pure"
+Helix AI Studio v11.6.0 "Provider Aware"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:

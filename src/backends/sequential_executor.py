@@ -24,6 +24,42 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_API_BASE = "http://localhost:11434/api"
 
+
+# v11.6.0: cloud_models.json から model_name → (provider, model_id) を動的解決
+def _get_cloud_provider_for_model(model_name: str) -> str | None:
+    """
+    Phase 2 コンボに表示されているモデル名 (display name) から
+    cloud_models.json の provider を返す。
+    ローカルモデル（Ollama）の場合は None を返す。
+    """
+    try:
+        import json
+        from pathlib import Path
+        path = Path("config/cloud_models.json")
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for m in data.get("models", []):
+            if m.get("name") == model_name or m.get("model_id") == model_name:
+                return m.get("provider")
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_cloud_model_id(model_name: str) -> str:
+    """v11.6.0: display name から model_id を解決。見つからなければ model_name をそのまま返す。"""
+    try:
+        import json
+        from pathlib import Path
+        data = json.loads(Path("config/cloud_models.json").read_text(encoding="utf-8"))
+        for m in data.get("models", []):
+            if m.get("name") == model_name:
+                return m.get("model_id", model_name)
+    except Exception:
+        pass
+    return model_name
+
 # モデルロード待機の設定
 MODEL_LOAD_TIMEOUT = 120  # モデルロードの最大待機秒数
 MODEL_LOAD_CHECK_INTERVAL = 2  # ロード状態チェック間隔（秒）
@@ -145,18 +181,35 @@ class SequentialExecutor:
     }
 
     def _is_cloud_model(self, model: str) -> bool:
-        """v10.0.0: Cloud AI (CLI) モデルかどうか判定"""
-        return model in self.CLOUD_AI_MODELS
+        """v11.6.0: cloud_models.json の provider フィールドで動的判定"""
+        # 後方互換: 旧ハードコードリスト（CLIモデル名形式）
+        if model in self.CLOUD_AI_MODELS:
+            return True
+        # 動的判定: cloud_models.json に登録されていればクラウドモデル
+        return _get_cloud_provider_for_model(model) is not None
 
     def _execute_cloud_task(self, task: SequentialTask) -> SequentialResult:
-        """v10.0.0: Cloud AI (CLI) タスクを実行"""
+        """v11.6.0: 全クラウドプロバイダー対応 (anthropic_api/openai_api/google_api/*_cli)"""
         start = time.time()
+
+        # 旧ハードコードリストで試みる（後方互換）
         model_key = self.CLOUD_AI_MODELS.get(task.model, "")
 
+        # 旧リストにない場合は cloud_models.json から provider/model_id を取得
+        provider = None
+        model_id = task.model
+        if not model_key:
+            provider = _get_cloud_provider_for_model(task.model)
+            model_id = _resolve_cloud_model_id(task.model)
+
         try:
+            raw = ""
+
+            # --- 旧ハードコード互換パス ---
             if model_key == "codex":
                 from .codex_cli_backend import run_codex_cli
                 raw = run_codex_cli(task.prompt, timeout=task.timeout)
+
             elif model_key.startswith("claude-"):
                 from .claude_cli_backend import ClaudeCLIBackend
                 from .base import BackendRequest
@@ -166,8 +219,53 @@ class SequentialExecutor:
                 if not resp.success:
                     raise RuntimeError(resp.response_text)
                 raw = resp.response_text
+
+            # --- v11.6.0: 動的プロバイダーパス ---
+            elif provider == "anthropic_api":
+                from .claude_backend import ClaudeBackend
+                from .base import BackendRequest
+                backend = ClaudeBackend(model=model_id)
+                req = BackendRequest(prompt=task.prompt, session_id=f"phase2_{task.category}")
+                resp = backend.send(req)
+                if not resp.success:
+                    raise RuntimeError(resp.response_text)
+                raw = resp.response_text
+
+            elif provider == "anthropic_cli":
+                from .claude_cli_backend import ClaudeCLIBackend
+                from .base import BackendRequest
+                cli = ClaudeCLIBackend(model=model_id, skip_permissions=True)
+                req = BackendRequest(prompt=task.prompt, session_id=f"phase2_{task.category}")
+                resp = cli.send(req)
+                if not resp.success:
+                    raise RuntimeError(resp.response_text)
+                raw = resp.response_text
+
+            elif provider == "openai_api":
+                from .openai_api_backend import call_openai_api
+                raw = call_openai_api(prompt=task.prompt, model_id=model_id)
+
+            elif provider == "openai_cli":
+                from .codex_cli_backend import run_codex_cli
+                raw = run_codex_cli(task.prompt, timeout=task.timeout)
+
+            elif provider == "google_api":
+                from .google_api_backend import call_google_api
+                raw = call_google_api(prompt=task.prompt, model_id=model_id)
+
+            elif provider == "google_cli":
+                import subprocess
+                env = os.environ.copy()
+                result = subprocess.run(
+                    ["gemini", "-p", task.prompt, "--model", model_id, "--yolo"],
+                    capture_output=True, text=True, timeout=task.timeout, env=env,
+                )
+                raw = result.stdout.strip()
+                if result.returncode != 0 and not raw:
+                    raise RuntimeError(result.stderr or f"Gemini CLI error code {result.returncode}")
+
             else:
-                raise RuntimeError(f"Unknown cloud model: {task.model}")
+                raise RuntimeError(f"Unknown cloud model or provider: {task.model} / {provider}")
 
             elapsed = time.time() - start
             filtered = filter_chain_of_thought(raw)
@@ -183,7 +281,7 @@ class SequentialExecutor:
             logger.error(f"Phase 2 Cloud AI失敗: {task.category} ({task.model}): {e}")
             return SequentialResult(
                 category=task.category, model=task.model, success=False,
-                response="", error=str(e), elapsed=elapsed, order=task.order,
+                response=f"エラー: {str(e)}", elapsed=elapsed, order=task.order,
                 original_prompt=task.prompt, expected_output=task.expected_output,
             )
 

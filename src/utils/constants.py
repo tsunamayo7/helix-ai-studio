@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.5.4"
-APP_CODENAME = "Model Summary + Language Fix"
+APP_VERSION = "11.6.0"
+APP_CODENAME = "Provider Aware"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.5.4 'Model Summary + Language Fix' - "
-    "モデルサマリー付記・言語設定プロンプト反映"
+    "Helix AI Studio v11.6.0 'Provider Aware' - "
+    "Phase 2動的クラウドモデル判定・全プロバイダールーティング・Visionフィルタリング"
 )
 
 # v8.5.0: 情報収集フォルダ

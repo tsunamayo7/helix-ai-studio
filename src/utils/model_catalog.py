@@ -61,15 +61,64 @@ def get_phase13_candidates(ollama_url: str = None, skip_label: str = "") -> list
 
 def get_phase2_candidates(ollama_url: str = None,
                           skip_label: str = "(未選択 - スキップ)") -> list[str]:
-    """Phase 2: [スキップ] + localAIモデル + cloudAIモデル"""
+    """v11.6.0: Phase 2: [スキップ] + localAIモデル + [クラウドAI（コスト注意）]"""
     items = [skip_label]
     local = get_ollama_installed_models(ollama_url)
     if local:
         items.extend(local)
     cloud = get_cloud_model_names()
     if cloud:
-        items.append("--- Cloud AI ---")
+        items.append("── Cloud AI（コスト発生・要注意）──")
         items.extend(cloud)
+    return items
+
+
+def get_phase2_vision_candidates(ollama_url: str = None,
+                                  skip_label: str = "(未選択 - スキップ)") -> list[str]:
+    """v11.6.0: Phase 2 vision カテゴリ専用 — vision capability を持つモデルを優先表示。"""
+    url = ollama_url or OLLAMA_DEFAULT_URL
+    items = [skip_label]
+
+    try:
+        import httpx
+        resp = httpx.get(f"{url}/api/tags", timeout=3)
+        if resp.status_code != 200:
+            return items
+        models = [m.get("name", "") for m in resp.json().get("models", []) if m.get("name")]
+    except Exception:
+        return items
+
+    vision_models = []
+    other_models = []
+
+    for name in models:
+        try:
+            import httpx as _httpx
+            show_resp = _httpx.post(f"{url}/api/show", json={"name": name}, timeout=2)
+            if show_resp.status_code == 200:
+                caps = show_resp.json().get("capabilities", [])
+                if "vision" in caps:
+                    vision_models.append(name)
+                else:
+                    other_models.append(name)
+            else:
+                other_models.append(name)
+        except Exception:
+            other_models.append(name)
+
+    if vision_models:
+        items.append("── Vision 対応 ──")
+        items.extend(vision_models)
+    if other_models:
+        items.append("── Vision 非対応（参考）──")
+        items.extend(other_models)
+
+    # クラウドモデルも追加
+    cloud = get_cloud_model_names()
+    if cloud:
+        items.append("── Cloud AI（コスト発生・要注意）──")
+        items.extend(cloud)
+
     return items
 
 
@@ -98,16 +147,23 @@ def get_rag_local_candidates(ollama_url: str = None) -> list[str]:
 
 
 def populate_combo(combo, items: list[str], current_value: str = None):
-    """コンボボックスに候補をセットし、現在値を復元する汎用関数"""
+    """v11.6.0: コンボボックスに候補をセットし、セパレーター（"──"始まり）を選択不可にする"""
     combo.blockSignals(True)
     combo.clear()
-    combo.addItems(items)
+    for item in items:
+        combo.addItem(item)
+        if item.startswith("──") or item.startswith("---"):
+            model = combo.model()
+            idx = combo.count() - 1
+            entry = model.item(idx)
+            if entry:
+                from PyQt6.QtCore import Qt
+                entry.setFlags(entry.flags() & ~Qt.ItemFlag.ItemIsEnabled)
     if current_value:
         idx = combo.findText(current_value)
         if idx >= 0:
             combo.setCurrentIndex(idx)
         else:
-            # 現在値が候補にない場合は追加して選択
             combo.addItem(current_value)
             combo.setCurrentIndex(combo.count() - 1)
     combo.blockSignals(False)

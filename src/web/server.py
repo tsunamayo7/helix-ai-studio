@@ -814,14 +814,22 @@ async def _handle_mix_execute(client_id: str, data: dict):
                 "model": task["model"],
             })
 
-            # Ollama API呼び出し
+            # v11.6.0: クラウド/ローカル分岐
             start = _time.time()
             try:
-                result = await _run_ollama_async(
-                    model=task["model"],
-                    prompt=task["prompt"],
-                    timeout=task.get("timeout", 300),
-                )
+                cloud_provider = _get_cloud_provider_for_model_web(task["model"])
+                if cloud_provider:
+                    result = await _run_cloud_api_async(
+                        model_name=task["model"],
+                        prompt=task["prompt"],
+                        provider=cloud_provider,
+                    )
+                else:
+                    result = await _run_ollama_async(
+                        model=task["model"],
+                        prompt=task["prompt"],
+                        timeout=task.get("timeout", 300),
+                    )
                 elapsed = _time.time() - start
                 phase2_results.append({
                     "category": task["category"],
@@ -992,6 +1000,51 @@ async def _run_ollama_async(model: str, prompt: str,
         )
         resp.raise_for_status()
         return resp.json().get("response", "")
+
+
+# v11.6.0: Web Phase 2 クラウドモデル対応
+def _get_cloud_provider_for_model_web(model_name: str):
+    """cloud_models.json から provider を返す (Web版)"""
+    try:
+        path = Path("config/cloud_models.json")
+        if not path.exists():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        for m in data.get("models", []):
+            if m.get("name") == model_name or m.get("model_id") == model_name:
+                return m.get("provider")
+    except Exception:
+        pass
+    return None
+
+
+def _resolve_cloud_model_id_web(model_name: str) -> str:
+    """display name → model_id 解決 (Web版)"""
+    try:
+        data = json.loads(Path("config/cloud_models.json").read_text(encoding="utf-8"))
+        for m in data.get("models", []):
+            if m.get("name") == model_name:
+                return m.get("model_id", model_name)
+    except Exception:
+        pass
+    return model_name
+
+
+async def _run_cloud_api_async(model_name: str, prompt: str, provider: str) -> str:
+    """v11.6.0: クラウドAPIを非同期で呼び出し（Web Phase 2用）"""
+    model_id = _resolve_cloud_model_id_web(model_name)
+
+    if provider in ("anthropic_api", "anthropic_cli"):
+        from src.backends.anthropic_api_backend import call_anthropic_api
+        return await asyncio.to_thread(call_anthropic_api, prompt=prompt, model_id=model_id)
+    elif provider in ("openai_api", "openai_cli"):
+        from src.backends.openai_api_backend import call_openai_api
+        return await asyncio.to_thread(call_openai_api, prompt=prompt, model_id=model_id)
+    elif provider in ("google_api", "google_cli"):
+        from src.backends.google_api_backend import call_google_api
+        return await asyncio.to_thread(call_google_api, prompt=prompt, model_id=model_id)
+    else:
+        raise RuntimeError(f"Unsupported cloud provider: {provider}")
 
 
 # =============================================================================
@@ -1190,7 +1243,12 @@ complexity=lowの場合はskip_phase2=trueとしてください。
 
 
 def _build_phase2_tasks(llm_instructions: dict, model_assignments: dict) -> list:
-    """Phase 2タスクリスト構築"""
+    """Phase 2タスクリスト構築（v11.6.0: research向けWebツールガイド注入）"""
+    try:
+        from src.backends.local_agent import LOCALAI_WEB_TOOL_GUIDE
+    except Exception:
+        LOCALAI_WEB_TOOL_GUIDE = ""
+
     tasks = []
     for category, spec in llm_instructions.items():
         if isinstance(spec, dict) and not spec.get("skip", True):
@@ -1200,6 +1258,9 @@ def _build_phase2_tasks(llm_instructions: dict, model_assignments: dict) -> list
             prompt = spec.get("prompt", "").strip()
             if not prompt:
                 continue
+            # v11.6.0: research カテゴリにWebツールガイドを注入
+            if category == "research" and LOCALAI_WEB_TOOL_GUIDE:
+                prompt = LOCALAI_WEB_TOOL_GUIDE + "\n\n" + prompt
             tasks.append({
                 "category": category,
                 "model": model,
