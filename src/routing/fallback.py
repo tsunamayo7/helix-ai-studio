@@ -20,14 +20,23 @@ class FallbackManager:
 
     def __init__(self):
         """初期化"""
-        # フォールバックチェーン（Phase 2.4 初期実装）
+        # フォールバックチェーン（Phase 2.4 初期実装 + v11.7.0: 新プロバイダー対応）
         self.fallback_chains = {
+            # 旧エントリ（後方互換）
             "local": ["claude-sonnet-4-5", "claude-opus-4-5"],
             "gemini-3-pro": ["claude-sonnet-4-5", "claude-opus-4-5"],
             "gemini-3-flash": ["claude-sonnet-4-5", "claude-opus-4-5"],
             "claude-sonnet-4-5": ["claude-opus-4-5"],
             "claude-haiku-4-5": ["claude-sonnet-4-5", "claude-opus-4-5"],
             "claude-opus-4-5": None,  # Opus はフォールバック先なし
+            # v11.7.0: 新プロバイダー対応 — CLI系はAPI系にフォールバック
+            "anthropic_cli": ["anthropic_api"],
+            "openai_cli": ["openai_api"],
+            "google_cli": ["google_api"],
+            # API系はフォールバックなし（APIキー未設定なら即失敗で明確に）
+            "anthropic_api": None,
+            "openai_api": None,
+            "google_api": None,
         }
 
     def next_backend(

@@ -303,6 +303,24 @@ class SequentialExecutor:
         Returns:
             実行結果
         """
+        # v11.7.0: 全体 try/except で UI 状態整合性を保証
+        try:
+            return self._execute_task_inner(task)
+        except Exception as e:
+            logger.error(
+                f"[SequentialExecutor] execute_task raised unexpectedly: "
+                f"category={task.category}, model={task.model}, error={e}",
+                exc_info=True,
+            )
+            return SequentialResult(
+                category=task.category, model=task.model, success=False,
+                response=f"予期しないエラー: {type(e).__name__}: {str(e)}",
+                elapsed=0.0, order=task.order,
+                original_prompt=task.prompt, expected_output=task.expected_output,
+            )
+
+    def _execute_task_inner(self, task: SequentialTask) -> SequentialResult:
+        """v11.7.0: execute_task の内部実装（例外が素通りしても安全なように分離）"""
         # v10.0.0: Cloud AI モデルの場合はCLI経由
         if self._is_cloud_model(task.model):
             return self._execute_cloud_task(task)

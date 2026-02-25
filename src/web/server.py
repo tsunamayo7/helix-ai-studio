@@ -990,16 +990,33 @@ async def _run_claude_cli_async(prompt: str, model_id: str,
 
 async def _run_ollama_async(model: str, prompt: str,
                             timeout: int = 300, host: str = "http://localhost:11434") -> str:
-    """Ollama APIを非同期で呼び出し"""
+    """v11.7.0: タイムアウト/接続失敗/HTTPエラーを個別キャッチ"""
     import httpx
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
-        resp = await client.post(
-            f"{host}/api/generate",
-            json={"model": model, "prompt": prompt, "stream": False},
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
+            resp = await client.post(
+                f"{host}/api/generate",
+                json={"model": model, "prompt": prompt, "stream": False},
+            )
+            resp.raise_for_status()
+            return resp.json().get("response", "")
+    except httpx.TimeoutException:
+        raise RuntimeError(
+            f"Ollama タイムアウト ({timeout}秒): モデル '{model}' の応答が時間内に返りませんでした。"
+            "タイムアウト設定を延長するか、より軽量なモデルを使用してください。"
         )
-        resp.raise_for_status()
-        return resp.json().get("response", "")
+    except httpx.ConnectError:
+        raise RuntimeError(
+            f"Ollama 接続失敗: {host} に接続できません。"
+            "Ollama が起動しているか確認してください: `ollama serve`"
+        )
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(
+            f"Ollama HTTP エラー {e.response.status_code}: "
+            f"モデル '{model}' が見つからない可能性があります。"
+            f"`ollama pull {model}` で確認してください。"
+        )
 
 
 # v11.6.0: Web Phase 2 クラウドモデル対応

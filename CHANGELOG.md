@@ -5,6 +5,31 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.7.0] - 2026-02-25 "Resilient Core"
+
+### Added
+- Centralized crash.log utility `src/utils/error_utils.py` with `write_crash_log()` (Fix B)
+- Phase 4 failure now emits UI notification via `phase_changed` signal (Fix D)
+- Phase 3.5 JSON parse failure emits UI warning + sets `parse_failed` flag (Fix E)
+- MAX_TOOL_LOOPS reached warning appended to localAI response (Fix F)
+- New provider entries in fallback chains: `anthropic_cli`, `openai_cli`, `google_cli` → API fallback (Fix H)
+- Ollama error distinction: timeout / connection / HTTP status in `_run_ollama_async` (Fix I)
+- Top-level exception guard in `sequential_executor.execute_task()` prevents UI state lockup (Fix J)
+
+### Changed
+- `HelixAIStudio.py` startup migration: `except pass` → `logger.warning` with context (Fix A)
+- `claude_tab.py` crash.log writing consolidated from 3 copy-paste blocks to `write_crash_log()` calls (Fix B)
+- `claude_tab.py` unified `logger_local` → `logger` (Fix G)
+- `local_agent.py` monitor callbacks: `except pass` → `logger.debug` (Fix C)
+- `local_agent.py` file search, config load, PAT load: silent `except pass` → `logger.debug` (Scan)
+- `snippet_manager.py` added module-level `logger` definition (Scan fix)
+- Phase 3.5 JSON parse failure `quality_score` changed from hardcoded 0.8 → 0.0 (Fix E)
+
+### Fixed
+- Silent exception swallowing in 7+ locations across the codebase (Scan 1)
+- `snippet_manager.py` `open_unipet_folder()` had unprotected `subprocess.run` (Scan 2)
+- `sequential_executor.execute_task()` could leave UI buttons disabled on unexpected exception (Fix J)
+
 ## [11.6.0] - 2026-02-25 "Provider Aware"
 
 ### Added

@@ -390,8 +390,12 @@ class MixAIOrchestrator(QThread):
                             final_output["phase4_result"] = phase4_result
                         logger.info(f"[MixAI] Phase 4 completed successfully")
                 except Exception as e:
-                    logger.warning(f"[MixAI] Phase 4 failed: {e}")
-                    # Phase 4 failure is non-fatal; Phase 3 answer is still used
+                    logger.warning(f"[MixAI] Phase 4 failed: {e}", exc_info=True)
+                    # v11.7.0: Phase 4 失敗をユーザーに通知しつつ、Phase 3 結果を使用継続
+                    self.phase_changed.emit(
+                        4,
+                        f"⚠️ Phase 4 実装失敗（Phase 3 回答を使用）: {type(e).__name__}: {str(e)[:80]}"
+                    )
 
         # 最終回答を抽出
         if isinstance(final_output, dict):
@@ -1450,13 +1454,35 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
                 except json.JSONDecodeError:
                     continue
 
-            # JSON解析失敗 → passとして扱う
-            logger.warning("[Phase 3.5] JSON parse failed, treating as pass")
-            return {"action": "pass", "quality_score": 0.8, "issues": []}
+            # v11.7.0: JSON解析失敗を透明化
+            logger.warning(
+                "[Phase 3.5] Could not parse review result as JSON. "
+                "Treating as 'pass' with quality_score=0.0 (unable to evaluate). "
+                f"Raw output (first 200 chars): {raw_output[:200]!r}"
+            )
+            self.phase_changed.emit(
+                35,
+                "⚠️ Phase 3.5: レビュー結果のJSON解析失敗 → 評価スキップ（Phase 3結果をそのまま使用）"
+            )
+            return {
+                "action": "pass",
+                "quality_score": 0.0,
+                "issues": ["Phase 3.5 review output could not be parsed as JSON"],
+                "parse_failed": True,
+            }
 
         except Exception as e:
-            logger.warning(f"[Phase 3.5] Execution failed: {e}")
-            return {"action": "pass", "quality_score": 0.0, "issues": [str(e)]}
+            logger.error(f"[Phase 3.5] Execution failed: {e}", exc_info=True)
+            self.phase_changed.emit(
+                35,
+                f"⚠️ Phase 3.5 実行失敗（スキップ）: {type(e).__name__}: {str(e)[:80]}"
+            )
+            return {
+                "action": "pass",
+                "quality_score": 0.0,
+                "issues": [f"{type(e).__name__}: {str(e)}"],
+                "execution_failed": True,
+            }
 
     # ═══════════════════════════════════════════════════════════════
     # Claude CLI実行

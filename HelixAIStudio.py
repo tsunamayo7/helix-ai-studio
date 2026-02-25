@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v11.6.0 "Provider Aware"
+Helix AI Studio v11.7.0 "Resilient Core"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:
@@ -67,8 +67,11 @@ try:
             _settings.setdefault('claude', {})['default_model'] = _expected_model
             with open(_settings_path, 'w', encoding='utf-8') as _f:
                 _json.dump(_settings, _f, ensure_ascii=False, indent=2)
-except Exception:
-    pass
+except Exception as _e:
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        f"[Startup] Settings migration failed (non-fatal): {_e}"
+    )
 
 # srcディレクトリをパスに追加
 src_path = APP_PATH / 'src'

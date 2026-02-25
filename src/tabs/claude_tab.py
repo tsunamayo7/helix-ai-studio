@@ -2723,24 +2723,9 @@ class ClaudeTab(QWidget):
             # app.log に ERROR レベルで記録
             logger.error(f"[ClaudeTab._on_send] Exception occurred: {error_msg}", exc_info=True)
 
-            # crash.log にも記録
-            import traceback
-            from pathlib import Path
-            crash_log_path = Path(__file__).parent.parent.parent / "logs" / "crash.log"
-            crash_log_path.parent.mkdir(exist_ok=True)
-
-            try:
-                with open(crash_log_path, "a", encoding="utf-8") as f:
-                    from datetime import datetime
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    f.write(f"\n{'='*80}\n")
-                    f.write(f"[ERROR in _on_send] {timestamp}\n")
-                    f.write(f"{'='*80}\n")
-                    traceback.print_exc(file=f)
-                    f.write(f"\n{'='*80}\n\n")
-                    f.flush()
-            except Exception as log_error:
-                logger.error(f"Failed to write to crash.log: {log_error}")
+            # v11.7.0: crash.log に記録（共通ヘルパー）
+            from ..utils.error_utils import write_crash_log
+            write_crash_log("ClaudeTab._on_send", e)
 
             # UIにエラー表示
             QMessageBox.critical(
@@ -2785,8 +2770,7 @@ class ClaudeTab(QWidget):
             self._send_message(message)
             return
 
-        import logging
-        logger_local = logging.getLogger(__name__)
+        # v11.7.0: logger_local を廃止、モジュールレベルの logger を使用
 
         # Display user message
         self.chat_display.append(
@@ -2831,7 +2815,7 @@ class ClaudeTab(QWidget):
         if hasattr(self, 'monitor_widget'):
             self.monitor_widget.start_model(selected_model or "Claude CLI", "CLI --resume")
 
-        logger_local.info(f"[ClaudeTab] Sent with --resume session: {self._claude_session_id[:8]}...")
+        logger.info(f"[ClaudeTab] Sent with --resume session: {self._claude_session_id[:8]}...")
 
     def _on_session_captured(self, session_id: str):
         """v11.0.0: Session ID received from CLI"""
@@ -3276,24 +3260,9 @@ class ClaudeTab(QWidget):
             # 送信前の状態ガードで例外が発生した場合
             logger.error(f"[ClaudeTab._send_message] Exception during state guard: {e}", exc_info=True)
 
-            # crash.log にも記録
-            import traceback
-            from pathlib import Path
-            crash_log_path = Path(__file__).parent.parent.parent / "logs" / "crash.log"
-            crash_log_path.parent.mkdir(exist_ok=True)
-
-            try:
-                with open(crash_log_path, "a", encoding="utf-8") as f:
-                    from datetime import datetime
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    f.write(f"\n{'='*80}\n")
-                    f.write(f"[ERROR in _send_message:state_guard] {timestamp}\n")
-                    f.write(f"{'='*80}\n")
-                    traceback.print_exc(file=f)
-                    f.write(f"\n{'='*80}\n\n")
-                    f.flush()
-            except Exception as log_error:
-                logger.error(f"Failed to write to crash.log: {log_error}")
+            # v11.7.0: crash.log に記録（共通ヘルパー）
+            from ..utils.error_utils import write_crash_log
+            write_crash_log("ClaudeTab._send_message:state_guard", e)
 
             # UIにエラー表示
             QMessageBox.critical(
@@ -3442,24 +3411,9 @@ class ClaudeTab(QWidget):
 
             logger.error(f"[ClaudeTab._send_message] Exception during send: {error_msg}", exc_info=True)
 
-            # crash.log にも記録
-            import traceback
-            from pathlib import Path
-            crash_log_path = Path(__file__).parent.parent.parent / "logs" / "crash.log"
-            crash_log_path.parent.mkdir(exist_ok=True)
-
-            try:
-                with open(crash_log_path, "a", encoding="utf-8") as f:
-                    from datetime import datetime
-                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    f.write(f"\n{'='*80}\n")
-                    f.write(f"[ERROR in _send_message:send] {timestamp}\n")
-                    f.write(f"{'='*80}\n")
-                    traceback.print_exc(file=f)
-                    f.write(f"\n{'='*80}\n\n")
-                    f.flush()
-            except Exception as log_error:
-                logger.error(f"Failed to write to crash.log: {log_error}")
+            # v11.7.0: crash.log に記録（共通ヘルパー）
+            from ..utils.error_utils import write_crash_log
+            write_crash_log("ClaudeTab._send_message:send", e)
 
             # UIにエラー表示
             self.chat_display.append(

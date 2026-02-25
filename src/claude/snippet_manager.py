@@ -8,6 +8,8 @@ import uuid
 import re
 import logging
 import json
+
+logger = logging.getLogger(__name__)
 import sys
 import os
 from pathlib import Path
@@ -356,9 +358,12 @@ class SnippetManager:
         import subprocess
         import sys
 
-        if sys.platform == "win32":
-            subprocess.run(["explorer", str(self.unipet_dir)])
-        elif sys.platform == "darwin":
-            subprocess.run(["open", str(self.unipet_dir)])
-        else:
-            subprocess.run(["xdg-open", str(self.unipet_dir)])
+        try:
+            if sys.platform == "win32":
+                subprocess.run(["explorer", str(self.unipet_dir)])
+            elif sys.platform == "darwin":
+                subprocess.run(["open", str(self.unipet_dir)])
+            else:
+                subprocess.run(["xdg-open", str(self.unipet_dir)])
+        except Exception as e:
+            logger.warning(f"[SnippetManager] Failed to open folder: {e}")

@@ -359,8 +359,8 @@ class LocalAgentRunner:
         if self.on_monitor_start:
             try:
                 self.on_monitor_start(self.model_name)
-            except Exception:
-                pass
+            except Exception as _cb_err:
+                logger.debug(f"[LocalAgent] monitor_start callback error (non-fatal): {_cb_err}")
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
@@ -384,8 +384,8 @@ class LocalAgentRunner:
                 if self.on_monitor_finish:
                     try:
                         self.on_monitor_finish(self.model_name, True)
-                    except Exception:
-                        pass
+                    except Exception as _cb_err:
+                        logger.debug(f"[LocalAgent] monitor_finish callback error (non-fatal): {_cb_err}")
 
                 return result
         except httpx.TimeoutException:
@@ -394,8 +394,8 @@ class LocalAgentRunner:
             if self.on_monitor_finish:
                 try:
                     self.on_monitor_finish(self.model_name, False)
-                except Exception:
-                    pass
+                except Exception as _cb_err:
+                    logger.debug(f"[LocalAgent] monitor_finish callback error (non-fatal): {_cb_err}")
             return None
         except Exception as e:
             logger.error(f"Ollama API error: {e}")
@@ -403,8 +403,8 @@ class LocalAgentRunner:
             if self.on_monitor_finish:
                 try:
                     self.on_monitor_finish(self.model_name, False)
-                except Exception:
-                    pass
+                except Exception as _cb_err:
+                    logger.debug(f"[LocalAgent] monitor_finish callback error (non-fatal): {_cb_err}")
             return None
 
     # ═══ ツール実行 ═══
@@ -532,8 +532,8 @@ class LocalAgentRunner:
                                         "context": line.strip()[:200],
                                     })
                                     break
-                    except Exception:
-                        pass
+                    except Exception as _read_err:
+                        logger.debug(f"[LocalAgent] search: skip unreadable file {fp}: {_read_err}")
 
         return {"query": query, "results": results, "count": len(results)}
 
@@ -587,8 +587,8 @@ class LocalAgentRunner:
                 with open(settings_path, 'r') as f:
                     settings = _json.load(f)
                 brave_api_key = settings.get("brave_search_api_key", "")
-        except Exception:
-            pass
+        except Exception as _cfg_err:
+            logger.debug(f"[LocalAgent] web_search: config load failed (non-fatal): {_cfg_err}")
 
         try:
             if brave_api_key:
@@ -644,8 +644,8 @@ class LocalAgentRunner:
                             pat = _gj.load(_gf).get("github_pat", "")
                         if pat:
                             headers["Authorization"] = f"Bearer {pat}"
-                except Exception:
-                    pass
+                except Exception as _pat_err:
+                    logger.debug(f"[LocalAgent] fetch_url: PAT load failed (non-fatal): {_pat_err}")
             resp = httpx.get(url, timeout=15, follow_redirects=True, headers=headers)
             resp.raise_for_status()
             text = resp.text

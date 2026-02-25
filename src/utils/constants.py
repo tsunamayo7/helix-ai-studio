@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.6.0"
-APP_CODENAME = "Provider Aware"
+APP_VERSION = "11.7.0"
+APP_CODENAME = "Resilient Core"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.6.0 'Provider Aware' - "
-    "Phase 2動的クラウドモデル判定・全プロバイダールーティング・Visionフィルタリング"
+    "Helix AI Studio v11.7.0 'Resilient Core' - "
+    "エラーハンドリング強化・サイレント失敗排除・crash.log共通化・フォールバック拡充"
 )
 
 # v8.5.0: 情報収集フォルダ

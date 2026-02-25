@@ -64,6 +64,7 @@ class OllamaWorkerThread(QThread):
     def run(self):
         import httpx
         try:
+            _loop_limit_reached = True
             for _loop in range(self.MAX_TOOL_LOOPS):
                 payload = {
                     "model": self._model,
@@ -105,10 +106,23 @@ class OllamaWorkerThread(QThread):
                     continue  # 次のループでLLMに再問い合わせ
                 else:
                     # 通常テキスト応答
+                    _loop_limit_reached = False
                     content = msg.get("content", "")
                     self._full_response = content
                     self.chunkReceived.emit(content)
                     break
+
+            # v11.7.0: MAX_TOOL_LOOPS 到達時に警告追記
+            if _loop_limit_reached:
+                warning_suffix = (
+                    f"\n\n---\n⚠️ ツール呼び出しが上限 ({self.MAX_TOOL_LOOPS} 回) に達しました。"
+                    "処理が途中で打ち切られた可能性があります。"
+                )
+                self._full_response = (self._full_response or "") + warning_suffix
+                logger.warning(
+                    f"[OllamaWorkerThread] MAX_TOOL_LOOPS ({self.MAX_TOOL_LOOPS}) reached "
+                    f"for model={self._model}"
+                )
 
             self.completed.emit(self._full_response)
 
