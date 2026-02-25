@@ -16,6 +16,7 @@ from PyQt6.QtGui import QFont
 
 from ...data.chat_history_manager import get_chat_history_manager, ChatEntry
 from ...utils.i18n import t
+from ...utils.style_helpers import SS
 
 import logging
 
@@ -124,7 +125,7 @@ class HistoryCitationWidget(QWidget):
 
         # 統計表示
         self.stats_label = QLabel("")
-        self.stats_label.setStyleSheet("color: #888; font-size: 9pt;")
+        self.stats_label.setStyleSheet(SS.dim("9pt"))
         layout.addWidget(self.stats_label)
 
     def _connect_signals(self):

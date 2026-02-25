@@ -14,6 +14,7 @@ from PyQt6.QtCore import pyqtSignal
 from ..utils.styles import BIBLE_NOTIFICATION_STYLE
 from ..bible.bible_schema import BibleInfo
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class BibleNotificationWidget(QFrame):
 
         # 情報ラベル
         self.info_label = QLabel("")
-        self.info_label.setStyleSheet("color: #e2e8f0; font-size: 12px;")
+        self.info_label.setStyleSheet(SS.primary("12px"))
         layout.addWidget(self.info_label, stretch=1)
 
         # コンテキストに追加ボタン

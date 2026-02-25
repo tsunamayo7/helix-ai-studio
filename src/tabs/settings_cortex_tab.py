@@ -30,6 +30,7 @@ except ImportError:
     SECTION_CARD_STYLE = ""
 
 from ..utils.i18n import t, set_language, get_language
+from ..utils.style_helpers import SS
 from ..widgets.section_save_button import create_section_save_button
 from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
 
@@ -190,7 +191,7 @@ class SettingsCortexTab(QWidget):
 
         status_row = QHBoxLayout()
         self.ai_status_result_label = QLabel("")
-        self.ai_status_result_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+        self.ai_status_result_label.setStyleSheet(SS.muted("12px"))
         self.ai_status_result_label.setWordWrap(True)
         status_row.addWidget(self.ai_status_result_label)
         status_row.addStretch()
@@ -214,7 +215,7 @@ class SettingsCortexTab(QWidget):
 
         # 説明ラベル
         self.opt_tools_desc_label = QLabel(t('desktop.settings.optionalToolsDesc'))
-        self.opt_tools_desc_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.opt_tools_desc_label.setStyleSheet(SS.muted("11px"))
         self.opt_tools_desc_label.setWordWrap(True)
         layout.addWidget(self.opt_tools_desc_label)
 
@@ -250,10 +251,10 @@ class SettingsCortexTab(QWidget):
             # 状態インジケーター
             if is_installed:
                 status_label = QLabel(f"\u2705 {pkg['label']}")
-                status_label.setStyleSheet("color: #22c55e; font-size: 12px;")
+                status_label.setStyleSheet(SS.ok("12px"))
             else:
                 status_label = QLabel(f"\u2b1c {pkg['label']}")
-                status_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+                status_label.setStyleSheet(SS.muted("12px"))
             status_label.setToolTip(t(f"desktop.settings.{pkg['desc_key']}"))
             row.addWidget(status_label)
             self.opt_tools_status_labels.append((status_label, pkg['desc_key']))
@@ -277,10 +278,10 @@ class SettingsCortexTab(QWidget):
                 chromium_ok = self._check_chromium_installed()
                 if chromium_ok:
                     chrom_label = QLabel("  \u2705 Chromium " + t('desktop.settings.optToolChromiumReady'))
-                    chrom_label.setStyleSheet("color: #22c55e; font-size: 10px;")
+                    chrom_label.setStyleSheet(SS.ok("10px"))
                 else:
                     chrom_label = QLabel("  \u26a0\ufe0f " + t('desktop.settings.optToolChromiumMissing'))
-                    chrom_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+                    chrom_label.setStyleSheet(SS.warn("10px"))
                 chrom_label.setWordWrap(True)
                 layout.addWidget(chrom_label)
 
@@ -380,7 +381,7 @@ class SettingsCortexTab(QWidget):
         """Anthropic SDK / OpenAI SDK / Ollama を一括確認（v11.0.0: QTimer遅延で確実にUI更新）"""
         # 即座にUI反応（確認中表示）
         self.ai_status_result_label.setText("⏳ " + t('desktop.settings.aiStatusChecking'))
-        self.ai_status_result_label.setStyleSheet("color: #f59e0b; font-size: 12px;")
+        self.ai_status_result_label.setStyleSheet(SS.warn("12px"))
         self.ai_status_check_btn.setEnabled(False)
         # 50ms遅延で実行（UIスレッドで同期実行 — 各チェックは内部でタイムアウト制御）
         QTimer.singleShot(50, self._do_ai_status_check)
@@ -429,7 +430,7 @@ class SettingsCortexTab(QWidget):
         result_text = " | ".join(statuses)
         self.ai_status_result_label.setText(
             t('desktop.settings.aiStatusResult', statuses=result_text))
-        self.ai_status_result_label.setStyleSheet("color: #9ca3af; font-size: 12px;")
+        self.ai_status_result_label.setStyleSheet(SS.muted("12px"))
         self.ai_status_check_btn.setEnabled(True)
 
     # ========================================
@@ -454,7 +455,7 @@ class SettingsCortexTab(QWidget):
 
         # CLI状態ラベル
         self.cli_status_label = QLabel("")
-        self.cli_status_label.setStyleSheet("color: #94a3b8;")
+        self.cli_status_label.setStyleSheet(SS.muted())
         layout.addWidget(self.cli_status_label)
 
         # SDK移行に伴い、CLIステータスグループを非表示にする
@@ -469,12 +470,12 @@ class SettingsCortexTab(QWidget):
             available, message = check_claude_cli_available()
             if available:
                 self.cli_status_label.setText(f"✅ {message}")
-                self.cli_status_label.setStyleSheet("color: #4CAF50;")
+                self.cli_status_label.setStyleSheet(SS.ok())
                 QMessageBox.information(self, t('desktop.settings.cliSuccessTitle'),
                                         t('desktop.settings.cliSuccessMsg', message=message))
             else:
                 self.cli_status_label.setText("❌ " + t('desktop.settings.cliUnavailable'))
-                self.cli_status_label.setStyleSheet("color: #f44336;")
+                self.cli_status_label.setStyleSheet(SS.err())
                 QMessageBox.warning(self, t('desktop.settings.cliErrorTitle'),
                                     t('desktop.settings.cliErrorMsg', message=message))
         except Exception as e:
@@ -520,11 +521,11 @@ class SettingsCortexTab(QWidget):
         all_ok = all("✓" in p for p in status_parts)
         self.cli_status_label.setText(" | ".join(status_parts))
         if all_ok:
-            self.cli_status_label.setStyleSheet("color: #4CAF50;")
+            self.cli_status_label.setStyleSheet(SS.ok())
         elif any("✓" in p for p in status_parts):
-            self.cli_status_label.setStyleSheet("color: #ffa500;")
+            self.cli_status_label.setStyleSheet(SS.warn())
         else:
-            self.cli_status_label.setStyleSheet("color: #ef4444;")
+            self.cli_status_label.setStyleSheet(SS.err())
 
         # ツールチップに詳細インストール手順
         self.cli_status_label.setToolTip(t('desktop.settings.cliInstallInstructions'))
@@ -541,7 +542,7 @@ class SettingsCortexTab(QWidget):
 
         # GPU検出情報
         self.gpu_detect_label = QLabel(t('desktop.settings.noGpuDetected'))
-        self.gpu_detect_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.gpu_detect_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.gpu_detect_label)
         self._detect_gpu_info()
 
@@ -584,7 +585,7 @@ class SettingsCortexTab(QWidget):
 
         # VRAM合計表示
         self.resident_vram_label = QLabel(t('desktop.settings.residentVramTotal', vram="8.5"))
-        self.resident_vram_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.resident_vram_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.resident_vram_label)
 
         # GPU2枚以上の場合: 実行先GPU選択（初期非表示）
@@ -626,7 +627,7 @@ class SettingsCortexTab(QWidget):
                 if gpus:
                     gpu_texts = [t('desktop.settings.gpuDetected', name=g[1], vram=g[2]) for g in gpus]
                     self.gpu_detect_label.setText("\n".join(gpu_texts))
-                    self.gpu_detect_label.setStyleSheet("color: #34d399; font-size: 11px;")
+                    self.gpu_detect_label.setStyleSheet(SS.ok("11px"))
 
                     # GPU2枚以上の場合: 実行先選択を表示
                     if len(gpus) >= 2:
@@ -710,7 +711,7 @@ class SettingsCortexTab(QWidget):
 
         # --- Brave Search API Key ---
         self.brave_api_label = QLabel(t('desktop.settings.braveApiKeyLabel'))
-        self.brave_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.brave_api_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.brave_api_label)
 
         brave_row = QHBoxLayout()
@@ -731,7 +732,7 @@ class SettingsCortexTab(QWidget):
         # --- v11.4.0: Anthropic API Key ---
         layout.addSpacing(8)
         self.anthropic_api_label = QLabel(t('desktop.settings.anthropicApiKeyLabel'))
-        self.anthropic_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.anthropic_api_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.anthropic_api_label)
 
         anthropic_row = QHBoxLayout()
@@ -748,7 +749,7 @@ class SettingsCortexTab(QWidget):
         # --- v11.4.0: OpenAI API Key ---
         layout.addSpacing(8)
         self.openai_api_label = QLabel(t('desktop.settings.openaiApiKeyLabel'))
-        self.openai_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.openai_api_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.openai_api_label)
 
         openai_row = QHBoxLayout()
@@ -765,7 +766,7 @@ class SettingsCortexTab(QWidget):
         # --- v11.5.0 L-G: Google API Key ---
         layout.addSpacing(8)
         self.google_api_label = QLabel(t('desktop.settings.googleApiKeyLabel'))
-        self.google_api_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.google_api_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(self.google_api_label)
 
         google_row = QHBoxLayout()
@@ -916,7 +917,7 @@ class SettingsCortexTab(QWidget):
 
         # 記憶統計
         self.stats_title_label = QLabel(t('desktop.settings.memoryStats'))
-        self.stats_title_label.setStyleSheet("font-weight: bold; color: #38bdf8;")
+        self.stats_title_label.setStyleSheet(SS.accent(bold=True))
         layout.addWidget(self.stats_title_label)
 
         self.memory_stats_label = QLabel(t('desktop.settings.memoryStatsDefault'))
@@ -1104,21 +1105,21 @@ class SettingsCortexTab(QWidget):
         toggle_row.addWidget(self.web_ui_toggle)
 
         self.web_ui_status_label = QLabel(t('desktop.settings.webStopped'))
-        self.web_ui_status_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
+        self.web_ui_status_label.setStyleSheet(SS.muted("12px"))
         toggle_row.addWidget(self.web_ui_status_label)
         toggle_row.addStretch()
         layout.addLayout(toggle_row)
 
         # アクセスURL表示
         self.web_ui_url_label = QLabel("")
-        self.web_ui_url_label.setStyleSheet("color: #38bdf8; font-size: 12px;")
+        self.web_ui_url_label.setStyleSheet(SS.accent("12px"))
         self.web_ui_url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.web_ui_url_label)
 
         # v9.3.0: 自動起動チェックボックス
         auto_row = QHBoxLayout()
         self.web_auto_start_cb = QCheckBox(t('desktop.settings.webAutoStart'))
-        self.web_auto_start_cb.setStyleSheet("color: #e5e7eb; font-size: 12px;")
+        self.web_auto_start_cb.setStyleSheet(SS.primary("12px"))
         self.web_auto_start_cb.setChecked(self._load_auto_start_setting())
         self.web_auto_start_cb.stateChanged.connect(self._save_auto_start_setting)
         auto_row.addWidget(self.web_auto_start_cb)
@@ -1128,7 +1129,7 @@ class SettingsCortexTab(QWidget):
         # ポート番号
         port_row = QHBoxLayout()
         self.port_label = QLabel(t('desktop.settings.webPort'))
-        self.port_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        self.port_label.setStyleSheet(SS.muted("11px"))
         port_row.addWidget(self.port_label)
         self.web_port_spin = NoScrollSpinBox()
         self.web_port_spin.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -1195,7 +1196,7 @@ class SettingsCortexTab(QWidget):
         layout.addLayout(discord_row)
 
         self.discord_status_label = QLabel("")
-        self.discord_status_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+        self.discord_status_label.setStyleSheet(SS.muted("10px"))
         layout.addWidget(self.discord_status_label)
 
         # Discord Webhook URLを設定から復元
@@ -1311,13 +1312,13 @@ class SettingsCortexTab(QWidget):
         url_text = self.web_ui_url_label.text()
         if not url_text:
             self.discord_status_label.setText(t('desktop.settings.discordNoUrl'))
-            self.discord_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+            self.discord_status_label.setStyleSheet(SS.warn("10px"))
             return
 
         webhook_url = self.discord_webhook_edit.text().strip()
         if not webhook_url:
             self.discord_status_label.setText(t('desktop.settings.discordNoWebhook'))
-            self.discord_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+            self.discord_status_label.setStyleSheet(SS.warn("10px"))
             return
 
         # Webhook URLを保存
@@ -1328,7 +1329,7 @@ class SettingsCortexTab(QWidget):
 
         self.discord_send_btn.setEnabled(False)
         self.discord_status_label.setText(t('desktop.settings.discordSending'))
-        self.discord_status_label.setStyleSheet("color: #9ca3af; font-size: 10px;")
+        self.discord_status_label.setStyleSheet(SS.muted("10px"))
 
         # 別スレッドで送信
         from PyQt6.QtCore import QThread
@@ -1431,10 +1432,10 @@ class SettingsCortexTab(QWidget):
         self.discord_send_btn.setEnabled(True)
         if success:
             self.discord_status_label.setText(t('desktop.settings.discordSent'))
-            self.discord_status_label.setStyleSheet("color: #22c55e; font-size: 10px;")
+            self.discord_status_label.setStyleSheet(SS.ok("10px"))
         else:
             self.discord_status_label.setText(t('desktop.settings.discordFailed', error=error))
-            self.discord_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
+            self.discord_status_label.setStyleSheet(SS.err("10px"))
 
     # v11.0.0: カスタムサーバー管理はcloudAI/localAIタブに移設
 
@@ -1481,7 +1482,7 @@ class SettingsCortexTab(QWidget):
         url = self.ollama_conn_url_edit.text().strip()
         if not url:
             self.ollama_conn_status.setText(t('desktop.settings.ollamaNoUrl'))
-            self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
+            self.ollama_conn_status.setStyleSheet(SS.err("11px"))
             return
         try:
             import httpx
@@ -1490,13 +1491,13 @@ class SettingsCortexTab(QWidget):
                 models = resp.json().get("models", [])
                 model_names = [m.get("name", "?") for m in models[:5]]
                 self.ollama_conn_status.setText(t('desktop.settings.ollamaConnected', count=len(models), models=", ".join(model_names)))
-                self.ollama_conn_status.setStyleSheet("color: #34d399; font-size: 11px;")
+                self.ollama_conn_status.setStyleSheet(SS.ok("11px"))
             else:
                 self.ollama_conn_status.setText(t('desktop.settings.ollamaFailed', status=resp.status_code))
-                self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
+                self.ollama_conn_status.setStyleSheet(SS.err("11px"))
         except Exception as e:
             self.ollama_conn_status.setText(t('desktop.settings.ollamaError', error=str(e)[:80]))
-            self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
+            self.ollama_conn_status.setStyleSheet(SS.err("11px"))
 
     # ========================================
     # シグナル接続 + 設定保存/読み込み

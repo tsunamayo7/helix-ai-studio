@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,11 @@ class _ModelRow(QFrame):
 
         self._name_label = QLabel("")
         self._name_label.setFixedWidth(200)
-        self._name_label.setStyleSheet("color: #e2e8f0; font-weight: bold;")
+        self._name_label.setStyleSheet(SS.primary(bold=True))
 
         self._phase_label = QLabel("")
         self._phase_label.setFixedWidth(120)
-        self._phase_label.setStyleSheet("color: #94a3b8;")
+        self._phase_label.setStyleSheet(SS.muted())
 
         self._time_label = QLabel("")
         self._time_label.setFixedWidth(60)
@@ -65,7 +66,7 @@ class _ModelRow(QFrame):
         self._time_label.setStyleSheet("color: #94a3b8; font-family: monospace;")
 
         self._output_label = QLabel("")
-        self._output_label.setStyleSheet("color: #666; font-size: 11px;")
+        self._output_label.setStyleSheet(SS.dim("11px"))
         self._output_label.setMinimumWidth(100)
 
         self._layout.addWidget(self._icon_label)

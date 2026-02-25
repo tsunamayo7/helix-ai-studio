@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v11.8.0 "Polished Dark"
+Helix AI Studio v11.9.0 "Unified Obsidian"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:
@@ -25,16 +25,15 @@ import gc
 from datetime import datetime
 from pathlib import Path
 
-# v11.8.0: Windows タスクバーアイコン固定
-# QApplication 生成前に呼ぶ必要がある
+_APP_USER_MODEL_ID = 'HelixAIStudio.HelixAIStudio.App'
+
 if os.name == 'nt':
     try:
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            'HelixAIStudio.HelixAIStudio.11'
-        )
-    except Exception:
-        pass
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(_APP_USER_MODEL_ID)
+    except Exception as _e:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(f"[Startup] AppUserModelID failed: {_e}")
 
 
 def get_application_path() -> Path:
@@ -199,32 +198,97 @@ def cleanup_on_exit():
     logger.info("[Cleanup] Application cleanup completed")
 
 
-def main():
-    """Helix AI Studio エントリーポイント"""
-    # グローバル例外ハンドラを最初に設定
-    setup_crash_logging()
+def _create_splash_screen(app):
+    """v11.9.0: スプラッシュスクリーンを作成して返す"""
+    try:
+        from PyQt6.QtWidgets import QSplashScreen
+        from PyQt6.QtGui import QPixmap, QPainter, QColor, QFont
+        from PyQt6.QtCore import Qt
 
-    # v3.9.6: 終了時のクリーンアップ処理を登録
+        import sys
+        from pathlib import Path
+
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            icon_path = Path(sys._MEIPASS) / "icon.png"
+            if not icon_path.exists():
+                icon_path = Path(sys.executable).parent / "icon.png"
+        else:
+            icon_path = Path(__file__).parent / "icon.png"
+
+        pixmap = QPixmap(400, 200)
+        pixmap.fill(QColor("#080c14"))
+
+        painter = QPainter(pixmap)
+
+        if icon_path.exists():
+            icon_pixmap = QPixmap(str(icon_path))
+            if not icon_pixmap.isNull():
+                scaled = icon_pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio,
+                                             Qt.TransformationMode.SmoothTransformation)
+                painter.drawPixmap(30, 68, scaled)
+
+        painter.setPen(QColor("#e2e8f0"))
+        title_font = QFont("Segoe UI", 18, QFont.Weight.Bold)
+        painter.setFont(title_font)
+        painter.drawText(110, 80, "Helix AI Studio")
+
+        painter.setPen(QColor("#38bdf8"))
+        ver_font = QFont("Segoe UI", 10)
+        painter.setFont(ver_font)
+        painter.drawText(110, 105, "v11.9.0  Unified Obsidian")
+
+        painter.setPen(QColor("#475569"))
+        small_font = QFont("Segoe UI", 9)
+        painter.setFont(small_font)
+        painter.drawText(110, 130, "Loading...")
+
+        painter.end()
+
+        splash = QSplashScreen(pixmap)
+        splash.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
+        return splash
+
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"[Startup] SplashScreen failed (non-fatal): {e}")
+        return None
+
+
+def main():
+    """Helix AI Studio エントリーポイント v11.9.0"""
+    setup_crash_logging()
     atexit.register(cleanup_on_exit)
 
     try:
         from src.utils.log_setup import setup_app_logging
-        from src.main_window import create_application, MainWindow
         from src.utils.i18n import init_language
 
-        # v11.2.1: アプリ全体のログインフラを初期化（QApplication生成前）
         setup_app_logging()
-
-        # v9.6.0: 言語設定を初期化（UIインスタンス化前）
         init_language()
 
+        from src.main_window import create_application
         app = create_application()
-
-        # v3.9.6: aboutToQuitシグナルでクリーンアップを事前実行
         app.aboutToQuit.connect(cleanup_on_exit)
 
+        # v11.9.0: SplashScreen 表示
+        splash = _create_splash_screen(app)
+        if splash:
+            splash.show()
+            app.processEvents()
+
+        if splash:
+            splash.showMessage(
+                "  Loading modules...",
+                alignment=0x84,
+                color=None
+            )
+            app.processEvents()
+
+        from src.main_window import MainWindow
         window = MainWindow()
         window.show()
+
+        if splash:
+            splash.finish(window)
 
         return app.exec()
 
@@ -232,8 +296,6 @@ def main():
         print(f"Import Error: {e}")
         print("\n依存パッケージをインストールしてください:")
         print("  pip install -r requirements.txt")
-
-        # crash.log にも記録
         logger = logging.getLogger(__name__)
         logger.critical(f"Import Error: {e}", exc_info=True)
         return 1
@@ -242,8 +304,6 @@ def main():
         print(f"Error: {e}")
         import traceback
         traceback.print_exc()
-
-        # crash.log にも記録
         logger = logging.getLogger(__name__)
         logger.critical(f"Startup Error: {e}", exc_info=True)
         return 1

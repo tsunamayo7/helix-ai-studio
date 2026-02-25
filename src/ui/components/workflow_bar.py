@@ -12,6 +12,7 @@ from PyQt6.QtGui import QFont
 
 from ...utils.constants import WorkflowPhase
 from ...utils.i18n import t
+from ...utils.style_helpers import SS
 
 
 class WorkflowBar(QFrame):
@@ -59,7 +60,7 @@ class WorkflowBar(QFrame):
         # 工程名ラベル
         self.phase_label = QLabel(t('desktop.workflowBar.defaultPhase'))
         self.phase_label.setFont(QFont("Yu Gothic UI", 11, QFont.Weight.Bold))
-        self.phase_label.setStyleSheet("color: #0078d4;")
+        self.phase_label.setStyleSheet(SS.info())
         top_layout.addWidget(self.phase_label)
 
         top_layout.addStretch()
@@ -79,14 +80,14 @@ class WorkflowBar(QFrame):
 
         # 工程の説明
         self.phase_desc_label = QLabel(t('desktop.workflowBar.defaultDesc'))
-        self.phase_desc_label.setStyleSheet("color: #b0b0b0; font-size: 9pt;")
+        self.phase_desc_label.setStyleSheet(SS.dim("9pt"))
         middle_layout.addWidget(self.phase_desc_label)
 
         middle_layout.addStretch()
 
         # 成果物フラグのミニ表示
         self.flags_label = QLabel("")
-        self.flags_label.setStyleSheet("color: #d0d0d0; font-size: 9pt;")
+        self.flags_label.setStyleSheet(SS.dim("9pt"))
         self.flags_label.setToolTip(t('desktop.workflowBar.flagsTooltip'))
         middle_layout.addWidget(self.flags_label)
 

@@ -451,6 +451,81 @@ QStatusBar {{
     border-top: 1px solid {COLORS['border_subtle']};
     font-size: {FONT_SCALE['small']}px;
 }}
+
+/* ─── Slider ─────────────────────────────────────────────────── */
+QSlider::groove:horizontal {{
+    background-color: {COLORS['bg_elevated']};
+    height: 4px;
+    border-radius: 2px;
+}}
+
+QSlider::handle:horizontal {{
+    background-color: {COLORS['accent']};
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}}
+
+QSlider::handle:horizontal:hover {{
+    background-color: {COLORS['accent_bright']};
+}}
+
+QSlider::sub-page:horizontal {{
+    background-color: {COLORS['accent_dim']};
+    border-radius: 2px;
+}}
+
+/* ─── Menu ───────────────────────────────────────────────────── */
+QMenu {{
+    background-color: {COLORS['bg_elevated']};
+    border: 1px solid {COLORS['border_strong']};
+    border-radius: 8px;
+    padding: 4px;
+}}
+
+QMenu::item {{
+    padding: 8px 20px;
+    border-radius: 4px;
+    color: {COLORS['text_primary']};
+}}
+
+QMenu::item:selected {{
+    background-color: {COLORS['accent_muted']};
+    color: {COLORS['accent_bright']};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background-color: {COLORS['border']};
+    margin: 4px 8px;
+}}
+
+/* ─── ToolBar ─────────────────────────────────────────────────── */
+QToolBar {{
+    background-color: {COLORS['bg_base']};
+    border: none;
+    padding: 4px;
+    spacing: 6px;
+}}
+
+/* ─── 言語切り替えボタン (TopBar) ──────────────────────────────── */
+QPushButton#langBtn {{
+    background-color: transparent;
+    color: {COLORS['text_muted']};
+    border: 1px solid {COLORS['border']};
+    border-radius: 4px;
+    padding: 4px 12px;
+    font-size: {FONT_SCALE['small']}px;
+    min-width: 0;
+}}
+
+QPushButton#langBtn:checked,
+QPushButton#langBtn[active="true"] {{
+    background-color: {COLORS['accent_dim']};
+    color: {COLORS['text_on_accent']};
+    border-color: {COLORS['accent_dim']};
+}}
 """
 
 # =============================================================================

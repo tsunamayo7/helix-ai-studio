@@ -23,6 +23,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QTextCursor
 
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 from ..utils.chat_logger import get_chat_logger
 from ..utils.styles import SCROLLBAR_STYLE
 from ..widgets.no_scroll_widgets import NoScrollComboBox
@@ -287,18 +288,18 @@ class HistoryTab(QWidget):
         time_str = ts[11:16] if len(ts) >= 16 else ""
 
         tab_label = QLabel(f"{tab_icon} {tab_name}")
-        tab_label.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: bold;")
+        tab_label.setStyleSheet(SS.accent("10px", bold=True))
         header.addWidget(tab_label)
 
         if model:
             model_label = QLabel(f"| {model}")
-            model_label.setStyleSheet("color: #94a3b8; font-size: 10px;")
+            model_label.setStyleSheet(SS.muted("10px"))
             header.addWidget(model_label)
 
         header.addStretch()
 
         time_label = QLabel(time_str)
-        time_label.setStyleSheet("color: #666; font-size: 10px;")
+        time_label.setStyleSheet(SS.dim("10px"))
         header.addWidget(time_label)
 
         card_layout.addLayout(header)
@@ -312,7 +313,7 @@ class HistoryTab(QWidget):
 
         role_icon = "👤" if role == "user" else "🤖"
         content_label = QLabel(f"{role_icon} {preview}")
-        content_label.setStyleSheet("color: #ccc; font-size: 11px;")
+        content_label.setStyleSheet(SS.dim("11px"))
         content_label.setWordWrap(True)
         content_label.setMaximumHeight(40)
         card_layout.addWidget(content_label)

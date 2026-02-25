@@ -20,6 +20,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QKeyEvent, QTextCursor
 
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 
 class EnhancedChatInput(QTextEdit):
@@ -165,7 +166,7 @@ class AttachmentWidget(QFrame):
 
         icon_label = QLabel(icon)
         name_label = QLabel(filename)
-        name_label.setStyleSheet("color: #e0e0e0; font-size: 11px;")
+        name_label.setStyleSheet(SS.primary("11px"))
         name_label.setMaximumWidth(200)
         name_label.setToolTip(filepath)
 

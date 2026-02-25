@@ -42,6 +42,7 @@ from ..utils.i18n import t
 from ..memory.model_config import get_exec_llm, get_quality_llm, get_embedding_model
 from ..widgets.section_save_button import create_section_save_button
 from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
+from ..utils.style_helpers import SS
 
 logger = logging.getLogger(__name__)
 
@@ -668,7 +669,7 @@ class InformationCollectionTab(QWidget):
 
         # 計画担当モデル警告ラベル（ローカルLLM選択時）
         self.planner_model_warning = QLabel(t('desktop.infoTab.plannerModelWarning'))
-        self.planner_model_warning.setStyleSheet("color: #f59e0b; font-size: 11px;")
+        self.planner_model_warning.setStyleSheet(SS.warn("11px"))
         self.planner_model_warning.setVisible(False)
         models_layout.addWidget(self.planner_model_warning)
         self.planner_model_combo.currentTextChanged.connect(self._on_planner_model_changed)

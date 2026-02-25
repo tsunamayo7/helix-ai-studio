@@ -11,6 +11,7 @@ from PyQt6.QtGui import QFont, QTextCharFormat, QColor, QSyntaxHighlighter
 from ..utils.diff_risk import DiffRiskReport, analyze_diff
 from ..security.risk_gate import RiskGate, ApprovalScope
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 
 class DiffSyntaxHighlighter(QSyntaxHighlighter):
@@ -149,7 +150,7 @@ class DiffViewerDialog(QDialog):
         # センシティブファイル警告
         if self.risk_report.touches_sensitive:
             sensitive_label = QLabel(t('desktop.diffViewer.sensitiveWarning'))
-            sensitive_label.setStyleSheet("color: #dc2626; font-weight: bold;")
+            sensitive_label.setStyleSheet(SS.err(bold=True))
             layout.addWidget(sensitive_label)
 
             if self.risk_report.sensitive_files:

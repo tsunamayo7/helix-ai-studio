@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 from PyQt6.QtGui import QFont, QAction, QTextCursor, QKeyEvent
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 
 
@@ -366,7 +367,7 @@ class CloudAIAttachmentWidget(QFrame):
 
         icon_label = QLabel(icon)
         name_label = QLabel(filename)
-        name_label.setStyleSheet("color: #e2e8f0; font-size: 10px;")
+        name_label.setStyleSheet(SS.primary("10px"))
         name_label.setMaximumWidth(150)
         name_label.setToolTip(filepath)
 
@@ -835,7 +836,7 @@ class ClaudeTab(QWidget):
             ollama_url = os.environ.get("ANTHROPIC_BASE_URL", "http://localhost:11434")
             model_name = getattr(self, '_ollama_model', '')
             self.auth_status_label.setText("🖥️")
-            self.auth_status_label.setStyleSheet("color: #3b82f6; font-size: 12pt;")
+            self.auth_status_label.setStyleSheet(SS.info("12pt"))
             self.auth_status_label.setToolTip(
                 t('desktop.cloudAI.ollamaAuthTooltip', url=ollama_url, model=model_name)
             )
@@ -843,19 +844,19 @@ class ClaudeTab(QWidget):
             cli_available, _ = check_claude_cli_available()
             if cli_available:
                 self.auth_status_label.setText("✅")
-                self.auth_status_label.setStyleSheet("color: #22c55e; font-size: 12pt;")
+                self.auth_status_label.setStyleSheet(SS.ok("12pt"))
                 self.auth_status_label.setToolTip(
                     t('desktop.cloudAI.cliAuthPrefix')
                     + t('desktop.cloudAI.cliProTooltip')
                 )
             else:
                 self.auth_status_label.setText("⚠️")
-                self.auth_status_label.setStyleSheet("color: #fbbf24; font-size: 12pt;")
+                self.auth_status_label.setStyleSheet(SS.warn("12pt"))
                 self.auth_status_label.setToolTip(t('desktop.cloudAI.cliNotConnectedTooltip'))
         else:
             # v6.0.0: API認証は廃止、CLI専用化
             self.auth_status_label.setText("⚙️")
-            self.auth_status_label.setStyleSheet("color: #fbbf24; font-size: 12pt;")
+            self.auth_status_label.setStyleSheet(SS.warn("12pt"))
             self.auth_status_label.setToolTip(
                 t('desktop.cloudAI.apiDeprecatedLongTooltip')
             )
@@ -898,7 +899,7 @@ class ClaudeTab(QWidget):
         banner_layout = QHBoxLayout(self._no_models_banner)
         banner_layout.setContentsMargins(8, 6, 8, 6)
         banner_text = QLabel(t('desktop.cloudAI.noModelsConfigured'))
-        banner_text.setStyleSheet("color: #fbbf24; font-size: 11px;")
+        banner_text.setStyleSheet(SS.warn("11px"))
         banner_text.setWordWrap(True)
         banner_layout.addWidget(banner_text, 1)
         banner_btn = QPushButton(t('desktop.cloudAI.goToModelSettings'))
@@ -1002,7 +1003,7 @@ class ClaudeTab(QWidget):
 
         # 最終テスト成功表示
         self.last_test_success_label = QLabel("")
-        self.last_test_success_label.setStyleSheet("color: #22c55e; font-size: 9pt;")
+        self.last_test_success_label.setStyleSheet(SS.ok("9pt"))
         api_layout.addRow("", self.last_test_success_label)
         self._load_last_test_success()
 
@@ -1162,7 +1163,7 @@ class ClaudeTab(QWidget):
 
         # ステータス
         self.settings_ollama_status = QLabel(t('desktop.cloudAI.ollamaStatusInit'))
-        self.settings_ollama_status.setStyleSheet("color: #888;")
+        self.settings_ollama_status.setStyleSheet(SS.dim())
         ollama_layout.addWidget(self.settings_ollama_status)
 
         scroll_layout.addWidget(self.ollama_group)
@@ -1173,7 +1174,7 @@ class ClaudeTab(QWidget):
         cli_section_layout = QFormLayout()
         cli_version_layout = QHBoxLayout()
         self.cli_version_label = QLabel("")
-        self.cli_version_label.setStyleSheet("color: #9ca3af; font-size: 9pt;")
+        self.cli_version_label.setStyleSheet(SS.muted("9pt"))
         cli_version_layout.addWidget(self.cli_version_label)
         self.cli_version_check_btn = QPushButton(t('common.confirm'))
         self.cli_version_check_btn.clicked.connect(self._check_cli_version_detail)
@@ -1189,7 +1190,7 @@ class ClaudeTab(QWidget):
         codex_section_layout = QFormLayout()
         codex_status_layout = QHBoxLayout()
         self.codex_version_label = QLabel("")
-        self.codex_version_label.setStyleSheet("color: #9ca3af; font-size: 9pt;")
+        self.codex_version_label.setStyleSheet(SS.muted("9pt"))
         codex_status_layout.addWidget(self.codex_version_label)
         self.codex_check_btn = QPushButton(t('common.confirm'))
         self.codex_check_btn.clicked.connect(self._check_codex_version)
@@ -1250,18 +1251,18 @@ class ClaudeTab(QWidget):
             version_str = (result.stdout or "").strip()
             if result.returncode == 0 and version_str:
                 self.cli_version_label.setText(f"✓ {version_str}")
-                self.cli_version_label.setStyleSheet("color: #10b981; font-size: 9pt;")
+                self.cli_version_label.setStyleSheet(SS.ok("9pt"))
             else:
                 self.cli_version_label.setText("✗ Not found")
-                self.cli_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+                self.cli_version_label.setStyleSheet(SS.err("9pt"))
         except Exception:
             self.cli_version_label.setText("✗ Not found")
-            self.cli_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+            self.cli_version_label.setStyleSheet(SS.err("9pt"))
 
     def _check_codex_version(self):
         """v11.0.0: Codex CLI バージョン確認（Windows .cmd対応）"""
         self.codex_version_label.setText("⏳ checking...")
-        self.codex_version_label.setStyleSheet("color: #fbbf24; font-size: 9pt;")
+        self.codex_version_label.setStyleSheet(SS.warn("9pt"))
         self.codex_check_btn.setEnabled(False)
         # 短い遅延でバックグラウンド実行→結果をUI反映
         QTimer.singleShot(50, self._do_codex_check)
@@ -1274,13 +1275,13 @@ class ClaudeTab(QWidget):
             if available:
                 display = msg.replace("Codex CLI found: ", "✓ ").split("(")[0].strip()
                 self.codex_version_label.setText(display)
-                self.codex_version_label.setStyleSheet("color: #10b981; font-size: 9pt;")
+                self.codex_version_label.setStyleSheet(SS.ok("9pt"))
             else:
                 self.codex_version_label.setText("✗ Not found")
-                self.codex_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+                self.codex_version_label.setStyleSheet(SS.err("9pt"))
         except Exception:
             self.codex_version_label.setText("✗ Not found")
-            self.codex_version_label.setStyleSheet("color: #ef4444; font-size: 9pt;")
+            self.codex_version_label.setStyleSheet(SS.err("9pt"))
         self.codex_check_btn.setEnabled(True)
 
     def _open_manage_models_from_cloud(self):
@@ -1308,10 +1309,10 @@ class ClaudeTab(QWidget):
             response = client.list()
             model_count = len(response.get('models', []) if isinstance(response, dict) else getattr(response, 'models', []))
             self.settings_ollama_status.setText(t('desktop.cloudAI.ollamaConnSuccess', count=model_count))
-            self.settings_ollama_status.setStyleSheet("color: #22c55e;")
+            self.settings_ollama_status.setStyleSheet(SS.ok())
         except Exception as e:
             self.settings_ollama_status.setText(t('desktop.cloudAI.ollamaConnFailed', error=str(e)[:30]))
-            self.settings_ollama_status.setStyleSheet("color: #ef4444;")
+            self.settings_ollama_status.setStyleSheet(SS.err())
 
     # ========================================
     # v3.9.2: 接続テスト・動作確認機能
@@ -1322,7 +1323,7 @@ class ClaudeTab(QWidget):
         # v6.0.0: API認証は廃止されました
         if hasattr(self, 'api_test_status'):
             self.api_test_status.setText(t('desktop.cloudAI.apiDeprecatedStatus'))
-            self.api_test_status.setStyleSheet("color: #fbbf24;")
+            self.api_test_status.setStyleSheet(SS.warn())
             self.api_test_status.setToolTip(
                 t('desktop.cloudAI.apiDeprecatedDialogMsg')
             )
@@ -1531,10 +1532,10 @@ class ClaudeTab(QWidget):
             self.settings_ollama_model.clear()
             self.settings_ollama_model.addItems(model_names)
             self.settings_ollama_status.setText(t('desktop.cloudAI.modelListSuccess', count=len(model_names)))
-            self.settings_ollama_status.setStyleSheet("color: #22c55e;")
+            self.settings_ollama_status.setStyleSheet(SS.ok())
         except Exception as e:
             self.settings_ollama_status.setText(t('desktop.cloudAI.modelListFailed', error=str(e)[:30]))
-            self.settings_ollama_status.setStyleSheet("color: #ef4444;")
+            self.settings_ollama_status.setStyleSheet(SS.err())
 
     def _populate_mcp_servers(self):
         """MCPサーバーリストを初期化"""
@@ -1881,7 +1882,7 @@ class ClaudeTab(QWidget):
         # description
         desc_label = QLabel(t('desktop.cloudAI.addModelDesc'))
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        desc_label.setStyleSheet(SS.muted("11px"))
         layout.addWidget(desc_label)
 
         sep = QFrame()
@@ -2154,7 +2155,7 @@ class ClaudeTab(QWidget):
             t('desktop.cloudAI.approvalPanelDesc')
         )
         desc_label = self.approval_desc_label
-        desc_label.setStyleSheet("color: #b0b0b0; font-size: 9pt; font-weight: normal;")
+        desc_label.setStyleSheet(SS.dim("9pt"))
         desc_label.setWordWrap(True)
         layout.addWidget(desc_label)
 
@@ -4841,10 +4842,10 @@ class ClaudeTab(QWidget):
 
         if len(approved_scopes) == 0:
             self.approval_status_label.setText(t('desktop.cloudAI.scopeUnapproved'))
-            self.approval_status_label.setStyleSheet("color: #ef4444; font-weight: bold;")
+            self.approval_status_label.setStyleSheet(SS.err(bold=True))
         else:
             self.approval_status_label.setText(t('desktop.cloudAI.scopeApprovedCount', count=len(approved_scopes)))
-            self.approval_status_label.setStyleSheet("color: #22c55e; font-weight: bold;")
+            self.approval_status_label.setStyleSheet(SS.ok(bold=True))
 
     # ===================
     # v3.4.0: 会話継続機能

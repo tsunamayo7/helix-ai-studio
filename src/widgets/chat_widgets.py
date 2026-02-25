@@ -24,6 +24,7 @@ from ..utils.styles import (
     PHASE_DOT_INACTIVE, PHASE_TEXT_INACTIVE,
 )
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class PhaseIndicator(QWidget):
                 self._nodes[i].setStyleSheet(phase_node_style(active=True, color=color))
                 self._dots[i].setText("\u25cf")
                 self._dots[i].setStyleSheet(f"color: {color}; font-size: 10px;")
-                self._texts[i].setStyleSheet(f"color: #e2e8f0; font-size: 11px; font-weight: bold;")
+                self._texts[i].setStyleSheet(SS.primary("11px", bold=True))
             else:
                 # 未実行フェーズ
                 self._nodes[i].setStyleSheet(phase_node_style(active=False, color=color))
@@ -251,20 +252,20 @@ class ExecutionIndicator(QFrame):
 
         # アニメーションドット
         self.dots = QLabel("\u25cf \u25cb \u25cb")
-        self.dots.setStyleSheet("color: #38bdf8; font-size: 14px;")
+        self.dots.setStyleSheet(SS.accent("14px"))
         self.dots.setFixedWidth(50)
         layout.addWidget(self.dots)
 
         # タスク説明
         self.task_label = QLabel(task_description)
-        self.task_label.setStyleSheet("color: #aaa; font-size: 12px;")
+        self.task_label.setStyleSheet(SS.dim("12px"))
         layout.addWidget(self.task_label)
 
         layout.addStretch()
 
         # 経過時間
         self.time_label = QLabel("0:00")
-        self.time_label.setStyleSheet("color: #666; font-size: 11px;")
+        self.time_label.setStyleSheet(SS.dim("11px"))
         layout.addWidget(self.time_label)
 
         # タイマー
@@ -322,12 +323,12 @@ class InterruptionBanner(QFrame):
 
         # 中断ヘッダー
         header = QLabel(t('desktop.widgets.chatWidgets.interruptedHeader'))
-        header.setStyleSheet("color: #fbbf24; font-weight: bold; font-size: 13px;")
+        header.setStyleSheet(SS.warn("13px", bold=True))
         layout.addWidget(header)
 
         # 中断理由
         self.reason_label = QLabel(reason)
-        self.reason_label.setStyleSheet("color: #ccc; font-size: 12px;")
+        self.reason_label.setStyleSheet(SS.dim("12px"))
         self.reason_label.setWordWrap(True)
         layout.addWidget(self.reason_label)
 

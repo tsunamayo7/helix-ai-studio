@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio Launcher (v11.8.0)
+Helix AI Studio Launcher (v11.9.0)
 
 薄いランチャーEXE。同ディレクトリの HelixAIStudio.py をシステム Python で起動する。
 - ソースコード変更時にEXE再ビルド不要

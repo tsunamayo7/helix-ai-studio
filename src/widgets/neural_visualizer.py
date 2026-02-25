@@ -32,6 +32,7 @@ from PyQt6.QtGui import (
 )
 
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 logger = logging.getLogger(__name__)
 
@@ -300,11 +301,11 @@ class PhaseDetailDialog(QDialog):
         # Phase情報
         info_layout = QVBoxLayout()
         title = QLabel(f"Phase {self.phase_data.phase_id}: {self.phase_data.name}")
-        title.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: bold;")
+        title.setStyleSheet(SS.primary("16px", bold=True))
         info_layout.addWidget(title)
 
         desc = QLabel(self.phase_data.description)
-        desc.setStyleSheet("color: #888888; font-size: 12px;")
+        desc.setStyleSheet(SS.dim("12px"))
         info_layout.addWidget(desc)
         header_layout.addLayout(info_layout)
         header_layout.addStretch()
@@ -318,7 +319,7 @@ class PhaseDetailDialog(QDialog):
 
         if self.phase_data.model:
             model_label = QLabel(f"🤖 {self.phase_data.model}")
-            model_label.setStyleSheet("color: #38bdf8;")
+            model_label.setStyleSheet(SS.accent())
             meta_layout.addWidget(model_label)
 
         if self.phase_data.execution_time_ms > 0:
@@ -336,7 +337,7 @@ class PhaseDetailDialog(QDialog):
 
         # 出力テキスト
         output_label = QLabel(t('desktop.widgets.neuralViz.outputLabel'))
-        output_label.setStyleSheet("color: #ffffff; font-weight: bold;")
+        output_label.setStyleSheet(SS.primary(bold=True))
         layout.addWidget(output_label)
 
         self.output_text = QTextEdit()
@@ -357,7 +358,7 @@ class PhaseDetailDialog(QDialog):
         # エラー表示（あれば）
         if self.phase_data.error:
             error_label = QLabel(t('desktop.widgets.neuralViz.errorLabel'))
-            error_label.setStyleSheet("color: #ff4757; font-weight: bold;")
+            error_label.setStyleSheet(SS.err(bold=True))
             layout.addWidget(error_label)
 
             error_text = QTextEdit()
@@ -677,7 +678,7 @@ class NeuralFlowCompactWidget(QWidget):
             # Arrow (except last)
             if i < 3:
                 arrow = QLabel("→")
-                arrow.setStyleSheet("color: #4a4a4a; font-size: 14px;")
+                arrow.setStyleSheet(SS.dim("14px"))
                 arrow.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 layout.addWidget(arrow)
 

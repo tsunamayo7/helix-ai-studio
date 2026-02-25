@@ -52,6 +52,7 @@ from ..utils.styles import (
     SPINBOX_STYLE,
     USER_MESSAGE_STYLE, AI_MESSAGE_STYLE,
 )
+from ..utils.style_helpers import SS
 # VRAM Simulator
 # v11.0.0: VRAMCompactWidget removed from settings UI
 # v8.0.0: BIBLE notification (panel removed in v11.0.0)
@@ -115,7 +116,7 @@ class ManageModelsDialog(QMessageBox):
 
         desc = QLabel(t('desktop.mixAI.manageModelsDesc'))
         desc.setWordWrap(True)
-        desc.setStyleSheet("color: #9ca3af; font-size: 11px;")
+        desc.setStyleSheet(SS.muted("11px"))
         layout.addWidget(desc)
 
         # モデルリスト
@@ -361,7 +362,7 @@ class MixAIAttachmentWidget(QFrame):
 
         icon_label = QLabel(icon)
         name_label = QLabel(filename)
-        name_label.setStyleSheet("color: #e2e8f0; font-size: 10px;")
+        name_label.setStyleSheet(SS.primary("10px"))
         name_label.setMaximumWidth(150)
         name_label.setToolTip(filepath)
 
@@ -1851,7 +1852,7 @@ class HelixOrchestratorTab(QWidget):
         ollama_layout.addLayout(url_layout)
 
         self.ollama_status_label = QLabel(t('desktop.mixAI.ollamaStatus'))
-        self.ollama_status_label.setStyleSheet("color: #9ca3af;")
+        self.ollama_status_label.setStyleSheet(SS.muted())
         ollama_layout.addWidget(self.ollama_status_label)
 
         self.ollama_group.setLayout(ollama_layout)
@@ -1875,7 +1876,7 @@ class HelixOrchestratorTab(QWidget):
         self.image_model_combo.setCurrentText(self.config.image_analyzer_model)
         image_row.addWidget(self.image_model_combo)
         image_gpu = QLabel("→ 5070 Ti (6.0GB)")
-        image_gpu.setStyleSheet("color: #22c55e; font-size: 10px;")
+        image_gpu.setStyleSheet(SS.ok("10px"))
         image_row.addWidget(image_gpu)
         self.image_status = QLabel("🟢")
         image_row.addWidget(self.image_status)
@@ -1896,7 +1897,7 @@ class HelixOrchestratorTab(QWidget):
         self.embedding_model_combo.setCurrentText(self.config.embedding_model)
         embedding_row.addWidget(self.embedding_model_combo)
         embedding_gpu = QLabel("→ 5070 Ti (2.5GB)")
-        embedding_gpu.setStyleSheet("color: #22c55e; font-size: 10px;")
+        embedding_gpu.setStyleSheet(SS.ok("10px"))
         embedding_row.addWidget(embedding_gpu)
         self.embedding_status = QLabel("🟢")
         embedding_row.addWidget(self.embedding_status)
@@ -3239,17 +3240,17 @@ class HelixOrchestratorTab(QWidget):
             # 結果を表示
             header = t('desktop.mixAI.ollamaConnected', latency=f"{latency:.2f}")
             self.ollama_status_label.setText(header + "\n".join(status_lines))
-            self.ollama_status_label.setStyleSheet("color: #22c55e;")
+            self.ollama_status_label.setStyleSheet(SS.ok())
 
             # モデルリストを更新
             self._update_model_combos(response)
 
         except ImportError:
             self.ollama_status_label.setText(t('desktop.mixAI.ollamaNoLibrary'))
-            self.ollama_status_label.setStyleSheet("color: #ef4444;")
+            self.ollama_status_label.setStyleSheet(SS.err())
         except Exception as e:
             self.ollama_status_label.setText(t('desktop.mixAI.ollamaConnFailed', error=str(e)[:50]))
-            self.ollama_status_label.setStyleSheet("color: #ef4444;")
+            self.ollama_status_label.setStyleSheet(SS.err())
 
     def _check_claude_cli_mcp(self):
         """v7.0.0: Claude Code CLIのMCPサーバー設定を確認"""
@@ -3260,7 +3261,7 @@ class HelixOrchestratorTab(QWidget):
 
             if not claude_cmd:
                 self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpClaudeNotFound')}")
-                self.mcp_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
+                self.mcp_status_label.setStyleSheet(SS.err("10px"))
                 return
 
             # claude mcp list でMCPサーバー一覧を取得
@@ -3275,24 +3276,24 @@ class HelixOrchestratorTab(QWidget):
                 for line in lines:
                     status_text += f"    {line}\n"
                 self.mcp_status_label.setText(status_text.rstrip())
-                self.mcp_status_label.setStyleSheet("color: #22c55e; font-size: 10px;")
+                self.mcp_status_label.setStyleSheet(SS.ok("10px"))
             elif result.returncode == 0:
                 self.mcp_status_label.setText(
                     f"  {t('desktop.mixAI.mcpNotConfigured', cmd=claude_cmd)}"
                 )
-                self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+                self.mcp_status_label.setStyleSheet(SS.warn("10px"))
             else:
                 self.mcp_status_label.setText(
                     f"  {t('desktop.mixAI.mcpCheckFailed', cmd=claude_cmd, error=result.stderr[:100])}"
                 )
-                self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+                self.mcp_status_label.setStyleSheet(SS.warn("10px"))
 
         except subprocess.TimeoutExpired:
             self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpTimeout')}")
-            self.mcp_status_label.setStyleSheet("color: #f59e0b; font-size: 10px;")
+            self.mcp_status_label.setStyleSheet(SS.warn("10px"))
         except Exception as e:
             self.mcp_status_label.setText(f"  {t('desktop.mixAI.mcpError', error=str(e)[:80])}")
-            self.mcp_status_label.setStyleSheet("color: #ef4444; font-size: 10px;")
+            self.mcp_status_label.setStyleSheet(SS.err("10px"))
 
     def _get_configured_models(self) -> List[Dict[str, Any]]:
         """設定済みモデル一覧を取得 (v7.0.0: 3Phase設定UI対応)"""

@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
 
         self._init_ui()
         self._init_statusbar()
-        self._apply_stylesheet()
+        # v11.9.0: _apply_stylesheet() 廃止。スタイルはcreate_application()のGLOBAL_APP_STYLESHEETで一元管理
 
         # v5.0.0: ウィンドウサイズ復元
         self._restore_window_geometry()
@@ -254,29 +254,38 @@ class MainWindow(QMainWindow):
         self.retranslateUi()
 
     def _set_window_icon(self):
-        """ウィンドウアイコンを設定 (v3.3.0: タスクバー・タイトルバー両方に反映)"""
+        """v11.9.0: ウィンドウアイコンを設定 (PyInstaller _MEIPASS対応強化)"""
         import sys
         from pathlib import Path
 
-        # アプリケーションパスを取得（PyInstaller対応）
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            app_path = Path(sys.executable).parent
-        else:
-            app_path = Path(__file__).parent.parent
+        icon_paths = []
 
-        # アイコンファイルを検索 (.ico優先、.pngフォールバック)
-        icon_paths = [
-            app_path / "icon.ico",
-            app_path / "icon.png",
-        ]
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            meipass = Path(sys._MEIPASS)
+            exe_dir = Path(sys.executable).parent
+            icon_paths = [
+                meipass / "icon.ico",
+                meipass / "icon.png",
+                exe_dir / "icon.ico",
+                exe_dir / "icon.png",
+            ]
+        else:
+            script_dir = Path(__file__).parent.parent
+            icon_paths = [
+                script_dir / "icon.ico",
+                script_dir / "icon.png",
+            ]
 
         for icon_path in icon_paths:
             if icon_path.exists():
                 icon = QIcon(str(icon_path))
-                self.setWindowIcon(icon)
-                # アプリケーション全体にも設定（タスクバー用）
-                QApplication.instance().setWindowIcon(icon)
-                break
+                if not icon.isNull():
+                    self.setWindowIcon(icon)
+                    QApplication.instance().setWindowIcon(icon)
+                    logger.info(f"[MainWindow] Icon loaded: {icon_path}")
+                    return
+
+        logger.warning("[MainWindow] icon.ico/icon.png not found")
 
     def _init_statusbar(self):
         """ステータスバーを初期化"""
@@ -339,8 +348,10 @@ class MainWindow(QMainWindow):
             font.setPointSize(font_size)
             app.setFont(font)
 
-        # スタイルシートを再適用（font-size除去済みのため競合なし）
-        self._apply_stylesheet()
+        # v11.9.0: GLOBAL_APP_STYLESHEETを再適用（フォントサイズ変更反映）
+        from .utils.styles import GLOBAL_APP_STYLESHEET
+        if app:
+            app.setStyleSheet(GLOBAL_APP_STYLESHEET)
 
     def notify_workflow_state_changed(self):
         """
@@ -447,368 +458,19 @@ class MainWindow(QMainWindow):
         self.retranslateUi()
 
     def _update_lang_button_styles(self, current_lang: str):
-        """v10.1.0: 言語ボタンのアクティブ/非アクティブスタイルを切替"""
-        active = "background-color: #059669; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px; border: none; font-size: 11px;"
-        inactive = "background-color: #2d2d2d; color: #94a3b8; padding: 4px 12px; border-radius: 4px; font-size: 11px;"
-        self.lang_ja_btn.setStyleSheet(active if current_lang == 'ja' else inactive)
-        self.lang_en_btn.setStyleSheet(active if current_lang == 'en' else inactive)
+        """v11.9.0: 言語ボタンをobjectName + dynamic propertyで制御（GLOBAL QSS参照）"""
+        self.lang_ja_btn.setObjectName("langBtn")
+        self.lang_en_btn.setObjectName("langBtn")
+        self.lang_ja_btn.setProperty("active", current_lang == 'ja')
+        self.lang_en_btn.setProperty("active", current_lang == 'en')
+        # プロパティ変更をQSSに反映
+        self.lang_ja_btn.style().unpolish(self.lang_ja_btn)
+        self.lang_ja_btn.style().polish(self.lang_ja_btn)
+        self.lang_en_btn.style().unpolish(self.lang_en_btn)
+        self.lang_en_btn.style().polish(self.lang_en_btn)
 
-    def _apply_stylesheet(self):
-        """スタイルシートを適用 (Cyberpunk Minimalテーマ)"""
-        stylesheet = """
-/* Helix AI Studio - Cyberpunk Minimal Theme */
-/* ダークグレー背景 + ネオンシアン/グリーン アクセント */
-
-QMainWindow {
-    background-color: #080c14;
-}
-
-QWidget {
-    background-color: #080c14;
-    color: #e2e8f0;
-    font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
-    /* font-size は QApplication.setFont() で動的制御 */
-}
-
-/* Tab Widget - Cyberpunk Style */
-QTabWidget::pane {
-    border: 1px solid #2d2d2d;
-    background-color: #080c14;
-    border-radius: 6px;
-}
-
-QTabBar::tab {
-    background-color: #252525;
-    color: #94a3b8;
-    padding: 12px 24px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    margin-right: 3px;
-    border: 1px solid #2d2d2d;
-    border-bottom: none;
-}
-
-QTabBar::tab:selected {
-    background-color: #080c14;
-    color: #38bdf8;
-    border-color: #38bdf8;
-    border-bottom: 2px solid #38bdf8;
-}
-
-QTabBar::tab:hover:!selected {
-    background-color: #2d2d2d;
-    color: #34d399;
-}
-
-/* Buttons - Neon Accent */
-QPushButton {
-    background-color: #2d2d2d;
-    color: #38bdf8;
-    border: 1px solid #38bdf8;
-    padding: 8px 16px;
-    border-radius: 6px;
-    min-width: 80px;
-}
-
-QPushButton:hover {
-    background-color: #38bdf8;
-    color: #080c14;
-}
-
-QPushButton:pressed {
-    background-color: #00a0c0;
-    color: #ffffff;
-}
-
-QPushButton:disabled {
-    background-color: #252525;
-    color: #475569;
-    border-color: #3d3d3d;
-}
-
-/* Primary Action Button */
-QPushButton[cssClass="primary"] {
-    background-color: #34d399;
-    color: #080c14;
-    border: none;
-    font-weight: bold;
-}
-
-QPushButton[cssClass="primary"]:hover {
-    background-color: #00cc6a;
-}
-
-/* Input Fields - Subtle Glow on Focus */
-QLineEdit, QTextEdit, QPlainTextEdit {
-    background-color: #252525;
-    color: #e2e8f0;
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
-    padding: 8px;
-    selection-background-color: #38bdf8;
-    selection-color: #080c14;
-}
-
-QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
-    border-color: #38bdf8;
-    background-color: #2a2a2a;
-}
-
-/* ComboBox */
-QComboBox {
-    background-color: #252525;
-    color: #e2e8f0;
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    min-width: 120px;
-}
-
-QComboBox:hover {
-    border-color: #38bdf8;
-}
-
-QComboBox::drop-down {
-    border: none;
-    width: 24px;
-    background: transparent;
-}
-
-QComboBox QAbstractItemView {
-    background-color: #252525;
-    color: #e2e8f0;
-    selection-background-color: #38bdf8;
-    selection-color: #080c14;
-    border: 1px solid #38bdf8;
-    border-radius: 4px;
-}
-
-/* CheckBox */
-QCheckBox {
-    spacing: 10px;
-    color: #b0b0b0;
-}
-
-QCheckBox::indicator {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    border: 2px solid #3d3d3d;
-    background-color: #252525;
-}
-
-QCheckBox::indicator:hover {
-    border-color: #38bdf8;
-}
-
-QCheckBox::indicator:checked {
-    background-color: #38bdf8;
-    border-color: #38bdf8;
-}
-
-/* GroupBox - Neon Border */
-QGroupBox {
-    border: 1px solid #2d2d2d;
-    border-radius: 8px;
-    margin-top: 16px;
-    padding: 16px;
-    padding-top: 24px;
-    background-color: #1e1e1e;
-}
-
-QGroupBox::title {
-    color: #38bdf8;
-    subcontrol-origin: margin;
-    subcontrol-position: top left;
-    padding: 4px 12px;
-    background-color: #1e1e1e;
-    border-radius: 4px;
-}
-
-/* List/Tree Widget */
-QListWidget, QTreeWidget {
-    background-color: #252525;
-    color: #e2e8f0;
-    border: 1px solid #2d2d2d;
-    border-radius: 6px;
-    outline: none;
-}
-
-QListWidget::item, QTreeWidget::item {
-    padding: 8px;
-    border-radius: 4px;
-}
-
-QListWidget::item:selected, QTreeWidget::item:selected {
-    background-color: #38bdf8;
-    color: #080c14;
-}
-
-QListWidget::item:hover, QTreeWidget::item:hover {
-    background-color: #2d2d2d;
-}
-
-QTreeWidget::branch:selected {
-    background-color: #38bdf8;
-}
-
-/* Scrollbar - Minimal */
-QScrollBar:vertical {
-    background-color: #080c14;
-    width: 10px;
-    margin: 0;
-    border-radius: 5px;
-}
-
-QScrollBar::handle:vertical {
-    background-color: #3d3d3d;
-    border-radius: 5px;
-    min-height: 30px;
-}
-
-QScrollBar::handle:vertical:hover {
-    background-color: #38bdf8;
-}
-
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0;
-}
-
-QScrollBar:horizontal {
-    background-color: #080c14;
-    height: 10px;
-    margin: 0;
-    border-radius: 5px;
-}
-
-QScrollBar::handle:horizontal {
-    background-color: #3d3d3d;
-    border-radius: 5px;
-    min-width: 30px;
-}
-
-QScrollBar::handle:horizontal:hover {
-    background-color: #38bdf8;
-}
-
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0;
-}
-
-/* ToolBar */
-QToolBar {
-    background-color: #1e1e1e;
-    border: none;
-    padding: 6px;
-    spacing: 10px;
-}
-
-/* StatusBar - Neon Accent */
-QStatusBar {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #38bdf8, stop:1 #34d399);
-    color: #080c14;
-    font-weight: bold;
-}
-
-/* SpinBox */
-QSpinBox {
-    background-color: #252525;
-    color: #e2e8f0;
-    border: 1px solid #3d3d3d;
-    border-radius: 6px;
-    padding: 6px;
-}
-
-QSpinBox:focus {
-    border-color: #38bdf8;
-}
-
-/* ProgressBar - Neon Glow Effect */
-QProgressBar {
-    border: 1px solid #2d2d2d;
-    border-radius: 6px;
-    background-color: #252525;
-    text-align: center;
-    color: #e2e8f0;
-}
-
-QProgressBar::chunk {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #38bdf8, stop:1 #34d399);
-    border-radius: 5px;
-}
-
-/* Splitter */
-QSplitter::handle {
-    background-color: #2d2d2d;
-}
-
-QSplitter::handle:hover {
-    background-color: #38bdf8;
-}
-
-QSplitter::handle:horizontal {
-    width: 3px;
-}
-
-QSplitter::handle:vertical {
-    height: 3px;
-}
-
-/* Slider */
-QSlider::groove:horizontal {
-    background-color: #2d2d2d;
-    height: 6px;
-    border-radius: 3px;
-}
-
-QSlider::handle:horizontal {
-    background-color: #38bdf8;
-    width: 16px;
-    height: 16px;
-    margin: -5px 0;
-    border-radius: 8px;
-}
-
-QSlider::handle:horizontal:hover {
-    background-color: #34d399;
-}
-
-/* ToolTip */
-QToolTip {
-    background-color: #252525;
-    color: #e2e8f0;
-    border: 1px solid #38bdf8;
-    border-radius: 4px;
-    padding: 6px;
-}
-
-/* Menu */
-QMenu {
-    background-color: #252525;
-    border: 1px solid #2d2d2d;
-    border-radius: 6px;
-    padding: 4px;
-}
-
-QMenu::item {
-    padding: 8px 24px;
-    border-radius: 4px;
-}
-
-QMenu::item:selected {
-    background-color: #38bdf8;
-    color: #080c14;
-}
-
-QMenu::separator {
-    height: 1px;
-    background-color: #3d3d3d;
-    margin: 4px 8px;
-}
-"""
-        self.setStyleSheet(stylesheet)
+    # v11.9.0: _apply_stylesheet() を完全削除 (旧L458-L813, 約355行)
+    # スタイルは全て create_application() 内の GLOBAL_APP_STYLESHEET で一元管理
 
     def closeEvent(self, event):
         """ウィンドウクローズイベント (v5.0.0: ウィンドウサイズ永続化追加)"""
@@ -904,8 +566,7 @@ QMenu::separator {
 
 
 def create_application():
-    """アプリケーションを作成"""
-    # High DPI対応 (インスタンス化の前に設定)
+    """v11.9.0: 高速化版 create_application"""
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
@@ -914,26 +575,23 @@ def create_application():
     app.setApplicationName("Helix AI Studio")
     app.setApplicationVersion(MainWindow.VERSION)
 
-    # v11.8.0: フォント基準設定（QFontで日本語環境のフォールバックを安定化）
-    from PyQt6.QtGui import QFontDatabase
+    # v11.9.0: OS別決め打ちフォント（QFontDatabase.families()スキャン廃止で高速化）
+    from PyQt6.QtGui import QFont
+    import platform
 
-    available_fonts = QFontDatabase.families()
-    preferred_fonts = [
-        "Noto Sans JP", "Yu Gothic UI", "Meiryo UI",
-        "Inter", "Segoe UI Variable", "Segoe UI", "SF Pro Display",
-    ]
-    selected_font = "Segoe UI"  # フォールバック
-    for font_name in preferred_fonts:
-        if any(font_name.lower() in f.lower() for f in available_fonts):
-            selected_font = font_name
-            break
+    os_name = platform.system()
+    if os_name == "Windows":
+        chosen_font = "Yu Gothic UI"
+    elif os_name == "Darwin":
+        chosen_font = "Hiragino Sans"
+    else:
+        chosen_font = "Noto Sans JP"
 
-    default_font = QFont(selected_font, 10)
+    default_font = QFont(chosen_font, 10)
     default_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
     app.setFont(default_font)
-    logger.info(f"[MainWindow] Selected UI font: {selected_font}")
 
-    # v11.8.0: グローバルQSSを適用
+    # v11.9.0: グローバルQSSを適用
     from .utils.styles import GLOBAL_APP_STYLESHEET
     app.setStyleSheet(GLOBAL_APP_STYLESHEET)
 

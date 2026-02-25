@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 
 from ..utils.i18n import t
+from ..utils.style_helpers import SS
 
 
 class WebLockOverlay(QWidget):
@@ -42,7 +43,7 @@ class WebLockOverlay(QWidget):
 
         # サブメッセージ
         self.sub_label = QLabel(t('desktop.widgets.webLock.subMsg'))
-        self.sub_label.setStyleSheet("color: #6b7280; font-size: 12px;")
+        self.sub_label.setStyleSheet(SS.dim("12px"))
         self.sub_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.sub_label)
 

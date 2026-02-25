@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.8.0"
-APP_CODENAME = "Polished Dark"
+APP_VERSION = "11.9.0"
+APP_CODENAME = "Unified Obsidian"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.8.0 'Polished Dark' - "
-    "Refined Obsidianカラーシステム・4層背景・タイポグラフィ統一・日本語フォント"
+    "Helix AI Studio v11.9.0 'Unified Obsidian' - "
+    "グローバルQSS統一・SplashScreen・SS semantic helpers・EXEアイコン修正"
 )
 
 # v8.5.0: 情報収集フォルダ
