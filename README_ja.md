@@ -130,6 +130,10 @@ Helix AI Studioは **3+1Phaseパイプライン** で動作します：
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
 
+# インタラクティブインストーラー（推奨）
+install.bat
+
+# または手動インストール:
 pip install -r requirements.txt
 
 # Claude Code CLI のインストール (Node.js 18+)
@@ -149,6 +153,8 @@ ollama pull qwen3-embedding:4b
 # アプリ起動
 python HelixAIStudio.py
 ````
+
+> **初めての方**: [SETUP_GUIDE.md](SETUP_GUIDE.md) に Python / Node.js / Ollama / APIキー取得の詳細手順とトラブルシューティングがあります。
 
 ### スタンドアロン実行ファイルのビルド (Windows)
 

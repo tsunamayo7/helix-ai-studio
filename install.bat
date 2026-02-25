@@ -1,34 +1,67 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
-title Helix AI Studio v11.5.3 - Installer
+title Helix AI Studio v11.5.4 - Installer
 
 echo ============================================================
-echo  Helix AI Studio v11.5.3 - Installer
+echo  Helix AI Studio v11.5.4 - Installer
 echo ============================================================
 echo.
 
-:: [1/5] Python check
-echo [1/5] Python のバージョンを確認中... / Checking Python version...
+:: ──────────────────────────────────────────
+:: [1/6] Python check (version validation)
+:: ──────────────────────────────────────────
+echo [1/6] Python のバージョンを確認中... / Checking Python version...
 python --version >nul 2>&1
 if errorlevel 1 (
+    echo.
     echo [ERROR] Python が見つかりません / Python not found
-    echo         https://www.python.org/downloads/ からインストールしてください
+    echo.
+    echo   以下からインストールしてください / Install from:
+    echo   https://www.python.org/downloads/
+    echo.
+    echo   [重要] インストール時に "Add Python to PATH" にチェックを入れてください
+    echo   [IMPORTANT] Check "Add Python to PATH" during installation
+    echo.
     pause
     exit /b 1
 )
-python --version
+
+:: Extract Python version and validate >= 3.10
+for /f "tokens=2" %%v in ('python --version 2^>^&1') do set PYVER=%%v
+for /f "tokens=1,2 delims=." %%a in ("!PYVER!") do (
+    set PYMAJOR=%%a
+    set PYMINOR=%%b
+)
+echo   Python !PYVER! detected
+if !PYMAJOR! LSS 3 (
+    echo [ERROR] Python 3.10 以上が必要です / Python 3.10+ required
+    echo         現在のバージョン: !PYVER!
+    pause
+    exit /b 1
+)
+if !PYMAJOR!==3 if !PYMINOR! LSS 10 (
+    echo [ERROR] Python 3.10 以上が必要です / Python 3.10+ required
+    echo         現在のバージョン: !PYVER!
+    echo         https://www.python.org/downloads/
+    pause
+    exit /b 1
+)
 echo [OK]
 echo.
 
-:: [2/5] pip upgrade
-echo [2/5] pip をアップグレード中... / Upgrading pip...
+:: ──────────────────────────────────────────
+:: [2/6] pip upgrade
+:: ──────────────────────────────────────────
+echo [2/6] pip をアップグレード中... / Upgrading pip...
 python -m pip install --upgrade pip --quiet
 echo [OK]
 echo.
 
-:: [3/5] Core dependencies
-echo [3/5] コア依存パッケージをインストール中... / Installing core dependencies...
+:: ──────────────────────────────────────────
+:: [3/6] Core dependencies
+:: ──────────────────────────────────────────
+echo [3/6] コア依存パッケージをインストール中... / Installing core dependencies...
 pip install -r requirements.txt --quiet
 if errorlevel 1 (
     echo [WARNING] 一部のパッケージのインストールに失敗しました
@@ -38,20 +71,43 @@ if errorlevel 1 (
 )
 echo.
 
-:: [4/5] httpx (required for URL fetch fallback)
-echo [4/5] httpx をインストール中... / Installing httpx...
+:: ──────────────────────────────────────────
+:: [4/6] httpx (required for URL fetch fallback)
+:: ──────────────────────────────────────────
+echo [4/6] httpx をインストール中... / Installing httpx...
 pip install httpx --quiet
 echo [OK]
 echo.
 
-:: [5/5] Data directories
-echo [5/5] データディレクトリを作成中... / Creating data directories...
+:: ──────────────────────────────────────────
+:: [5/6] Data directories
+:: ──────────────────────────────────────────
+echo [5/6] データディレクトリを作成中... / Creating data directories...
 if not exist "config" mkdir config
 if not exist "data" mkdir data
 if not exist "data\information" mkdir data\information
 if not exist "data\rag" mkdir data\rag
 if not exist "data\memory" mkdir data\memory
 if not exist "logs" mkdir logs
+echo [OK]
+echo.
+
+:: ──────────────────────────────────────────
+:: [6/6] Config template setup
+:: ──────────────────────────────────────────
+echo [6/6] 設定ファイルテンプレートを配置中... / Setting up config templates...
+if not exist "config\general_settings.json" (
+    if exist "config\general_settings.example.json" (
+        copy "config\general_settings.example.json" "config\general_settings.json" >nul
+        echo   general_settings.json created from template
+    )
+)
+if not exist "config\cloud_models.json" (
+    if exist "config\cloud_models.example.json" (
+        copy "config\cloud_models.example.json" "config\cloud_models.json" >nul
+        echo   cloud_models.json created from template
+    )
+)
 echo [OK]
 echo.
 
@@ -156,7 +212,9 @@ if /i "!INSTALL_OPENAI!"=="Y" (
 )
 echo.
 
-:: [Optional] Frontend build (requires Node.js)
+:: ──────────────────────────────────────────
+:: Frontend build (requires Node.js)
+:: ──────────────────────────────────────────
 echo ============================================================
 echo  Web UI ビルド / Building Web UI
 echo ============================================================
@@ -164,9 +222,12 @@ echo.
 where node >nul 2>&1
 if errorlevel 1 (
     echo [SKIP] Node.js が見つかりません / Node.js not found
-    echo        Web UI はプリビルド版を使用します / Using pre-built Web UI
-    echo        最新版をビルドするには Node.js をインストールしてください
-    echo        https://nodejs.org/
+    if exist "frontend\dist\index.html" (
+        echo        プリビルド版 Web UI を使用します / Using pre-built Web UI
+    ) else (
+        echo [WARNING] Web UI が利用できません。Node.js をインストールしてビルドしてください。
+        echo           https://nodejs.org/
+    )
 ) else (
     echo Node.js が見つかりました / Node.js found:
     node --version
@@ -189,28 +250,92 @@ if errorlevel 1 (
 )
 echo.
 
-:: Check Claude CLI
+:: ──────────────────────────────────────────
+:: Environment check summary
+:: ──────────────────────────────────────────
 echo ============================================================
-echo  Claude CLI の確認 / Checking Claude CLI
+echo  外部ツール確認 / External Tools Check
 echo ============================================================
 echo.
+
+:: Ollama check
+set OLLAMA_OK=0
+where ollama >nul 2>&1
+if not errorlevel 1 (
+    set OLLAMA_OK=1
+    echo [OK] Ollama CLI が利用可能です
+    ollama --version 2>nul
+) else (
+    echo [--] Ollama が見つかりません
+)
+
+:: Ollama server connectivity
+curl -s -o nul -w "" http://localhost:11434/ >nul 2>&1
+if not errorlevel 1 (
+    echo [OK] Ollama サーバーに接続できました (localhost:11434^)
+) else (
+    if !OLLAMA_OK!==1 (
+        echo [--] Ollama はインストール済みですがサーバーが起動していません
+        echo      起動方法: Ollama アプリを起動するか、ターミナルで ollama serve
+    ) else (
+        echo [--] Ollama サーバーに接続できません
+        echo      localAI 機能を使うには Ollama が必要です
+        echo      https://ollama.com/download
+    )
+)
+echo.
+
+:: Claude CLI check
 claude --version >nul 2>&1
 if errorlevel 1 (
-    echo [INFO] Claude CLI が見つかりません
-    echo        cloudAI / mixAI 機能を使用するには Claude CLI のインストールが必要です
-    echo        https://docs.anthropic.com/en/docs/claude-code
+    echo [--] Claude CLI が見つかりません
+    echo      cloudAI / mixAI(CLI経由^) を使うにはインストールが必要です
+    echo      npm install -g @anthropic-ai/claude-code
 ) else (
     echo [OK] Claude CLI が利用可能です
     claude --version
 )
 echo.
 
-:: Done
+:: Node.js check (already checked above but show in summary)
+where node >nul 2>&1
+if not errorlevel 1 (
+    echo [OK] Node.js が利用可能です
+) else (
+    echo [--] Node.js が見つかりません (Web UI 再ビルドには必要^)
+)
+echo.
+
+:: ──────────────────────────────────────────
+:: Done — Next steps
+:: ──────────────────────────────────────────
 echo ============================================================
-echo  インストール完了 / Installation Complete
+echo  インストール完了！ / Installation Complete!
 echo ============================================================
 echo.
-echo 起動方法 / To start:
-echo   python HelixAIStudio.py
+echo  起動方法 / To start:
+echo    python HelixAIStudio.py
+echo.
+echo ────────────────────────────────────────
+echo  次のステップ / Next Steps
+echo ────────────────────────────────────────
+echo.
+echo  1. APIキー設定 / API Key Setup (いずれか1つ以上):
+echo     アプリ起動後「一般設定」タブ → API Keys セクションで設定
+echo     After launch: Settings tab → API Keys section
+echo.
+echo     - Anthropic : https://console.anthropic.com/settings/keys
+echo     - OpenAI    : https://platform.openai.com/api-keys
+echo     - Google    : https://aistudio.google.com/apikey
+echo.
+echo  2. ローカルLLM (localAI) を使う場合:
+echo     a. Ollama をインストール: https://ollama.com/download
+echo     b. モデルをダウンロード:
+echo        ollama pull qwen3:32b
+echo        ollama pull devstral:24b
+echo     c. Ollama が起動した状態でアプリを起動
+echo.
+echo  3. 詳細な手順書 / Detailed setup guide:
+echo     SETUP_GUIDE.md を参照してください
 echo.
 pause

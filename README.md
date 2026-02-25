@@ -143,6 +143,8 @@ pip install -r requirements.txt
 python HelixAIStudio.py
 ```
 
+> **First-time users**: See [SETUP_GUIDE.md](SETUP_GUIDE.md) for step-by-step instructions covering Python, Node.js, Ollama, API keys, and troubleshooting.
+
 ### API Direct Connection (v11.5.0+)
 
 Claude / GPT / Gemini models can be used directly via API keys.
