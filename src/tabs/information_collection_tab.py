@@ -203,8 +203,8 @@ class InformationCollectionTab(QWidget):
         # ── ステータスバー ──
         self.rag_chat_status = QLabel(t('desktop.infoTab.ragStatusReady'))
         self.rag_chat_status.setStyleSheet(
-            "QLabel { background-color: #1a1a2e; color: #4fc3f7; padding: 6px 12px; "
-            "border: 1px solid #2a2a3e; border-radius: 4px; font-weight: bold; }"
+            "QLabel { background-color: #131921; color: #38bdf8; padding: 6px 12px; "
+            "border: 1px solid #1e2d42; border-radius: 4px; font-weight: bold; }"
         )
         self.rag_chat_status.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         layout.addWidget(self.rag_chat_status)
@@ -228,7 +228,7 @@ class InformationCollectionTab(QWidget):
         input_splitter = QSplitter(Qt.Orientation.Horizontal)
         input_splitter.setStyleSheet(
             f"QSplitter {{ background: {COLORS['bg_dark']}; }}"
-            "QSplitter::handle { background: #2a2a3e; width: 3px; }"
+            "QSplitter::handle { background: #1e2d42; width: 3px; }"
         )
         input_splitter.setFixedHeight(140)
 
@@ -243,7 +243,7 @@ class InformationCollectionTab(QWidget):
         self.rag_chat_input.setPlaceholderText(t('desktop.infoTab.ragChatInputPlaceholder'))
         self.rag_chat_input.setStyleSheet(
             f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
-            f"border: 1px solid #333; border-radius: 4px; padding: 8px; }}" + SCROLLBAR_STYLE
+            f"border: 1px solid #334155; border-radius: 4px; padding: 8px; }}" + SCROLLBAR_STYLE
         )
         left_layout.addWidget(self.rag_chat_input, stretch=1)
 
@@ -315,7 +315,7 @@ class InformationCollectionTab(QWidget):
         self.rag_continue_input.setPlaceholderText(t('desktop.infoTab.ragContinuePlaceholder'))
         self.rag_continue_input.setStyleSheet(
             f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
-            f"border: 1px solid #333; border-radius: 4px; padding: 6px; font-size: 11px; }}"
+            f"border: 1px solid #334155; border-radius: 4px; padding: 6px; font-size: 11px; }}"
             + SCROLLBAR_STYLE
         )
         right_layout.addWidget(self.rag_continue_input, stretch=1)
@@ -1245,14 +1245,14 @@ class InformationCollectionTab(QWidget):
             html = (
                 f"<div style='margin: 8px 0; padding: 8px 12px; "
                 f"background: rgba(0,212,255,0.1); border-radius: 6px;'>"
-                f"<b style='color:#00d4ff;'>You:</b> "
+                f"<b style='color:#38bdf8;'>You:</b> "
                 f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
             )
         elif role == "assistant":
             html = (
                 f"<div style='margin: 8px 0; padding: 8px 12px; "
                 f"background: rgba(0,255,136,0.05); border-radius: 6px;'>"
-                f"<b style='color:#00ff88;'>RAG:</b> "
+                f"<b style='color:#34d399;'>RAG:</b> "
                 f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
             )
         else:

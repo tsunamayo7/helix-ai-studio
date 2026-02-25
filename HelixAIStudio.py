@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v11.7.0 "Resilient Core"
+Helix AI Studio v11.8.0 "Polished Dark"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:

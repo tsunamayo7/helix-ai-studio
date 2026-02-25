@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.7.0"
-APP_CODENAME = "Resilient Core"
+APP_VERSION = "11.8.0"
+APP_CODENAME = "Polished Dark"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.7.0 'Resilient Core' - "
-    "エラーハンドリング強化・サイレント失敗排除・crash.log共通化・フォールバック拡充"
+    "Helix AI Studio v11.8.0 'Polished Dark' - "
+    "Refined Obsidianカラーシステム・4層背景・タイポグラフィ統一・日本語フォント"
 )
 
 # v8.5.0: 情報収集フォルダ

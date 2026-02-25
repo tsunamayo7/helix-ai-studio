@@ -53,16 +53,16 @@ class _ModelRow(QFrame):
 
         self._name_label = QLabel("")
         self._name_label.setFixedWidth(200)
-        self._name_label.setStyleSheet("color: #e0e0e0; font-weight: bold;")
+        self._name_label.setStyleSheet("color: #e2e8f0; font-weight: bold;")
 
         self._phase_label = QLabel("")
         self._phase_label.setFixedWidth(120)
-        self._phase_label.setStyleSheet("color: #888;")
+        self._phase_label.setStyleSheet("color: #94a3b8;")
 
         self._time_label = QLabel("")
         self._time_label.setFixedWidth(60)
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._time_label.setStyleSheet("color: #888; font-family: monospace;")
+        self._time_label.setStyleSheet("color: #94a3b8; font-family: monospace;")
 
         self._output_label = QLabel("")
         self._output_label.setStyleSheet("color: #666; font-size: 11px;")
@@ -151,7 +151,7 @@ class ExecutionMonitorWidget(QWidget):
         self.setStyleSheet("""
             ExecutionMonitorWidget {
                 background-color: #0d0d1f;
-                border: 1px solid #2a2a3e;
+                border: 1px solid #1e2d42;
                 border-radius: 4px;
             }
         """)
@@ -162,7 +162,7 @@ class ExecutionMonitorWidget(QWidget):
 
         # ヘッダー
         header = QLabel(t('widget.monitor.title'))
-        header.setStyleSheet("color: #00d4ff; font-size: 11px; font-weight: bold; padding: 2px 4px;")
+        header.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold; padding: 2px 4px;")
         self._main_layout.addWidget(header)
         self._header = header
 

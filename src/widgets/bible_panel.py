@@ -71,7 +71,7 @@ class BibleStatusPanel(QWidget):
         self.info_label = QLabel(
             t('desktop.widgets.biblePanel.infoLabel')
         )
-        self.info_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.info_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
         self.info_label.setWordWrap(True)
         frame_layout.addWidget(self.info_label)
 
@@ -83,11 +83,11 @@ class BibleStatusPanel(QWidget):
         )
         self.path_input.setStyleSheet(
             "QLineEdit {"
-            "  background: #0a0a1a; border: 1px solid #2a2a3e;"
+            "  background: #080c14; border: 1px solid #1e2d42;"
             "  border-radius: 4px; padding: 4px 8px;"
-            "  color: #e0e0e0; font-size: 12px;"
+            "  color: #e2e8f0; font-size: 12px;"
             "}"
-            "QLineEdit:focus { border: 1px solid #00d4ff; }"
+            "QLineEdit:focus { border: 1px solid #38bdf8; }"
         )
         self.path_input.setToolTip(
             t('desktop.widgets.biblePanel.pathTooltip')
@@ -116,7 +116,7 @@ class BibleStatusPanel(QWidget):
         # 不足セクション
         self.missing_label = QLabel("")
         self.missing_label.setWordWrap(True)
-        self.missing_label.setStyleSheet("color: #ff8800; font-size: 11px;")
+        self.missing_label.setStyleSheet("color: #fbbf24; font-size: 11px;")
         self.missing_label.setVisible(False)
         frame_layout.addWidget(self.missing_label)
 
@@ -193,7 +193,7 @@ class BibleStatusPanel(QWidget):
             self.info_label.setText(
                 t('desktop.widgets.biblePanel.infoLabel')
             )
-            self.info_label.setStyleSheet("color: #888; font-size: 11px;")
+            self.info_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
             self.score_bar.setVisible(False)
             self.missing_label.setVisible(False)
             self.btn_update.setEnabled(False)
@@ -215,7 +215,7 @@ class BibleStatusPanel(QWidget):
             + (f' "{bible.codename}"' if bible.codename else "")
             + f"\n{t('desktop.widgets.biblePanel.infoFormat', line_count=bible.line_count, sections=len(bible.sections))}"
         )
-        self.info_label.setStyleSheet("color: #e0e0e0; font-size: 11px;")
+        self.info_label.setStyleSheet("color: #e2e8f0; font-size: 11px;")
 
         # 完全性スコア
         score = bible.completeness_score

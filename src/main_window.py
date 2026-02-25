@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
     def _update_lang_button_styles(self, current_lang: str):
         """v10.1.0: 言語ボタンのアクティブ/非アクティブスタイルを切替"""
         active = "background-color: #059669; color: white; font-weight: bold; padding: 4px 12px; border-radius: 4px; border: none; font-size: 11px;"
-        inactive = "background-color: #2d2d2d; color: #888; padding: 4px 12px; border-radius: 4px; font-size: 11px;"
+        inactive = "background-color: #2d2d2d; color: #94a3b8; padding: 4px 12px; border-radius: 4px; font-size: 11px;"
         self.lang_ja_btn.setStyleSheet(active if current_lang == 'ja' else inactive)
         self.lang_en_btn.setStyleSheet(active if current_lang == 'en' else inactive)
 
@@ -457,12 +457,12 @@ class MainWindow(QMainWindow):
 /* ダークグレー背景 + ネオンシアン/グリーン アクセント */
 
 QMainWindow {
-    background-color: #1a1a1a;
+    background-color: #080c14;
 }
 
 QWidget {
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+    background-color: #080c14;
+    color: #e2e8f0;
     font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
     /* font-size は QApplication.setFont() で動的制御 */
 }
@@ -470,13 +470,13 @@ QWidget {
 /* Tab Widget - Cyberpunk Style */
 QTabWidget::pane {
     border: 1px solid #2d2d2d;
-    background-color: #1a1a1a;
+    background-color: #080c14;
     border-radius: 6px;
 }
 
 QTabBar::tab {
     background-color: #252525;
-    color: #888888;
+    color: #94a3b8;
     padding: 12px 24px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
@@ -486,30 +486,30 @@ QTabBar::tab {
 }
 
 QTabBar::tab:selected {
-    background-color: #1a1a1a;
-    color: #00d4ff;
-    border-color: #00d4ff;
-    border-bottom: 2px solid #00d4ff;
+    background-color: #080c14;
+    color: #38bdf8;
+    border-color: #38bdf8;
+    border-bottom: 2px solid #38bdf8;
 }
 
 QTabBar::tab:hover:!selected {
     background-color: #2d2d2d;
-    color: #00ff88;
+    color: #34d399;
 }
 
 /* Buttons - Neon Accent */
 QPushButton {
     background-color: #2d2d2d;
-    color: #00d4ff;
-    border: 1px solid #00d4ff;
+    color: #38bdf8;
+    border: 1px solid #38bdf8;
     padding: 8px 16px;
     border-radius: 6px;
     min-width: 80px;
 }
 
 QPushButton:hover {
-    background-color: #00d4ff;
-    color: #1a1a1a;
+    background-color: #38bdf8;
+    color: #080c14;
 }
 
 QPushButton:pressed {
@@ -519,14 +519,14 @@ QPushButton:pressed {
 
 QPushButton:disabled {
     background-color: #252525;
-    color: #555555;
+    color: #475569;
     border-color: #3d3d3d;
 }
 
 /* Primary Action Button */
 QPushButton[cssClass="primary"] {
-    background-color: #00ff88;
-    color: #1a1a1a;
+    background-color: #34d399;
+    color: #080c14;
     border: none;
     font-weight: bold;
 }
@@ -538,23 +538,23 @@ QPushButton[cssClass="primary"]:hover {
 /* Input Fields - Subtle Glow on Focus */
 QLineEdit, QTextEdit, QPlainTextEdit {
     background-color: #252525;
-    color: #e0e0e0;
+    color: #e2e8f0;
     border: 1px solid #3d3d3d;
     border-radius: 6px;
     padding: 8px;
-    selection-background-color: #00d4ff;
-    selection-color: #1a1a1a;
+    selection-background-color: #38bdf8;
+    selection-color: #080c14;
 }
 
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
-    border-color: #00d4ff;
+    border-color: #38bdf8;
     background-color: #2a2a2a;
 }
 
 /* ComboBox */
 QComboBox {
     background-color: #252525;
-    color: #e0e0e0;
+    color: #e2e8f0;
     border: 1px solid #3d3d3d;
     border-radius: 6px;
     padding: 8px 12px;
@@ -562,7 +562,7 @@ QComboBox {
 }
 
 QComboBox:hover {
-    border-color: #00d4ff;
+    border-color: #38bdf8;
 }
 
 QComboBox::drop-down {
@@ -573,10 +573,10 @@ QComboBox::drop-down {
 
 QComboBox QAbstractItemView {
     background-color: #252525;
-    color: #e0e0e0;
-    selection-background-color: #00d4ff;
-    selection-color: #1a1a1a;
-    border: 1px solid #00d4ff;
+    color: #e2e8f0;
+    selection-background-color: #38bdf8;
+    selection-color: #080c14;
+    border: 1px solid #38bdf8;
     border-radius: 4px;
 }
 
@@ -595,12 +595,12 @@ QCheckBox::indicator {
 }
 
 QCheckBox::indicator:hover {
-    border-color: #00d4ff;
+    border-color: #38bdf8;
 }
 
 QCheckBox::indicator:checked {
-    background-color: #00d4ff;
-    border-color: #00d4ff;
+    background-color: #38bdf8;
+    border-color: #38bdf8;
 }
 
 /* GroupBox - Neon Border */
@@ -614,7 +614,7 @@ QGroupBox {
 }
 
 QGroupBox::title {
-    color: #00d4ff;
+    color: #38bdf8;
     subcontrol-origin: margin;
     subcontrol-position: top left;
     padding: 4px 12px;
@@ -625,7 +625,7 @@ QGroupBox::title {
 /* List/Tree Widget */
 QListWidget, QTreeWidget {
     background-color: #252525;
-    color: #e0e0e0;
+    color: #e2e8f0;
     border: 1px solid #2d2d2d;
     border-radius: 6px;
     outline: none;
@@ -637,8 +637,8 @@ QListWidget::item, QTreeWidget::item {
 }
 
 QListWidget::item:selected, QTreeWidget::item:selected {
-    background-color: #00d4ff;
-    color: #1a1a1a;
+    background-color: #38bdf8;
+    color: #080c14;
 }
 
 QListWidget::item:hover, QTreeWidget::item:hover {
@@ -646,12 +646,12 @@ QListWidget::item:hover, QTreeWidget::item:hover {
 }
 
 QTreeWidget::branch:selected {
-    background-color: #00d4ff;
+    background-color: #38bdf8;
 }
 
 /* Scrollbar - Minimal */
 QScrollBar:vertical {
-    background-color: #1a1a1a;
+    background-color: #080c14;
     width: 10px;
     margin: 0;
     border-radius: 5px;
@@ -664,7 +664,7 @@ QScrollBar::handle:vertical {
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #00d4ff;
+    background-color: #38bdf8;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -672,7 +672,7 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 }
 
 QScrollBar:horizontal {
-    background-color: #1a1a1a;
+    background-color: #080c14;
     height: 10px;
     margin: 0;
     border-radius: 5px;
@@ -685,7 +685,7 @@ QScrollBar::handle:horizontal {
 }
 
 QScrollBar::handle:horizontal:hover {
-    background-color: #00d4ff;
+    background-color: #38bdf8;
 }
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
@@ -703,22 +703,22 @@ QToolBar {
 /* StatusBar - Neon Accent */
 QStatusBar {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #00d4ff, stop:1 #00ff88);
-    color: #1a1a1a;
+        stop:0 #38bdf8, stop:1 #34d399);
+    color: #080c14;
     font-weight: bold;
 }
 
 /* SpinBox */
 QSpinBox {
     background-color: #252525;
-    color: #e0e0e0;
+    color: #e2e8f0;
     border: 1px solid #3d3d3d;
     border-radius: 6px;
     padding: 6px;
 }
 
 QSpinBox:focus {
-    border-color: #00d4ff;
+    border-color: #38bdf8;
 }
 
 /* ProgressBar - Neon Glow Effect */
@@ -727,12 +727,12 @@ QProgressBar {
     border-radius: 6px;
     background-color: #252525;
     text-align: center;
-    color: #e0e0e0;
+    color: #e2e8f0;
 }
 
 QProgressBar::chunk {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #00d4ff, stop:1 #00ff88);
+        stop:0 #38bdf8, stop:1 #34d399);
     border-radius: 5px;
 }
 
@@ -742,7 +742,7 @@ QSplitter::handle {
 }
 
 QSplitter::handle:hover {
-    background-color: #00d4ff;
+    background-color: #38bdf8;
 }
 
 QSplitter::handle:horizontal {
@@ -761,7 +761,7 @@ QSlider::groove:horizontal {
 }
 
 QSlider::handle:horizontal {
-    background-color: #00d4ff;
+    background-color: #38bdf8;
     width: 16px;
     height: 16px;
     margin: -5px 0;
@@ -769,14 +769,14 @@ QSlider::handle:horizontal {
 }
 
 QSlider::handle:horizontal:hover {
-    background-color: #00ff88;
+    background-color: #34d399;
 }
 
 /* ToolTip */
 QToolTip {
     background-color: #252525;
-    color: #e0e0e0;
-    border: 1px solid #00d4ff;
+    color: #e2e8f0;
+    border: 1px solid #38bdf8;
     border-radius: 4px;
     padding: 6px;
 }
@@ -795,8 +795,8 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background-color: #00d4ff;
-    color: #1a1a1a;
+    background-color: #38bdf8;
+    color: #080c14;
 }
 
 QMenu::separator {
@@ -910,6 +910,29 @@ def create_application():
     app = QApplication(sys.argv)
     app.setApplicationName("Helix AI Studio")
     app.setApplicationVersion(MainWindow.VERSION)
+
+    # v11.8.0: フォント基準設定（QFontで日本語環境のフォールバックを安定化）
+    from PyQt6.QtGui import QFontDatabase
+
+    available_fonts = QFontDatabase.families()
+    preferred_fonts = [
+        "Noto Sans JP", "Yu Gothic UI", "Meiryo UI",
+        "Inter", "Segoe UI Variable", "Segoe UI", "SF Pro Display",
+    ]
+    selected_font = "Segoe UI"  # フォールバック
+    for font_name in preferred_fonts:
+        if any(font_name.lower() in f.lower() for f in available_fonts):
+            selected_font = font_name
+            break
+
+    default_font = QFont(selected_font, 10)
+    default_font.setHintingPreference(QFont.HintingPreference.PreferFullHinting)
+    app.setFont(default_font)
+    logger.info(f"[MainWindow] Selected UI font: {selected_font}")
+
+    # v11.8.0: グローバルQSSを適用
+    from .utils.styles import GLOBAL_APP_STYLESHEET
+    app.setStyleSheet(GLOBAL_APP_STYLESHEET)
 
     return app
 

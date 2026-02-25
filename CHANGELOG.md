@@ -5,6 +5,27 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.8.0] - 2026-02-25 "Polished Dark"
+
+### Added
+- "Refined Obsidian" color system: 4-layer depth backgrounds (base/surface/card/elevated)
+- Typography system: `FONT_FAMILY_UI`/`FONT_FAMILY_MONO`, `FONT_SCALE` (display/body/small/xs), `FONT_WEIGHT`
+- `GLOBAL_APP_STYLESHEET` for one-shot application-wide QSS styling
+- Japanese font stack priority: Noto Sans JP → Yu Gothic UI → Meiryo UI
+- Inline style shortcuts: `STYLE_ACCENT_TEXT`, `STYLE_SUCCESS_TEXT`, etc.
+- Semantic color tokens with background variants (success_bg, error_bg, warning_bg, info_bg)
+
+### Changed
+- Accent color: fluorescent cyan `#00d4ff` → sky blue `#38bdf8` (WCAG AA compliant)
+- Success color: neon green `#00ff88` → emerald `#34d399`
+- Error color: `#ff6666` → `#f87171`
+- All 17 source files updated: inline color literals replaced with new palette
+- Background hierarchy: flat `#1a1a2e` everywhere → layered `#080c14`/`#0d1117`/`#131921`/`#1a2233`
+- Border colors: `#2a2a3e` → `#1e2d42` (standard) / `#2a3f5a` (strong)
+- `main_window.py`: `create_application()` now selects best Japanese font + applies global stylesheet
+- Button styles: gradient removed → flat with subtle hover states
+- Scrollbar: slimmer (8px), transparent track, subtle handle
+
 ## [11.7.0] - 2026-02-25 "Resilient Core"
 
 ### Added

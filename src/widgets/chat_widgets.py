@@ -38,8 +38,8 @@ class PhaseIndicator(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.phases = [
-            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
-            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#38bdf8"),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#34d399"),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
             ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
@@ -104,7 +104,7 @@ class PhaseIndicator(QWidget):
                 self._nodes[i].setStyleSheet(phase_node_style(active=True, color=color))
                 self._dots[i].setText("\u25cf")
                 self._dots[i].setStyleSheet(f"color: {color}; font-size: 10px;")
-                self._texts[i].setStyleSheet(f"color: #e0e0e0; font-size: 11px; font-weight: bold;")
+                self._texts[i].setStyleSheet(f"color: #e2e8f0; font-size: 11px; font-weight: bold;")
             else:
                 # 未実行フェーズ
                 self._nodes[i].setStyleSheet(phase_node_style(active=False, color=color))
@@ -133,8 +133,8 @@ class PhaseIndicator(QWidget):
     def retranslateUi(self):
         """Update all translatable text (called on language switch)."""
         self.phases = [
-            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#00d4ff"),
-            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#00ff88"),
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#38bdf8"),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#34d399"),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
             ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
@@ -159,8 +159,8 @@ class CloudAIStatusBar(QWidget):
         from ..utils.constants import APP_VERSION
         self.setStyleSheet("""
             QWidget {
-                background-color: #1a1a2e;
-                border-bottom: 1px solid #2a2a3e;
+                background-color: #131921;
+                border-bottom: 1px solid #1e2d42;
             }
         """)
         layout = QHBoxLayout(self)
@@ -170,7 +170,7 @@ class CloudAIStatusBar(QWidget):
         # v9.7.1: タイトルラベル（mixAI形式に統一 - 左寄せ）
         self.title_label = QLabel(t('desktop.cloudAI.title'))
         self.title_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.title_label.setStyleSheet("color: #e0e0e0;")
+        self.title_label.setStyleSheet("color: #e2e8f0;")
         layout.addWidget(self.title_label)
 
         # 新規セッションボタン（タイトルの直後 - mixAIと同じスタイル）
@@ -179,8 +179,8 @@ class CloudAIStatusBar(QWidget):
         self.btn_new_session.setStyleSheet("""
             QPushButton {
                 background: transparent;
-                color: #00ff88;
-                border: 1px solid #00ff88;
+                color: #34d399;
+                border: 1px solid #34d399;
                 border-radius: 4px;
                 padding: 4px 12px;
                 font-size: 11px;
@@ -205,13 +205,13 @@ class CloudAIStatusBar(QWidget):
         status: "waiting" / "running" / "completed" / "error" / "interrupted"
         """
         status_map = {
-            "waiting": ("#888", t('desktop.widgets.chatWidgets.statusMap.idle')),
-            "running": ("#00d4ff", t('desktop.widgets.chatWidgets.statusMap.running')),
-            "completed": ("#00ff88", t('desktop.widgets.chatWidgets.statusMap.completed')),
+            "waiting": ("#94a3b8", t('desktop.widgets.chatWidgets.statusMap.idle')),
+            "running": ("#38bdf8", t('desktop.widgets.chatWidgets.statusMap.running')),
+            "completed": ("#34d399", t('desktop.widgets.chatWidgets.statusMap.completed')),
             "error": ("#ff4444", t('desktop.widgets.chatWidgets.statusMap.error')),
-            "interrupted": ("#ff8800", t('desktop.widgets.chatWidgets.statusMap.cancelled')),
+            "interrupted": ("#fbbf24", t('desktop.widgets.chatWidgets.statusMap.cancelled')),
         }
-        c, text = status_map.get(status, ("#888", status))
+        c, text = status_map.get(status, ("#94a3b8", status))
         if color:
             c = color
         self.status_dot.setStyleSheet(f"color: {c}; font-size: 10px;")
@@ -238,8 +238,8 @@ class ExecutionIndicator(QFrame):
         super().__init__(parent)
         self.setStyleSheet("""
             QFrame {
-                background: #1a1a2e;
-                border: 1px solid #00d4ff;
+                background: #131921;
+                border: 1px solid #38bdf8;
                 border-radius: 8px;
                 padding: 8px 12px;
                 margin: 4px;
@@ -251,7 +251,7 @@ class ExecutionIndicator(QFrame):
 
         # アニメーションドット
         self.dots = QLabel("\u25cf \u25cb \u25cb")
-        self.dots.setStyleSheet("color: #00d4ff; font-size: 14px;")
+        self.dots.setStyleSheet("color: #38bdf8; font-size: 14px;")
         self.dots.setFixedWidth(50)
         layout.addWidget(self.dots)
 
@@ -310,7 +310,7 @@ class InterruptionBanner(QFrame):
         self.setStyleSheet("""
             QFrame {
                 background: #2a1a0a;
-                border: 1px solid #ff8800;
+                border: 1px solid #fbbf24;
                 border-radius: 8px;
                 padding: 8px;
                 margin: 4px;
@@ -322,7 +322,7 @@ class InterruptionBanner(QFrame):
 
         # 中断ヘッダー
         header = QLabel(t('desktop.widgets.chatWidgets.interruptedHeader'))
-        header.setStyleSheet("color: #ff8800; font-weight: bold; font-size: 13px;")
+        header.setStyleSheet("color: #fbbf24; font-weight: bold; font-size: 13px;")
         layout.addWidget(header)
 
         # 中断理由

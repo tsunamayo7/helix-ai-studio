@@ -893,7 +893,7 @@ class ClaudeTab(QWidget):
         # v11.5.0: モデル未設定バナー
         self._no_models_banner = QFrame()
         self._no_models_banner.setStyleSheet(
-            "QFrame { background: #1a1a2e; border: 1px solid #f59e0b; border-radius: 6px; padding: 4px; }"
+            "QFrame { background: #131921; border: 1px solid #fbbf24; border-radius: 6px; padding: 4px; }"
         )
         banner_layout = QHBoxLayout(self._no_models_banner)
         banner_layout.setContentsMargins(8, 6, 8, 6)
@@ -919,7 +919,7 @@ class ClaudeTab(QWidget):
         self.chat_display.setPlaceholderText(t('desktop.cloudAI.chatReady'))
         self.chat_display.setStyleSheet(
             "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e0e0e0; }" + SCROLLBAR_STYLE
+            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
         )
         # v10.1.0: Auto-scroll to bottom on new content
         self.chat_display.textChanged.connect(self._auto_scroll_chat)
@@ -1016,13 +1016,13 @@ class ClaudeTab(QWidget):
 
         # 登録済みモデルリスト
         self.cloud_model_list_label = QLabel(t('desktop.cloudAI.registeredModels'))
-        self.cloud_model_list_label.setStyleSheet("font-weight: bold; color: #e0e0e0; margin-bottom: 4px;")
+        self.cloud_model_list_label.setStyleSheet("font-weight: bold; color: #e2e8f0; margin-bottom: 4px;")
         model_settings_layout.addWidget(self.cloud_model_list_label)
 
         self.cloud_model_list = QListWidget()
         self.cloud_model_list.setMaximumHeight(140)
         self.cloud_model_list.setStyleSheet("""
-            QListWidget { background: #0d0d1f; color: #e0e0e0; border: 1px solid #333;
+            QListWidget { background: #0d0d1f; color: #e2e8f0; border: 1px solid #334155;
                 border-radius: 4px; padding: 4px; font-size: 11px; }
             QListWidget::item { padding: 4px; }
             QListWidget::item:selected { background: #0078d4; color: white; }
@@ -1035,7 +1035,7 @@ class ClaudeTab(QWidget):
         model_btn_row.setSpacing(4)
 
         _mgmt_btn_style = """
-            QPushButton { background: #2d3748; color: #e0e0e0; border: 1px solid #4a5568;
+            QPushButton { background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
                 border-radius: 4px; padding: 4px 10px; font-size: 11px; }
             QPushButton:hover { background: #4a5568; }
         """
@@ -1261,7 +1261,7 @@ class ClaudeTab(QWidget):
     def _check_codex_version(self):
         """v11.0.0: Codex CLI バージョン確認（Windows .cmd対応）"""
         self.codex_version_label.setText("⏳ checking...")
-        self.codex_version_label.setStyleSheet("color: #f59e0b; font-size: 9pt;")
+        self.codex_version_label.setStyleSheet("color: #fbbf24; font-size: 9pt;")
         self.codex_check_btn.setEnabled(False)
         # 短い遅延でバックグラウンド実行→結果をUI反映
         QTimer.singleShot(50, self._do_codex_check)
@@ -1672,7 +1672,7 @@ class ClaudeTab(QWidget):
         """v8.0.0: ステータスバーを作成（旧ステージUI→CloudAIStatusBarに置換）"""
         frame = QFrame()
         frame.setObjectName("workflowFrame")
-        frame.setStyleSheet("#workflowFrame { background-color: #1a1a2e; }")
+        frame.setStyleSheet("#workflowFrame { background-color: #131921; }")
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -1684,7 +1684,7 @@ class ClaudeTab(QWidget):
         # v11.0.0: Header title label
         self.cloud_header_title = QLabel(t('desktop.cloudAI.headerTitle'))
         self.cloud_header_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.cloud_header_title.setStyleSheet("color: #e0e0e0; margin-right: 12px;")
+        self.cloud_header_title.setStyleSheet("color: #e2e8f0; margin-right: 12px;")
 
         # v11.0.0: Model label
         self.cloud_model_label = QLabel(t('desktop.cloudAI.modelLabel'))
@@ -1694,14 +1694,14 @@ class ClaudeTab(QWidget):
         self.cloud_model_combo = NoScrollComboBox()
         self.cloud_model_combo.setStyleSheet("""
             QComboBox {
-                background: #1a1a2e; color: #e0e0e0;
+                background: #131921; color: #e2e8f0;
                 border: 1px solid #3d3d3d; border-radius: 4px;
                 padding: 3px 8px; font-size: 11px; min-width: 160px;
             }
-            QComboBox:hover { border-color: #00d4ff; }
+            QComboBox:hover { border-color: #38bdf8; }
             QComboBox::drop-down { border: none; }
             QComboBox QAbstractItemView {
-                background: #1a1a2e; color: #e0e0e0;
+                background: #131921; color: #e2e8f0;
                 selection-background-color: #0078d4;
             }
         """)
@@ -1717,7 +1717,7 @@ class ClaudeTab(QWidget):
                 border: 1px solid #3d3d3d; border-radius: 4px;
                 padding: 4px 10px; font-size: 11px;
             }
-            QPushButton:hover { color: #e0e0e0; border-color: #00d4ff; }
+            QPushButton:hover { color: #e2e8f0; border-color: #38bdf8; }
         """)
         self.cloud_refresh_btn.clicked.connect(lambda: self._load_cloud_models_to_combo(self.cloud_model_combo))
 
@@ -1956,7 +1956,7 @@ class ClaudeTab(QWidget):
         example_label = QLabel(EXAMPLES["anthropic_api"])
         example_label.setStyleSheet(
             "color: #6b7280; font-size: 10px; font-family: monospace; "
-            "background: #1a1a2e; padding: 8px; border-radius: 4px;"
+            "background: #131921; padding: 8px; border-radius: 4px;"
         )
         example_label.setWordWrap(True)
 
@@ -2065,7 +2065,7 @@ class ClaudeTab(QWidget):
         layout = QVBoxLayout(dialog)
 
         editor = QTextEdit()
-        editor.setStyleSheet("QTextEdit { background: #0d0d1f; color: #e0e0e0; font-family: monospace; font-size: 11px; }")
+        editor.setStyleSheet("QTextEdit { background: #0d0d1f; color: #e2e8f0; font-family: monospace; font-size: 11px; }")
         try:
             from pathlib import Path
             config_path = Path("config/cloud_models.json")
@@ -2282,12 +2282,12 @@ class ClaudeTab(QWidget):
         self.continue_send_btn_main.setEnabled(False)
         self.continue_send_btn_main.setStyleSheet("""
             QPushButton {
-                background: #1a3a2a; color: #00ff88;
-                border: 1px solid #00ff88; border-radius: 4px;
+                background: #064e3b; color: #34d399;
+                border: 1px solid #34d399; border-radius: 4px;
                 padding: 6px 16px; font-weight: bold;
             }
             QPushButton:hover { background: #2a4a3a; }
-            QPushButton:disabled { background: #1a1a2e; color: #555; border-color: #333; }
+            QPushButton:disabled { background: #131921; color: #475569; border-color: #334155; }
         """)
         self.continue_send_btn_main.clicked.connect(self._on_continue_send_main)
         btn_layout.addWidget(self.continue_send_btn_main)
@@ -2307,8 +2307,8 @@ class ClaudeTab(QWidget):
         continue_frame.setObjectName("continueFrame")
         continue_frame.setStyleSheet("""
             #continueFrame {
-                background-color: #1a1a2e;
-                border: 1px solid #2a2a3e;
+                background-color: #131921;
+                border: 1px solid #1e2d42;
                 border-radius: 6px;
                 padding: 4px;
             }
@@ -2511,9 +2511,9 @@ class ClaudeTab(QWidget):
             self.chat_display.clear()
             for msg in messages:
                 if msg["role"] == "user":
-                    self.chat_display.append(f'<div style="background:#1a2a3e; border-left:3px solid #00d4ff; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
+                    self.chat_display.append(f'<div style="background:#1a2233; border-left:3px solid #38bdf8; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
                 elif msg["role"] == "assistant":
-                    self.chat_display.append(f'<div style="background:#1a1a2e; border-left:3px solid #00ff88; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
+                    self.chat_display.append(f'<div style="background:#131921; border-left:3px solid #34d399; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
             self.statusChanged.emit(t('desktop.cloudAI.chatLoaded', title=chat.get("title", "")))
         except Exception as e:
             logger.warning(f"Failed to load chat from history: {e}")
@@ -2775,7 +2775,7 @@ class ClaudeTab(QWidget):
         # Display user message
         self.chat_display.append(
             f"<div style='{USER_MESSAGE_STYLE}'>"
-            f"<b style='color:#00d4ff;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
+            f"<b style='color:#38bdf8;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
             f"{message.replace(chr(10), '<br>')}"
             f"</div>"
         )
@@ -3288,16 +3288,16 @@ class ClaudeTab(QWidget):
             attachment_html = ""
             if hasattr(self, '_attached_files') and self._attached_files:
                 file_chips = ''.join(
-                    f'<span style="background:#1a2a3e;border:1px solid #00d4ff;'
+                    f'<span style="background:#1a2233;border:1px solid #38bdf8;'
                     f'border-radius:4px;padding:2px 8px;margin:2px 4px 2px 0;'
-                    f'font-size:11px;color:#00d4ff;display:inline-block;">'
+                    f'font-size:11px;color:#38bdf8;display:inline-block;">'
                     f'{os.path.basename(f)}</span>'
                     for f in self._attached_files
                 )
                 attachment_html = f'<div style="margin-bottom:6px;">{file_chips}</div>'
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#00d4ff;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
+                f"<b style='color:#38bdf8;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
                 f"{attachment_html}"
                 f"{message.replace(chr(10), '<br>')}"
                 f"</div>"
@@ -3339,7 +3339,7 @@ class ClaudeTab(QWidget):
                 ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
                 if not ollama_model:
                     self.chat_display.append(
-                        "<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                        "<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
                         "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
                     )
                     return
@@ -3350,7 +3350,7 @@ class ClaudeTab(QWidget):
             # モデル未設定チェック
             if not model_id:
                 self.chat_display.append(
-                    "<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                    "<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
                     "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
                 )
                 return
@@ -3401,7 +3401,7 @@ class ClaudeTab(QWidget):
                 # v11.5.1: unknown provider → ユーザーガイド表示
                 guide_msg = t('desktop.cloudAI.unknownProviderGuide').format(model_id=model_id)
                 self.chat_display.append(
-                    f"<div style='color: #fbbf24; padding: 8px; border: 1px solid #f59e0b; "
+                    f"<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
                     f"border-radius: 4px;'>&#9888; {guide_msg}</div>"
                 )
 
@@ -3620,7 +3620,7 @@ class ClaudeTab(QWidget):
         rendered = markdown_to_html(response_text)
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#f59e0b;'>GPT-5.3-Codex (CLI):</b><br>"
+            f"<b style='color:#fbbf24;'>GPT-5.3-Codex (CLI):</b><br>"
             f"{rendered}"
             f"</div>"
         )
@@ -3903,7 +3903,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>Claude CLI (Max/Pro):</b><br>"
+                f"<b style='color:#34d399;'>Claude CLI (Max/Pro):</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4193,7 +4193,7 @@ class ClaudeTab(QWidget):
         rendered = markdown_to_html(response_text)
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#00ff88;'>{ollama_model} (Ollama):</b><br>"
+            f"<b style='color:#34d399;'>{ollama_model} (Ollama):</b><br>"
             f"{rendered}"
             f"</div>"
         )
@@ -4309,7 +4309,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>{self.backend.get_name()}:</b><br>"
+                f"<b style='color:#34d399;'>{self.backend.get_name()}:</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4365,7 +4365,7 @@ class ClaudeTab(QWidget):
         # フォールバックがあった場合
         if len(fallback_chain) > 1:
             self.chat_display.append(
-                f"<div style='color: #f59e0b; font-size: 9pt;'>"
+                f"<div style='color: #fbbf24; font-size: 9pt;'>"
                 f"[Fallback] {' → '.join(fallback_chain)}"
                 f"</div>"
             )
@@ -4387,7 +4387,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>{selected_backend}:</b><br>"
+                f"<b style='color:#34d399;'>{selected_backend}:</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4459,7 +4459,7 @@ class ClaudeTab(QWidget):
             if policy_blocked:
                 # ポリシーブロック
                 self.chat_display.append(
-                    f"<div style='color: #f59e0b; margin-top: 10px;'>"
+                    f"<div style='color: #fbbf24; margin-top: 10px;'>"
                     f"<b>{t('desktop.cloudAI.policyBlockHtml')}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}<br><br>"
                     f"{t('desktop.cloudAI.getApprovalRetry')}"
@@ -4972,7 +4972,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>{t('desktop.cloudAI.cliContinueLabel')}</b><br>"
+                f"<b style='color:#34d399;'>{t('desktop.cloudAI.cliContinueLabel')}</b><br>"
                 f"{rendered}"
                 f"</div>"
             )

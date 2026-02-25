@@ -53,8 +53,8 @@ class HistoryTab(QWidget):
         filter_bar = QFrame()
         filter_bar.setStyleSheet("""
             QFrame {
-                background: #1a1a2e;
-                border: 1px solid #333;
+                background: #131921;
+                border: 1px solid #334155;
                 border-radius: 6px;
                 padding: 6px;
             }
@@ -71,10 +71,10 @@ class HistoryTab(QWidget):
         self.search_input.setStyleSheet("""
             QLineEdit {
                 background: #0d1117; color: #e6edf3;
-                border: 1px solid #333; border-radius: 4px;
+                border: 1px solid #334155; border-radius: 4px;
                 padding: 6px 10px; font-size: 12px;
             }
-            QLineEdit:focus { border-color: #00d4ff; }
+            QLineEdit:focus { border-color: #38bdf8; }
         """)
         self.search_input.returnPressed.connect(self._refresh_data)
         filter_layout.addWidget(self.search_input, stretch=2)
@@ -89,7 +89,7 @@ class HistoryTab(QWidget):
         self.tab_filter.setStyleSheet("""
             QComboBox {
                 background: #0d1117; color: #e6edf3;
-                border: 1px solid #333; border-radius: 4px;
+                border: 1px solid #334155; border-radius: 4px;
                 padding: 4px 8px; font-size: 11px; min-width: 100px;
             }
         """)
@@ -103,7 +103,7 @@ class HistoryTab(QWidget):
         self.sort_combo.setStyleSheet("""
             QComboBox {
                 background: #0d1117; color: #e6edf3;
-                border: 1px solid #333; border-radius: 4px;
+                border: 1px solid #334155; border-radius: 4px;
                 padding: 4px 8px; font-size: 11px; min-width: 90px;
             }
         """)
@@ -116,8 +116,8 @@ class HistoryTab(QWidget):
         self.refresh_btn.setToolTip("Refresh")
         self.refresh_btn.setStyleSheet("""
             QPushButton {
-                background: transparent; color: #00d4ff;
-                border: 1px solid #333; border-radius: 4px;
+                background: transparent; color: #38bdf8;
+                border: 1px solid #334155; border-radius: 4px;
                 font-size: 14px;
             }
             QPushButton:hover { background: rgba(0, 212, 255, 0.1); }
@@ -136,7 +136,7 @@ class HistoryTab(QWidget):
         self.chat_list_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.chat_list_area.setStyleSheet(
-            "QScrollArea { background: #0d1117; border: 1px solid #333; border-radius: 4px; }"
+            "QScrollArea { background: #0d1117; border: 1px solid #334155; border-radius: 4px; }"
             + SCROLLBAR_STYLE
         )
         self.chat_list_widget = QWidget()
@@ -157,7 +157,7 @@ class HistoryTab(QWidget):
         self.detail_display.setStyleSheet("""
             QTextEdit {
                 background: #0d1117; color: #e6edf3;
-                border: 1px solid #333; border-radius: 4px;
+                border: 1px solid #334155; border-radius: 4px;
                 padding: 12px; font-size: 13px;
             }
         """ + SCROLLBAR_STYLE)
@@ -169,8 +169,8 @@ class HistoryTab(QWidget):
         self.copy_btn = QPushButton("📋 " + t('desktop.history.copyMessage'))
         self.copy_btn.setStyleSheet("""
             QPushButton {
-                background: transparent; color: #00d4ff;
-                border: 1px solid #00d4ff; border-radius: 4px;
+                background: transparent; color: #38bdf8;
+                border: 1px solid #38bdf8; border-radius: 4px;
                 padding: 4px 12px; font-size: 11px;
             }
             QPushButton:hover { background: rgba(0, 212, 255, 0.1); }
@@ -181,8 +181,8 @@ class HistoryTab(QWidget):
         self.quote_btn = QPushButton("📎 " + t('desktop.history.quoteToTab'))
         self.quote_btn.setStyleSheet("""
             QPushButton {
-                background: transparent; color: #00ff88;
-                border: 1px solid #00ff88; border-radius: 4px;
+                background: transparent; color: #34d399;
+                border: 1px solid #34d399; border-radius: 4px;
                 padding: 4px 12px; font-size: 11px;
             }
             QPushButton:hover { background: rgba(0, 255, 136, 0.1); }
@@ -243,7 +243,7 @@ class HistoryTab(QWidget):
             # 日付ヘッダー
             date_label = QLabel(f"📅 {date_str}")
             date_label.setStyleSheet(
-                "color: #888; font-size: 11px; font-weight: bold; "
+                "color: #94a3b8; font-size: 11px; font-weight: bold; "
                 "padding: 6px 4px 2px 4px;"
             )
             self.chat_list_layout.insertWidget(insert_idx, date_label)
@@ -260,12 +260,12 @@ class HistoryTab(QWidget):
         card.setStyleSheet("""
             QFrame {
                 background: #161b22;
-                border: 1px solid #2a2a3e;
+                border: 1px solid #1e2d42;
                 border-radius: 6px;
                 padding: 8px;
             }
             QFrame:hover {
-                border-color: #00d4ff;
+                border-color: #38bdf8;
                 background: #1a2030;
             }
         """)
@@ -287,12 +287,12 @@ class HistoryTab(QWidget):
         time_str = ts[11:16] if len(ts) >= 16 else ""
 
         tab_label = QLabel(f"{tab_icon} {tab_name}")
-        tab_label.setStyleSheet("color: #00d4ff; font-size: 10px; font-weight: bold;")
+        tab_label.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: bold;")
         header.addWidget(tab_label)
 
         if model:
             model_label = QLabel(f"| {model}")
-            model_label.setStyleSheet("color: #888; font-size: 10px;")
+            model_label.setStyleSheet("color: #94a3b8; font-size: 10px;")
             header.addWidget(model_label)
 
         header.addStretch()
@@ -337,15 +337,15 @@ class HistoryTab(QWidget):
 
         html = f"""
         <div style="padding: 8px;">
-            <div style="color: #00d4ff; font-size: 12px; margin-bottom: 8px;">
+            <div style="color: #38bdf8; font-size: 12px; margin-bottom: 8px;">
                 <b>{role_icon}</b> | {tab} | {model} | {ts}
             </div>
         """
 
         if duration:
-            html += f'<div style="color: #888; font-size: 10px; margin-bottom: 4px;">⏱ {duration:.0f}ms</div>'
+            html += f'<div style="color: #94a3b8; font-size: 10px; margin-bottom: 4px;">⏱ {duration:.0f}ms</div>'
         if session:
-            html += f'<div style="color: #888; font-size: 10px; margin-bottom: 8px;">🔑 Session: {session[:16]}...</div>'
+            html += f'<div style="color: #94a3b8; font-size: 10px; margin-bottom: 8px;">🔑 Session: {session[:16]}...</div>'
 
         html += f"""
             <div style="color: #e6edf3; font-size: 13px; line-height: 1.5;

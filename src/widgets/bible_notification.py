@@ -48,7 +48,7 @@ class BibleNotificationWidget(QFrame):
 
         # 情報ラベル
         self.info_label = QLabel("")
-        self.info_label.setStyleSheet("color: #e0e0e0; font-size: 12px;")
+        self.info_label.setStyleSheet("color: #e2e8f0; font-size: 12px;")
         layout.addWidget(self.info_label, stretch=1)
 
         # コンテキストに追加ボタン
@@ -56,8 +56,8 @@ class BibleNotificationWidget(QFrame):
         self.btn_add.setStyleSheet("""
             QPushButton {
                 background: rgba(0, 212, 255, 0.15);
-                color: #00d4ff;
-                border: 1px solid #00d4ff;
+                color: #38bdf8;
+                border: 1px solid #38bdf8;
                 border-radius: 4px;
                 padding: 3px 10px;
                 font-size: 11px;
@@ -75,13 +75,13 @@ class BibleNotificationWidget(QFrame):
         self.btn_dismiss.setStyleSheet("""
             QPushButton {
                 background: transparent;
-                color: #888;
+                color: #94a3b8;
                 border: none;
                 font-size: 14px;
                 font-weight: bold;
             }
             QPushButton:hover {
-                color: #ff6666;
+                color: #f87171;
             }
         """)
         self.btn_dismiss.clicked.connect(self._on_dismiss)

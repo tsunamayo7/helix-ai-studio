@@ -23,15 +23,15 @@ logger = logging.getLogger(__name__)
 # ─── カラー定数 ───
 BG_DARK = "#0a0e14"
 BG_ITEM = "#111827"
-BG_HOVER = "#1f2937"
+BG_HOVER = "#131921"
 BG_SELECTED = "#064e3b"
 BADGE_SOLO = "#0891b2"
 BADGE_MIX = "#7c3aed"
 TEXT_PRIMARY = "#e5e7eb"
 TEXT_SECONDARY = "#9ca3af"
 TEXT_MUTED = "#6b7280"
-BORDER_COLOR = "#1f2937"
-ACCENT_CYAN = "#00d4ff"
+BORDER_COLOR = "#131921"
+ACCENT_CYAN = "#38bdf8"
 
 
 class ChatItemWidget(QFrame):
@@ -275,7 +275,7 @@ class ChatHistoryPanel(QDockWidget):
                 border-radius: 3px;
             }}
             QScrollBar::handle:vertical {{
-                background: #333;
+                background: #334155;
                 border-radius: 3px;
                 min-height: 20px;
             }}

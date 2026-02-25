@@ -78,7 +78,7 @@ class ManageModelsDialog(QMessageBox):
         super().__init__(parent)
         self.phase_key = phase_key
         self.setWindowTitle(t('desktop.mixAI.manageModelsTitle'))
-        self.setStyleSheet("background-color: #1e1e2e; color: #e0e0e0;")
+        self.setStyleSheet("background-color: #1e1e2e; color: #e2e8f0;")
         self._models = self._load_custom_models()
         self._build_ui()
 
@@ -110,7 +110,7 @@ class ManageModelsDialog(QMessageBox):
         self.dlg = QDialog(self.parent())
         self.dlg.setWindowTitle(t('desktop.mixAI.manageModelsTitle'))
         self.dlg.setMinimumWidth(400)
-        self.dlg.setStyleSheet("background-color: #1e1e2e; color: #e0e0e0;")
+        self.dlg.setStyleSheet("background-color: #1e1e2e; color: #e2e8f0;")
         layout = QVBoxLayout(self.dlg)
 
         desc = QLabel(t('desktop.mixAI.manageModelsDesc'))
@@ -121,7 +121,7 @@ class ManageModelsDialog(QMessageBox):
         # モデルリスト
         self.model_list = QListWidget()
         self.model_list.setStyleSheet("""
-            QListWidget { background-color: #1a1a2e; color: #e0e0e0; border: 1px solid #4a5568; }
+            QListWidget { background-color: #131921; color: #e2e8f0; border: 1px solid #2a3f5a; }
             QListWidget::item { padding: 4px; }
         """)
         phase_vis = self._models.get("phase_visibility", {}).get(self.phase_key, {})
@@ -156,7 +156,7 @@ class ManageModelsDialog(QMessageBox):
         add_row = QHBoxLayout()
         self.add_edit = QLineEdit()
         self.add_edit.setPlaceholderText(t('desktop.mixAI.manageModelsAddPlaceholder'))
-        self.add_edit.setStyleSheet("background-color: #1a1a2e; color: #e0e0e0; border: 1px solid #4a5568; padding: 4px;")
+        self.add_edit.setStyleSheet("background-color: #131921; color: #e2e8f0; border: 1px solid #2a3f5a; padding: 4px;")
         add_row.addWidget(self.add_edit)
         add_btn = QPushButton(t('desktop.mixAI.manageModelsAddBtn'))
         add_btn.setStyleSheet("background-color: #2d5a3d; color: white; padding: 4px 12px; border-radius: 4px;")
@@ -167,7 +167,7 @@ class ManageModelsDialog(QMessageBox):
         # OK/Cancel
         btn_row = QHBoxLayout()
         ok_btn = QPushButton("OK")
-        ok_btn.setStyleSheet("background-color: #4a5568; color: white; padding: 6px 16px; border-radius: 4px;")
+        ok_btn.setStyleSheet("background-color: #2a3f5a; color: white; padding: 6px 16px; border-radius: 4px;")
         ok_btn.clicked.connect(self._on_ok)
         cancel_btn = QPushButton(t('common.cancel'))
         cancel_btn.setStyleSheet("background-color: #3d3d5c; color: white; padding: 6px 16px; border-radius: 4px;")
@@ -339,8 +339,8 @@ class MixAIAttachmentWidget(QFrame):
         self.setFrameStyle(QFrame.Shape.StyledPanel)
         self.setStyleSheet("""
             MixAIAttachmentWidget {
-                background-color: #2d3748;
-                border: 1px solid #4a5568;
+                background-color: #1a2233;
+                border: 1px solid #2a3f5a;
                 border-radius: 6px;
                 padding: 2px 6px;
             }
@@ -1215,7 +1215,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#00d4ff;'>You:</b> {message}"
+                f"<b style='color:#38bdf8;'>You:</b> {message}"
                 f"</div>"
             )
         if hasattr(self, 'input_text'):
@@ -1270,9 +1270,9 @@ class HelixOrchestratorTab(QWidget):
                 self.chat_display.clear()
                 for msg in messages:
                     if msg["role"] == "user":
-                        self.chat_display.append(f'<div style="background:#1a2a3e; border-left:3px solid #00d4ff; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
+                        self.chat_display.append(f'<div style="background:#1a2233; border-left:3px solid #38bdf8; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
                     elif msg["role"] == "assistant":
-                        self.chat_display.append(f'<div style="background:#1a1a2e; border-left:3px solid #00ff88; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
+                        self.chat_display.append(f'<div style="background:#131921; border-left:3px solid #34d399; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
             self.statusChanged.emit(t('desktop.mixAI.chatLoaded', title=chat.get("title", "")))
         except Exception as e:
             logger.warning(f"Failed to load chat from history: {e}")
@@ -1476,7 +1476,7 @@ class HelixOrchestratorTab(QWidget):
         self.chat_display.setPlaceholderText(t('desktop.mixAI.outputPlaceholder'))
         self.chat_display.setStyleSheet(
             "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e0e0e0; }" + SCROLLBAR_STYLE
+            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
         )
         self.chat_display.textChanged.connect(self._auto_scroll_chat)
         layout.addWidget(self.chat_display, stretch=1)
@@ -1633,8 +1633,8 @@ class HelixOrchestratorTab(QWidget):
         frame = QFrame()
         frame.setStyleSheet("""
             QFrame {
-                background-color: #1a1a2e;
-                border: 1px solid #2a2a3e;
+                background-color: #131921;
+                border: 1px solid #1e2d42;
                 border-radius: 6px;
                 padding: 4px;
             }
@@ -1645,7 +1645,7 @@ class HelixOrchestratorTab(QWidget):
 
         # ヘッダ
         self.mixai_continue_header = QLabel(t('desktop.mixAI.continueHeader'))
-        self.mixai_continue_header.setStyleSheet("color: #4fc3f7; font-weight: bold; font-size: 11px; border: none;")
+        self.mixai_continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px; border: none;")
         layout.addWidget(self.mixai_continue_header)
 
         self.mixai_continue_sub = QLabel(t('desktop.mixAI.continueSub'))
@@ -1983,9 +1983,9 @@ class HelixOrchestratorTab(QWidget):
         self.refresh_phase_models_btn = QPushButton(t('desktop.mixAI.refreshPhaseModelsBtn'))
         self.refresh_phase_models_btn.setToolTip(t('desktop.mixAI.refreshPhaseModelsTip'))
         self.refresh_phase_models_btn.setStyleSheet(
-            "QPushButton { background: #2d3748; color: #00d4ff; border: 1px solid #00d4ff; "
+            "QPushButton { background: #1a2233; color: #38bdf8; border: 1px solid #38bdf8; "
             "border-radius: 4px; padding: 8px 16px; font-size: 12px; font-weight: bold; }"
-            "QPushButton:hover { background: #4a5568; }"
+            "QPushButton:hover { background: #2a3f5a; }"
         )
         self.refresh_phase_models_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.refresh_phase_models_btn.clicked.connect(self._refresh_all_phase_combos)
@@ -2088,7 +2088,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#00d4ff;'>You:</b> {prompt}"
+                f"<b style='color:#38bdf8;'>You:</b> {prompt}"
                 f"</div>"
             )
 
@@ -2410,10 +2410,10 @@ class HelixOrchestratorTab(QWidget):
 
         # v10.1.0: Phase開始バブルをchat_displayに追加
         if hasattr(self, 'chat_display'):
-            phase_colors = {1: "#4fc3f7", 2: "#a78bfa", 3: "#00ff88"}
+            phase_colors = {1: "#38bdf8", 2: "#818cf8", 3: "#34d399"}
             color = phase_colors.get(phase_num, "#888")
             self.chat_display.append(
-                f"<div style='background:#1a1a2e; border-left:3px solid {color}; "
+                f"<div style='background:#131921; border-left:3px solid {color}; "
                 f"padding:8px; margin:4px; border-radius:4px;'>"
                 f"<b style='color:{color};'>Phase {phase_num}:</b> {description}"
                 f"</div>"
@@ -2890,7 +2890,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#00ff88;'>{t('desktop.mixAI.phase3FinalBubbleTitle')}</b><br>"
+                f"<b style='color:#34d399;'>{t('desktop.mixAI.phase3FinalBubbleTitle')}</b><br>"
                 f"{rendered}"
                 f"</div>"
             )

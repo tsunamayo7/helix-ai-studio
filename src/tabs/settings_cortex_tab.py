@@ -174,7 +174,7 @@ class SettingsCortexTab(QWidget):
     def _update_lang_button_styles(self, current_lang: str):
         """言語ボタンのスタイルを更新"""
         active_style = "background-color: #059669; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
-        inactive_style = "background-color: #2d2d2d; color: #888; padding: 8px 20px; border-radius: 6px;"
+        inactive_style = "background-color: #2d2d2d; color: #94a3b8; padding: 8px 20px; border-radius: 6px;"
         self.lang_ja_btn.setStyleSheet(active_style if current_lang == 'ja' else inactive_style)
         self.lang_en_btn.setStyleSheet(active_style if current_lang == 'en' else inactive_style)
 
@@ -454,7 +454,7 @@ class SettingsCortexTab(QWidget):
 
         # CLI状態ラベル
         self.cli_status_label = QLabel("")
-        self.cli_status_label.setStyleSheet("color: #888;")
+        self.cli_status_label.setStyleSheet("color: #94a3b8;")
         layout.addWidget(self.cli_status_label)
 
         # SDK移行に伴い、CLIステータスグループを非表示にする
@@ -626,7 +626,7 @@ class SettingsCortexTab(QWidget):
                 if gpus:
                     gpu_texts = [t('desktop.settings.gpuDetected', name=g[1], vram=g[2]) for g in gpus]
                     self.gpu_detect_label.setText("\n".join(gpu_texts))
-                    self.gpu_detect_label.setStyleSheet("color: #00ff88; font-size: 11px;")
+                    self.gpu_detect_label.setStyleSheet("color: #34d399; font-size: 11px;")
 
                     # GPU2枚以上の場合: 実行先選択を表示
                     if len(gpus) >= 2:
@@ -916,7 +916,7 @@ class SettingsCortexTab(QWidget):
 
         # 記憶統計
         self.stats_title_label = QLabel(t('desktop.settings.memoryStats'))
-        self.stats_title_label.setStyleSheet("font-weight: bold; color: #00d4ff;")
+        self.stats_title_label.setStyleSheet("font-weight: bold; color: #38bdf8;")
         layout.addWidget(self.stats_title_label)
 
         self.memory_stats_label = QLabel(t('desktop.settings.memoryStatsDefault'))
@@ -1104,14 +1104,14 @@ class SettingsCortexTab(QWidget):
         toggle_row.addWidget(self.web_ui_toggle)
 
         self.web_ui_status_label = QLabel(t('desktop.settings.webStopped'))
-        self.web_ui_status_label.setStyleSheet("color: #888; font-size: 12px;")
+        self.web_ui_status_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
         toggle_row.addWidget(self.web_ui_status_label)
         toggle_row.addStretch()
         layout.addLayout(toggle_row)
 
         # アクセスURL表示
         self.web_ui_url_label = QLabel("")
-        self.web_ui_url_label.setStyleSheet("color: #00d4ff; font-size: 12px;")
+        self.web_ui_url_label.setStyleSheet("color: #38bdf8; font-size: 12px;")
         self.web_ui_url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         layout.addWidget(self.web_ui_url_label)
 
@@ -1143,7 +1143,7 @@ class SettingsCortexTab(QWidget):
         # v11.0.0: パスワード設定ボタン
         self.web_password_btn = QPushButton(t('desktop.settings.webPasswordBtn'))
         self.web_password_btn.setStyleSheet("""
-            QPushButton { background: #2d3748; color: #e0e0e0; border: 1px solid #4a5568;
+            QPushButton { background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
                 border-radius: 4px; padding: 6px 14px; font-size: 11px; margin-top: 6px; }
             QPushButton:hover { background: #4a5568; }
         """)
@@ -1160,8 +1160,8 @@ class SettingsCortexTab(QWidget):
         self.discord_webhook_edit.setPlaceholderText(t('desktop.settings.discordWebhookPlaceholder'))
         self.discord_webhook_edit.setStyleSheet("""
             QLineEdit {
-                background-color: #1a1a2e;
-                color: #e0e0e0;
+                background-color: #131921;
+                color: #e2e8f0;
                 border: 1px solid #4a5568;
                 border-radius: 4px;
                 padding: 6px 8px;
@@ -1186,7 +1186,7 @@ class SettingsCortexTab(QWidget):
             }
             QPushButton:disabled {
                 background-color: #3d3d5c;
-                color: #888;
+                color: #94a3b8;
             }
         """)
         self.discord_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1481,7 +1481,7 @@ class SettingsCortexTab(QWidget):
         url = self.ollama_conn_url_edit.text().strip()
         if not url:
             self.ollama_conn_status.setText(t('desktop.settings.ollamaNoUrl'))
-            self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+            self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
             return
         try:
             import httpx
@@ -1490,13 +1490,13 @@ class SettingsCortexTab(QWidget):
                 models = resp.json().get("models", [])
                 model_names = [m.get("name", "?") for m in models[:5]]
                 self.ollama_conn_status.setText(t('desktop.settings.ollamaConnected', count=len(models), models=", ".join(model_names)))
-                self.ollama_conn_status.setStyleSheet("color: #00ff88; font-size: 11px;")
+                self.ollama_conn_status.setStyleSheet("color: #34d399; font-size: 11px;")
             else:
                 self.ollama_conn_status.setText(t('desktop.settings.ollamaFailed', status=resp.status_code))
-                self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+                self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
         except Exception as e:
             self.ollama_conn_status.setText(t('desktop.settings.ollamaError', error=str(e)[:80]))
-            self.ollama_conn_status.setStyleSheet("color: #ff6666; font-size: 11px;")
+            self.ollama_conn_status.setStyleSheet("color: #f87171; font-size: 11px;")
 
     # ========================================
     # シグナル接続 + 設定保存/読み込み

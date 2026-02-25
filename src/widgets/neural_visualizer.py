@@ -70,16 +70,16 @@ class PhaseNode(QGraphicsEllipseItem):
     # 状態別カラー定義（Cyberpunk Minimal）
     STATE_COLORS = {
         PhaseState.IDLE: QColor("#3d3d3d"),       # ダークグレー
-        PhaseState.RUNNING: QColor("#00d4ff"),    # ネオンシアン
-        PhaseState.COMPLETED: QColor("#00ff88"),  # ネオングリーン
+        PhaseState.RUNNING: QColor("#38bdf8"),    # ネオンシアン
+        PhaseState.COMPLETED: QColor("#34d399"),  # ネオングリーン
         PhaseState.FAILED: QColor("#ff4757"),     # ネオンレッド
         PhaseState.SKIPPED: QColor("#ffa502"),    # ネオンオレンジ
     }
 
     GLOW_COLORS = {
         PhaseState.IDLE: QColor(61, 61, 61, 50),
-        PhaseState.RUNNING: QColor(0, 212, 255, 150),
-        PhaseState.COMPLETED: QColor(0, 255, 136, 100),
+        PhaseState.RUNNING: QColor(56, 189, 248, 150),
+        PhaseState.COMPLETED: QColor(52, 211, 153, 100),
         PhaseState.FAILED: QColor(255, 71, 87, 100),
         PhaseState.SKIPPED: QColor(255, 165, 2, 80),
     }
@@ -244,7 +244,7 @@ class ConnectionLine(QGraphicsPathItem):
         """外観を更新"""
         if active:
             # 活性化時（データフロー中）
-            pen = QPen(QColor("#00d4ff"), 3)
+            pen = QPen(QColor("#38bdf8"), 3)
             pen.setStyle(Qt.PenStyle.SolidLine)
         else:
             # 非活性時
@@ -318,12 +318,12 @@ class PhaseDetailDialog(QDialog):
 
         if self.phase_data.model:
             model_label = QLabel(f"🤖 {self.phase_data.model}")
-            model_label.setStyleSheet("color: #00d4ff;")
+            model_label.setStyleSheet("color: #38bdf8;")
             meta_layout.addWidget(model_label)
 
         if self.phase_data.execution_time_ms > 0:
             time_label = QLabel(f"⏱️ {self.phase_data.execution_time_ms:.0f}ms")
-            time_label.setStyleSheet("color: #00ff88;")
+            time_label.setStyleSheet("color: #34d399;")
             meta_layout.addWidget(time_label)
 
         state_text = self.phase_data.state.value.upper()
@@ -345,7 +345,7 @@ class PhaseDetailDialog(QDialog):
         self.output_text.setStyleSheet("""
             QTextEdit {
                 background-color: #1a1a1a;
-                color: #e0e0e0;
+                color: #e2e8f0;
                 border: 1px solid #3d3d3d;
                 border-radius: 6px;
                 padding: 8px;
@@ -398,7 +398,7 @@ class PhaseDetailDialog(QDialog):
             }
             QPushButton:hover {
                 background-color: #4a4a4a;
-                border-color: #00d4ff;
+                border-color: #38bdf8;
             }
         """)
 
@@ -685,8 +685,8 @@ class NeuralFlowCompactWidget(QWidget):
         """状態に応じたラベルスタイルを取得"""
         colors = {
             PhaseState.IDLE: "#6b6b6b",
-            PhaseState.RUNNING: "#00d4ff",
-            PhaseState.COMPLETED: "#00ff88",
+            PhaseState.RUNNING: "#38bdf8",
+            PhaseState.COMPLETED: "#34d399",
             PhaseState.FAILED: "#ff4757",
             PhaseState.SKIPPED: "#ffa502",
         }

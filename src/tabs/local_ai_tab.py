@@ -240,7 +240,7 @@ class LocalAITab(QWidget):
         header.addWidget(self.local_title)
 
         self.model_label = QLabel(t('desktop.localAI.modelLabel'))
-        self.model_label.setStyleSheet("color: #888; font-size: 11px;")
+        self.model_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
         header.addWidget(self.model_label)
 
         self.model_combo = NoScrollComboBox()
@@ -271,8 +271,8 @@ class LocalAITab(QWidget):
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))
         self.chat_display.setPlaceholderText(t('desktop.localAI.chatReady'))
         self.chat_display.setStyleSheet(
-            "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e0e0e0; }" + SCROLLBAR_STYLE
+            "QTextEdit { background-color: #080c14; border: none; "
+            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
         )
         chat_layout.addWidget(self.chat_display, stretch=1)
 
@@ -295,7 +295,7 @@ class LocalAITab(QWidget):
         self.input_field.setMinimumHeight(40)  # v11.5.2: cloudAI統一
         self.input_field.setMaximumHeight(150)
         self.input_field.setStyleSheet(
-            "QTextEdit { background: #252526; color: #e0e0e0; border: none; "
+            "QTextEdit { background: #252526; color: #e2e8f0; border: none; "
             "padding: 8px; }" + SCROLLBAR_STYLE  # v11.5.2: cloudAI統一スタイル
         )
         left_layout.addWidget(self.input_field)
@@ -360,8 +360,8 @@ class LocalAITab(QWidget):
         frame = QFrame()
         frame.setStyleSheet("""
             QFrame {
-                background-color: #1a1a2e;
-                border: 1px solid #2a2a3e;
+                background-color: #131921;
+                border: 1px solid #1e2d42;
                 border-radius: 6px; padding: 4px;
             }
         """)
@@ -370,11 +370,11 @@ class LocalAITab(QWidget):
         layout.setSpacing(6)
 
         self.continue_header = QLabel(t('desktop.localAI.continueHeader'))
-        self.continue_header.setStyleSheet("color: #4fc3f7; font-weight: bold; font-size: 11px; border: none;")
+        self.continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px; border: none;")
         layout.addWidget(self.continue_header)
 
         self.continue_sub = QLabel(t('desktop.localAI.continueSub'))
-        self.continue_sub.setStyleSheet("color: #888; font-size: 10px; border: none;")
+        self.continue_sub.setStyleSheet("color: #94a3b8; font-size: 10px; border: none;")
         self.continue_sub.setWordWrap(True)
         layout.addWidget(self.continue_sub)
 
@@ -455,7 +455,7 @@ class LocalAITab(QWidget):
             else t('desktop.localAI.ollamaNotInstalled')
         )
         self.ollama_status_label.setStyleSheet(
-            "color: #00ff88; font-weight: bold;" if ollama_installed
+            "color: #34d399; font-weight: bold;" if ollama_installed
             else "color: #ef4444; font-weight: bold;"
         )
         ollama_layout.addWidget(self.ollama_status_label)
@@ -665,7 +665,7 @@ class LocalAITab(QWidget):
         # ユーザーメッセージ表示
         self.chat_display.append(
             f"<div style='{USER_MESSAGE_STYLE}'>"
-            f"<b style='color:#00d4ff;'>You:</b> {message}"
+            f"<b style='color:#38bdf8;'>You:</b> {message}"
             f"</div>"
         )
 
@@ -696,7 +696,7 @@ class LocalAITab(QWidget):
         # ストリーミングバブル開始
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#00ff88;'>{model}:</b> "
+            f"<b style='color:#34d399;'>{model}:</b> "
         )
         self._streaming_div_open = True
 
