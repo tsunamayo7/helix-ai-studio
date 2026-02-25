@@ -6,7 +6,7 @@
 **Claude中心のマルチモデルAIオーケストレーション デュアルインターフェースアプリ (Desktop + Web)**
 Claude Code CLIを「頭脳」、ローカルLLM（Ollama）を「専門チーム」として配置 — Cyberpunk Minimal GUIとクロスデバイスWeb UIで統合。
 
-![Version](https://img.shields.io/badge/version-11.5.3-00d4ff)
+![Version](https://img.shields.io/badge/version-11.5.4-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -258,6 +258,7 @@ cd ..
 
 | バージョン | コードネーム | 主な変更 |
 |-----------|------------|---------|
+| v11.5.4 | Model Summary + Language Fix | 返答末尾にモデル名表示、mixAI英語応答修正 |
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI (Ollama WebSocket)、Discord通知、cloudAI/localAI表示統一 |
 | v11.5.2 | Visual Parity | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |
 | v11.5.1 | Provider Pure | プロバイダールーティング整理、APIキーセキュリティUI |

@@ -6,7 +6,7 @@
 **Claude-centric multi-model AI orchestration platform with dual interface (Desktop + Web)**
 Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI with cross-device Web UI.
 
-![Version](https://img.shields.io/badge/version-11.5.3-00d4ff)
+![Version](https://img.shields.io/badge/version-11.5.4-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -284,6 +284,7 @@ Helix AI Studio/
 
 | Version | Codename | Highlights |
 |---------|----------|------------|
+| v11.5.4 | Model Summary + Language Fix | Model name in responses, English language fix for mixAI |
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI tab (Ollama WebSocket), Discord notifications, visual parity cloudAI/localAI |
 | v11.5.2 | Visual Parity | Log rotation, path traversal fix, brute-force login protection, auto-cleanup, RAG 2-step |
 | v11.5.1 | Provider Pure | Provider routing cleanup, README API docs, API key security UI |
