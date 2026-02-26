@@ -22,7 +22,7 @@ Tech stack: PyQt6 (desktop), FastAPI + WebSocket (backend), React + Tailwind (we
 
 Beyond the pipeline, the app includes a 4-layer adaptive memory system, RAPTOR multi-level summaries, RAG with vector search, BIBLE-first documentation injection, and a dual interface (desktop + web -- same DB, accessible from phone).
 
-Free, MIT licensed, v11.9.1. Windows, Python 3.12+. Japanese and English UI.
+Free, MIT licensed, v11.9.2. Windows, Python 3.12+. Japanese and English UI.
 
 I have been building this for about a year. The architecture was inspired by the observation that LLMs are better at specific tasks when given structured instructions vs. open-ended prompts -- so the pipeline splits "thinking" from "doing."
 

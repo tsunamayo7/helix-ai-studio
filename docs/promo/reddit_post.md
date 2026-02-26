@@ -28,7 +28,11 @@ I have been working on **Helix AI Studio**, an open-source desktop app that runs
 - Sequential executor handles 32B+ models on a single GPU (load-run-unload)
 - Full Japanese + English i18n
 
-Free, MIT licensed, v11.9.1. Windows, Python 3.12+.
+Free, MIT licensed, v11.9.2. Windows, Python 3.12+.
+
+**What makes this different from LangGraph/CrewAI/AutoGen?** Those are frameworks -- you write Python code to define agents and workflows. Helix is a GUI app. No YAML, no agent code, no framework boilerplate. You type a prompt, pick your models, and the pipeline runs. Settings panels, not config files.
+
+**What makes this different from AnythingLLM/Ollama Web UI?** Those are single-model chat interfaces. Helix routes your prompt through multiple models with different specializations and synthesizes the results automatically.
 
 **GitHub:** https://github.com/tsunamayo7/helix-ai-studio
 
