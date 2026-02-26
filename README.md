@@ -6,13 +6,28 @@
 **Claude-centric multi-model AI orchestration platform with dual interface (Desktop + Web)**
 Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI with cross-device Web UI.
 
-![Version](https://img.shields.io/badge/version-11.9.1-00d4ff)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
+[![Version](https://img.shields.io/badge/version-v11.9.1-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
 > Japanese README: [README_ja.md](README_ja.md)
+
+> **"AI plans, another AI executes, and yet another AI validates"**
+> This pipeline runs in a code-free GUI desktop app.
+
+**Why Helix AI Studio?**
+
+| Problem | Helix's Solution |
+|---------|-----------------|
+| Switching browsers and copy-pasting between AIs is tedious | One app for Claude/GPT/Gemini/Ollama |
+| Don't want to send sensitive data to the cloud | Local LLM (Ollama) mode — zero external transmission |
+| Worried about local LLM quality | Claude auto-validates and integrates (3+1 Phase Pipeline) |
+| Want to use it from my phone too | Built-in Web UI accessible from any device on the same network |
+| English-only UI is hard to use | Full Japanese support (English toggle available) |
 
 ---
 
@@ -418,10 +433,18 @@ Key points:
 
 ---
 
-## Articles (note.com)
+## Articles
 
-- [Introduction & Setup Guide (Japanese)](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) — beginner-friendly app overview and installation walkthrough
-- [Architecture Deep Dive (Japanese)](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) — 3+1 Phase pipeline, dual UI, memory system, security design
+| Article | Audience | Link |
+|---------|----------|------|
+| Introduction & Setup Guide | Beginners — usage, setup | [note](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) |
+| Architecture Deep Dive | Developers — design, pipeline | [note](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
+| v11.9.1 Release Notes | Changelog | [note](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
+
+## Star History
+
+If Helix AI Studio is useful to you, please give it a star!
+Feedback, Issues, and PRs are always welcome.
 
 ---
 
