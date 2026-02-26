@@ -31,13 +31,15 @@ Closes #(issue number)
 
 <!-- Describe the tests you ran to verify your changes -->
 
+- [ ] `python -m py_compile` passes on all modified files
+- [ ] i18n key sync: ja.json / en.json have matching keys
 - [ ] App starts without errors
 - [ ] Tested mixAI tab (if applicable)
-- [ ] Tested soloAI tab (if applicable)
+- [ ] Tested cloudAI tab (if applicable)
+- [ ] Tested localAI tab (if applicable)
 - [ ] Settings persist after restart (if applicable)
-- [ ] BIBLE detection works (if applicable)
-- [ ] Memory system functions correctly (if applicable)
 - [ ] No visual regressions
+- [ ] Visual verification via screenshots
 
 ### Test Configuration
 

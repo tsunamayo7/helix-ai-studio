@@ -12,6 +12,7 @@ from PyQt6.QtGui import QFont
 
 from ...utils.constants import WorkflowPhase
 from ...utils.i18n import t
+from ...utils.styles import COLORS
 from ...utils.style_helpers import SS
 
 
@@ -48,7 +49,7 @@ class WorkflowBar(QFrame):
     def _init_ui(self):
         """UIを初期化"""
         self.setObjectName("workflowFrame")
-        self.setStyleSheet("#workflowFrame { background-color: #2d2d2d; border-bottom: 2px solid #0078d4; }")
+        self.setStyleSheet(f"#workflowFrame {{ background-color: {COLORS['bg_card']}; border-bottom: 2px solid {COLORS['accent_dim']}; }}")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 8, 10, 8)

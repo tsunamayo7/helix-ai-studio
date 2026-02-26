@@ -46,7 +46,7 @@ from ..backends.mix_orchestrator import MixAIOrchestrator
 from ..utils.constants import APP_VERSION, CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL_ID
 from ..utils.markdown_renderer import markdown_to_html
 from ..utils.styles import (
-    SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
+    COLORS, SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
     OUTPUT_AREA_STYLE, INPUT_AREA_STYLE, TAB_BAR_STYLE,
     SCROLLBAR_STYLE, COMBO_BOX_STYLE, PROGRESS_BAR_STYLE,
     SPINBOX_STYLE,
@@ -79,7 +79,7 @@ class ManageModelsDialog(QMessageBox):
         super().__init__(parent)
         self.phase_key = phase_key
         self.setWindowTitle(t('desktop.mixAI.manageModelsTitle'))
-        self.setStyleSheet("background-color: #1e1e2e; color: #e2e8f0;")
+        self.setStyleSheet(f"background-color: {COLORS['bg_elevated']}; color: {COLORS['text_primary']};")
         self._models = self._load_custom_models()
         self._build_ui()
 
@@ -111,7 +111,7 @@ class ManageModelsDialog(QMessageBox):
         self.dlg = QDialog(self.parent())
         self.dlg.setWindowTitle(t('desktop.mixAI.manageModelsTitle'))
         self.dlg.setMinimumWidth(400)
-        self.dlg.setStyleSheet("background-color: #1e1e2e; color: #e2e8f0;")
+        self.dlg.setStyleSheet(f"background-color: {COLORS['bg_elevated']}; color: {COLORS['text_primary']};")
         layout = QVBoxLayout(self.dlg)
 
         desc = QLabel(t('desktop.mixAI.manageModelsDesc'))
@@ -121,9 +121,9 @@ class ManageModelsDialog(QMessageBox):
 
         # モデルリスト
         self.model_list = QListWidget()
-        self.model_list.setStyleSheet("""
-            QListWidget { background-color: #131921; color: #e2e8f0; border: 1px solid #2a3f5a; }
-            QListWidget::item { padding: 4px; }
+        self.model_list.setStyleSheet(f"""
+            QListWidget {{ background-color: {COLORS['bg_card']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border_strong']}; }}
+            QListWidget::item {{ padding: 4px; }}
         """)
         phase_vis = self._models.get("phase_visibility", {}).get(self.phase_key, {})
 
@@ -157,10 +157,10 @@ class ManageModelsDialog(QMessageBox):
         add_row = QHBoxLayout()
         self.add_edit = QLineEdit()
         self.add_edit.setPlaceholderText(t('desktop.mixAI.manageModelsAddPlaceholder'))
-        self.add_edit.setStyleSheet("background-color: #131921; color: #e2e8f0; border: 1px solid #2a3f5a; padding: 4px;")
+        self.add_edit.setStyleSheet(f"background-color: {COLORS['bg_card']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border_strong']}; padding: 4px;")
         add_row.addWidget(self.add_edit)
         add_btn = QPushButton(t('desktop.mixAI.manageModelsAddBtn'))
-        add_btn.setStyleSheet("background-color: #2d5a3d; color: white; padding: 4px 12px; border-radius: 4px;")
+        add_btn.setStyleSheet(f"background-color: {COLORS['success_bg']}; color: white; padding: 4px 12px; border-radius: 4px;")
         add_btn.clicked.connect(self._add_manual_model)
         add_row.addWidget(add_btn)
         layout.addLayout(add_row)
@@ -168,10 +168,10 @@ class ManageModelsDialog(QMessageBox):
         # OK/Cancel
         btn_row = QHBoxLayout()
         ok_btn = QPushButton("OK")
-        ok_btn.setStyleSheet("background-color: #2a3f5a; color: white; padding: 6px 16px; border-radius: 4px;")
+        ok_btn.setStyleSheet(f"background-color: {COLORS['border_strong']}; color: white; padding: 6px 16px; border-radius: 4px;")
         ok_btn.clicked.connect(self._on_ok)
         cancel_btn = QPushButton(t('common.cancel'))
-        cancel_btn.setStyleSheet("background-color: #3d3d5c; color: white; padding: 6px 16px; border-radius: 4px;")
+        cancel_btn.setStyleSheet(f"background-color: {COLORS['border_strong']}; color: white; padding: 6px 16px; border-radius: 4px;")
         cancel_btn.clicked.connect(self.dlg.reject)
         btn_row.addStretch()
         btn_row.addWidget(ok_btn)
@@ -338,16 +338,16 @@ class MixAIAttachmentWidget(QFrame):
         super().__init__(parent)
         self.filepath = filepath
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            MixAIAttachmentWidget {
-                background-color: #1a2233;
-                border: 1px solid #2a3f5a;
+        self.setStyleSheet(f"""
+            MixAIAttachmentWidget {{
+                background-color: {COLORS['bg_elevated']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 6px;
                 padding: 2px 6px;
-            }
-            MixAIAttachmentWidget:hover {
-                border-color: #63b3ed;
-            }
+            }}
+            MixAIAttachmentWidget:hover {{
+                border-color: {COLORS['accent_bright']};
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -370,24 +370,24 @@ class MixAIAttachmentWidget(QFrame):
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(20, 20)
         remove_btn.setToolTip(t('desktop.mixAI.removeAttachTip'))
-        remove_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #e53e3e;
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['error']};
                 color: #ffffff;
-                border: 2px solid #fc8181;
+                border: 2px solid {COLORS['error']};
                 border-radius: 10px;
                 font-size: 14px;
                 font-weight: bold;
                 padding: 0px;
-            }
-            QPushButton:hover {
-                background-color: #c53030;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['error_bg']};
                 color: #ffffff;
-                border-color: #feb2b2;
-            }
-            QPushButton:pressed {
-                background-color: #9b2c2c;
-            }
+                border-color: {COLORS['error']};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLORS['error_bg']};
+            }}
         """)
         remove_btn.clicked.connect(lambda: self.removed.emit(self.filepath))
 
@@ -1476,8 +1476,8 @@ class HelixOrchestratorTab(QWidget):
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))  # v11.5.2: 統一
         self.chat_display.setPlaceholderText(t('desktop.mixAI.outputPlaceholder'))
         self.chat_display.setStyleSheet(
-            "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
+            f"QTextEdit {{ background-color: {COLORS['bg_base']}; border: none; "
+            f"padding: 10px; color: {COLORS['text_primary']}; }}" + SCROLLBAR_STYLE
         )
         self.chat_display.textChanged.connect(self._auto_scroll_chat)
         layout.addWidget(self.chat_display, stretch=1)
@@ -1490,19 +1490,19 @@ class HelixOrchestratorTab(QWidget):
         self.tool_log_group.setCheckable(True)
         self.tool_log_group.setChecked(False)
         self.tool_log_group.toggled.connect(self._on_tool_log_toggled)
-        self.tool_log_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #4b5563;
+        self.tool_log_group.setStyleSheet(f"""
+            QGroupBox {{
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 4px;
                 margin-top: 8px;
                 padding-top: 8px;
-            }
-            QGroupBox::title {
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0 5px;
-                color: #9ca3af;
-            }
+                color: {COLORS['text_secondary']};
+            }}
         """)
 
         tool_log_layout = QVBoxLayout()
@@ -1513,13 +1513,13 @@ class HelixOrchestratorTab(QWidget):
         self.tool_log_tree.setColumnWidth(2, 80)
         self.tool_log_tree.setColumnWidth(3, 100)
         self.tool_log_tree.header().setStretchLastSection(True)
-        self.tool_log_tree.setStyleSheet("""
-            QTreeWidget { font-size: 11px; }
-            QTreeWidget::item { padding: 2px 4px; }
-            QHeaderView::section {
-                background-color: #1f2937; color: #9ca3af;
-                padding: 4px 6px; border: 1px solid #374151; font-size: 11px;
-            }
+        self.tool_log_tree.setStyleSheet(f"""
+            QTreeWidget {{ font-size: 11px; }}
+            QTreeWidget::item {{ padding: 2px 4px; }}
+            QHeaderView::section {{
+                background-color: {COLORS['bg_elevated']}; color: {COLORS['text_secondary']};
+                padding: 4px 6px; border: 1px solid {COLORS['border']}; font-size: 11px;
+            }}
         """)
         self.tool_log_tree.setMinimumHeight(80)
         self.tool_log_tree.setMaximumHeight(150)
@@ -1531,7 +1531,7 @@ class HelixOrchestratorTab(QWidget):
         # === 下部: 入力エリア(左) + 会話継続パネル(右) ===
         bottom_frame = QFrame()
         bottom_frame.setObjectName("inputFrame")
-        bottom_frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")
+        bottom_frame.setStyleSheet(f"#inputFrame {{ border-top: 1px solid {COLORS['border']}; }}")
         bottom_layout = QHBoxLayout(bottom_frame)
         bottom_layout.setContentsMargins(10, 5, 10, 5)
         bottom_layout.setSpacing(10)
@@ -1582,13 +1582,13 @@ class HelixOrchestratorTab(QWidget):
         self.bible_btn.setChecked(False)
         self.bible_btn.setFixedHeight(32)
         self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet("""
-            QPushButton { background: transparent; color: #ffa500;
-                border: 1px solid #ffa500; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }
-            QPushButton:checked { background: rgba(255, 165, 0, 0.2);
-                border: 2px solid #ffa500; font-weight: bold; }
-            QPushButton:hover { background: rgba(255, 165, 0, 0.1); }
+        self.bible_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {COLORS['warning']};
+                border: 1px solid {COLORS['warning']}; border-radius: 4px;
+                padding: 4px 12px; font-size: 11px; }}
+            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
+                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
+            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
         """)
         btn_layout.addWidget(self.bible_btn)
 
@@ -1638,13 +1638,13 @@ class HelixOrchestratorTab(QWidget):
     def _create_mixai_continue_panel(self) -> QFrame:
         """v11.0.0: mixAI 会話継続パネル (cloudAIと統一スタイル)"""
         frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: #131921;
-                border: 1px solid #1e2d42;
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
                 border-radius: 6px;
                 padding: 4px;
-            }
+            }}
         """)
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(8, 6, 8, 6)
@@ -1652,11 +1652,11 @@ class HelixOrchestratorTab(QWidget):
 
         # ヘッダ
         self.mixai_continue_header = QLabel(t('desktop.mixAI.continueHeader'))
-        self.mixai_continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px; border: none;")
+        self.mixai_continue_header.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold; font-size: 11px; border: none;")
         layout.addWidget(self.mixai_continue_header)
 
         self.mixai_continue_sub = QLabel(t('desktop.mixAI.continueSub'))
-        self.mixai_continue_sub.setStyleSheet("color: #94a3b8; font-size: 10px; border: none;")
+        self.mixai_continue_sub.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px; border: none;")
         self.mixai_continue_sub.setWordWrap(True)
         layout.addWidget(self.mixai_continue_sub)
 
@@ -1665,10 +1665,10 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_continue_input.setPlaceholderText(t('desktop.mixAI.continuePlaceholder'))
         self.mixai_continue_input.setMinimumHeight(60)
         self.mixai_continue_input.setMaximumHeight(90)
-        self.mixai_continue_input.setStyleSheet("""
-            QPlainTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
-                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }
-            QPlainTextEdit:focus { border-color: #007acc; }
+        self.mixai_continue_input.setStyleSheet(f"""
+            QPlainTextEdit {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border']};
+                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }}
+            QPlainTextEdit:focus {{ border-color: {COLORS['accent_dim']}; }}
         """)
         layout.addWidget(self.mixai_continue_input)
 
@@ -1679,30 +1679,30 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_quick_yes = QPushButton(t('desktop.mixAI.continueYes'))
         self.mixai_quick_yes.setFixedHeight(26)
         self.mixai_quick_yes.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mixai_quick_yes.setStyleSheet("""
-            QPushButton { background-color: #2d8b4e; color: white; border: none;
-                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }
-            QPushButton:hover { background-color: #3d9d56; }
+        self.mixai_quick_yes.setStyleSheet(f"""
+            QPushButton {{ background-color: {COLORS['success_bg']}; color: white; border: none;
+                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {COLORS['success_bg']}; }}
         """)
         self.mixai_quick_yes.clicked.connect(lambda: self._on_continue_with_message("Yes"))
 
         self.mixai_quick_continue = QPushButton(t('desktop.mixAI.continueContinue'))
         self.mixai_quick_continue.setFixedHeight(26)
         self.mixai_quick_continue.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mixai_quick_continue.setStyleSheet("""
-            QPushButton { background-color: #0066aa; color: white; border: none;
-                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }
-            QPushButton:hover { background-color: #1177bb; }
+        self.mixai_quick_continue.setStyleSheet(f"""
+            QPushButton {{ background-color: {COLORS['accent_muted']}; color: white; border: none;
+                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {COLORS['accent_dim']}; }}
         """)
         self.mixai_quick_continue.clicked.connect(lambda: self._on_continue_with_message("Continue"))
 
         self.mixai_quick_execute = QPushButton(t('desktop.mixAI.continueExecute'))
         self.mixai_quick_execute.setFixedHeight(26)
         self.mixai_quick_execute.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mixai_quick_execute.setStyleSheet("""
-            QPushButton { background-color: #6c5ce7; color: white; border: none;
-                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }
-            QPushButton:hover { background-color: #7d6ef8; }
+        self.mixai_quick_execute.setStyleSheet(f"""
+            QPushButton {{ background-color: {COLORS['info']}; color: white; border: none;
+                          border-radius: 4px; padding: 3px 10px; font-size: 10px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {COLORS['info']}; }}
         """)
         self.mixai_quick_execute.clicked.connect(lambda: self._on_continue_with_message("Execute"))
 
@@ -1715,10 +1715,10 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_continue_send_btn = QPushButton(t('desktop.mixAI.continueSend'))
         self.mixai_continue_send_btn.setFixedHeight(32)
         self.mixai_continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.mixai_continue_send_btn.setStyleSheet("""
-            QPushButton { background-color: #0078d4; color: white; border: none;
-                          border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }
-            QPushButton:hover { background-color: #1088e4; }
+        self.mixai_continue_send_btn.setStyleSheet(f"""
+            QPushButton {{ background-color: {COLORS['accent_dim']}; color: white; border: none;
+                          border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {COLORS['accent']}; }}
         """)
         self.mixai_continue_send_btn.clicked.connect(self._on_continue_send)
         layout.addWidget(self.mixai_continue_send_btn)
@@ -1765,7 +1765,7 @@ class HelixOrchestratorTab(QWidget):
 
         # v11.3.0: エンジン説明ラベル
         self.engine_desc_label = QLabel("")
-        self.engine_desc_label.setStyleSheet("color: #94a3b8; font-size: 11px; padding: 2px 0;")
+        self.engine_desc_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px; padding: 2px 0;")
         self.engine_desc_label.setWordWrap(True)
         claude_layout.addRow("", self.engine_desc_label)
 
@@ -1905,7 +1905,7 @@ class HelixOrchestratorTab(QWidget):
         always_load_layout.addLayout(embedding_row)
 
         self.total_vram_label = QLabel(t('desktop.mixAI.totalVramLabel'))
-        self.total_vram_label.setStyleSheet("color: #9ca3af; font-size: 10px; margin-top: 5px;")
+        self.total_vram_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px; margin-top: 5px;")
         always_load_layout.addWidget(self.total_vram_label)
 
         self.always_load_group.setLayout(always_load_layout)
@@ -1990,9 +1990,9 @@ class HelixOrchestratorTab(QWidget):
         self.refresh_phase_models_btn = QPushButton(t('desktop.mixAI.refreshPhaseModelsBtn'))
         self.refresh_phase_models_btn.setToolTip(t('desktop.mixAI.refreshPhaseModelsTip'))
         self.refresh_phase_models_btn.setStyleSheet(
-            "QPushButton { background: #1a2233; color: #38bdf8; border: 1px solid #38bdf8; "
-            "border-radius: 4px; padding: 8px 16px; font-size: 12px; font-weight: bold; }"
-            "QPushButton:hover { background: #2a3f5a; }"
+            f"QPushButton {{ background: {COLORS['bg_elevated']}; color: {COLORS['accent']}; border: 1px solid {COLORS['accent']}; "
+            f"border-radius: 4px; padding: 8px 16px; font-size: 12px; font-weight: bold; }}"
+            f"QPushButton:hover {{ background: {COLORS['border_strong']}; }}"
         )
         self.refresh_phase_models_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.refresh_phase_models_btn.clicked.connect(self._refresh_all_phase_combos)

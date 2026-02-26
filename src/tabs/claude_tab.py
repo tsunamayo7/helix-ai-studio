@@ -80,7 +80,7 @@ from ..routing import get_routing_executor
 from ..utils.constants import CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL_ID, get_claude_model_by_id
 from ..utils.markdown_renderer import markdown_to_html
 from ..utils.styles import (
-    SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
+    COLORS, SECTION_CARD_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
     INPUT_AREA_STYLE, SCROLLBAR_STYLE, TAB_BAR_STYLE,
     USER_MESSAGE_STYLE, AI_MESSAGE_STYLE, SPINBOX_STYLE,
 )
@@ -894,7 +894,7 @@ class ClaudeTab(QWidget):
         # v11.5.0: モデル未設定バナー
         self._no_models_banner = QFrame()
         self._no_models_banner.setStyleSheet(
-            "QFrame { background: #131921; border: 1px solid #fbbf24; border-radius: 6px; padding: 4px; }"
+            f"QFrame {{ background: {COLORS['bg_card']}; border: 1px solid {COLORS['warning']}; border-radius: 6px; padding: 4px; }}"
         )
         banner_layout = QHBoxLayout(self._no_models_banner)
         banner_layout.setContentsMargins(8, 6, 8, 6)
@@ -919,8 +919,8 @@ class ClaudeTab(QWidget):
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))
         self.chat_display.setPlaceholderText(t('desktop.cloudAI.chatReady'))
         self.chat_display.setStyleSheet(
-            "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
+            f"QTextEdit {{ background-color: {COLORS['bg_base']}; border: none; "
+            f"padding: 10px; color: {COLORS['text_primary']}; }}" + SCROLLBAR_STYLE
         )
         # v10.1.0: Auto-scroll to bottom on new content
         self.chat_display.textChanged.connect(self._auto_scroll_chat)
@@ -1017,16 +1017,16 @@ class ClaudeTab(QWidget):
 
         # 登録済みモデルリスト
         self.cloud_model_list_label = QLabel(t('desktop.cloudAI.registeredModels'))
-        self.cloud_model_list_label.setStyleSheet("font-weight: bold; color: #e2e8f0; margin-bottom: 4px;")
+        self.cloud_model_list_label.setStyleSheet(f"font-weight: bold; color: {COLORS['text_primary']}; margin-bottom: 4px;")
         model_settings_layout.addWidget(self.cloud_model_list_label)
 
         self.cloud_model_list = QListWidget()
         self.cloud_model_list.setMaximumHeight(140)
-        self.cloud_model_list.setStyleSheet("""
-            QListWidget { background: #0d0d1f; color: #e2e8f0; border: 1px solid #334155;
-                border-radius: 4px; padding: 4px; font-size: 11px; }
-            QListWidget::item { padding: 4px; }
-            QListWidget::item:selected { background: #0078d4; color: white; }
+        self.cloud_model_list.setStyleSheet(f"""
+            QListWidget {{ background: {COLORS['bg_surface']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['text_disabled']};
+                border-radius: 4px; padding: 4px; font-size: 11px; }}
+            QListWidget::item {{ padding: 4px; }}
+            QListWidget::item:selected {{ background: {COLORS['accent_dim']}; color: white; }}
         """)
         self._refresh_cloud_model_list()
         model_settings_layout.addWidget(self.cloud_model_list)
@@ -1035,10 +1035,10 @@ class ClaudeTab(QWidget):
         model_btn_row = QHBoxLayout()
         model_btn_row.setSpacing(4)
 
-        _mgmt_btn_style = """
-            QPushButton { background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
-                border-radius: 4px; padding: 4px 10px; font-size: 11px; }
-            QPushButton:hover { background: #4a5568; }
+        _mgmt_btn_style = f"""
+            QPushButton {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border_strong']};
+                border-radius: 4px; padding: 4px 10px; font-size: 11px; }}
+            QPushButton:hover {{ background: {COLORS['border_strong']}; }}
         """
 
         self.cloud_add_model_btn = QPushButton(t('desktop.cloudAI.addModelBtn'))
@@ -1673,7 +1673,7 @@ class ClaudeTab(QWidget):
         """v8.0.0: ステータスバーを作成（旧ステージUI→CloudAIStatusBarに置換）"""
         frame = QFrame()
         frame.setObjectName("workflowFrame")
-        frame.setStyleSheet("#workflowFrame { background-color: #131921; }")
+        frame.setStyleSheet(f"#workflowFrame {{ background-color: {COLORS['bg_card']}; }}")
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -1685,26 +1685,26 @@ class ClaudeTab(QWidget):
         # v11.0.0: Header title label
         self.cloud_header_title = QLabel(t('desktop.cloudAI.headerTitle'))
         self.cloud_header_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.cloud_header_title.setStyleSheet("color: #e2e8f0; margin-right: 12px;")
+        self.cloud_header_title.setStyleSheet(f"color: {COLORS['text_primary']}; margin-right: 12px;")
 
         # v11.0.0: Model label
         self.cloud_model_label = QLabel(t('desktop.cloudAI.modelLabel'))
-        self.cloud_model_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-right: 4px;")
+        self.cloud_model_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px; margin-right: 4px;")
 
         # v11.0.0: Model selector in chat header
         self.cloud_model_combo = NoScrollComboBox()
-        self.cloud_model_combo.setStyleSheet("""
-            QComboBox {
-                background: #131921; color: #e2e8f0;
-                border: 1px solid #3d3d3d; border-radius: 4px;
+        self.cloud_model_combo.setStyleSheet(f"""
+            QComboBox {{
+                background: {COLORS['bg_card']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border']}; border-radius: 4px;
                 padding: 3px 8px; font-size: 11px; min-width: 160px;
-            }
-            QComboBox:hover { border-color: #38bdf8; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView {
-                background: #131921; color: #e2e8f0;
-                selection-background-color: #0078d4;
-            }
+            }}
+            QComboBox:hover {{ border-color: {COLORS['accent']}; }}
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox QAbstractItemView {{
+                background: {COLORS['bg_card']}; color: {COLORS['text_primary']};
+                selection-background-color: {COLORS['accent_dim']};
+            }}
         """)
         self._load_cloud_models_to_combo(self.cloud_model_combo)
         self.cloud_model_combo.currentIndexChanged.connect(self._on_cloud_model_changed)
@@ -1712,13 +1712,13 @@ class ClaudeTab(QWidget):
         # v11.0.0: Refresh button
         self.cloud_refresh_btn = QPushButton(t('desktop.cloudAI.refreshBtn'))
         self.cloud_refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.cloud_refresh_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: #9ca3af;
-                border: 1px solid #3d3d3d; border-radius: 4px;
+        self.cloud_refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['border']}; border-radius: 4px;
                 padding: 4px 10px; font-size: 11px;
-            }
-            QPushButton:hover { color: #e2e8f0; border-color: #38bdf8; }
+            }}
+            QPushButton:hover {{ color: {COLORS['text_primary']}; border-color: {COLORS['accent']}; }}
         """)
         self.cloud_refresh_btn.clicked.connect(lambda: self._load_cloud_models_to_combo(self.cloud_model_combo))
 
@@ -1887,7 +1887,7 @@ class ClaudeTab(QWidget):
 
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet("color: #374151;")
+        sep.setStyleSheet(f"color: {COLORS['text_disabled']};")
         layout.addWidget(sep)
 
         form = QFormLayout()
@@ -1956,8 +1956,8 @@ class ClaudeTab(QWidget):
 
         example_label = QLabel(EXAMPLES["anthropic_api"])
         example_label.setStyleSheet(
-            "color: #6b7280; font-size: 10px; font-family: monospace; "
-            "background: #131921; padding: 8px; border-radius: 4px;"
+            f"color: {COLORS['text_muted']}; font-size: 10px; font-family: monospace; "
+            f"background: {COLORS['bg_card']}; padding: 8px; border-radius: 4px;"
         )
         example_label.setWordWrap(True)
 
@@ -2066,7 +2066,7 @@ class ClaudeTab(QWidget):
         layout = QVBoxLayout(dialog)
 
         editor = QTextEdit()
-        editor.setStyleSheet("QTextEdit { background: #0d0d1f; color: #e2e8f0; font-family: monospace; font-size: 11px; }")
+        editor.setStyleSheet(f"QTextEdit {{ background: {COLORS['bg_surface']}; color: {COLORS['text_primary']}; font-family: monospace; font-size: 11px; }}")
         try:
             from pathlib import Path
             config_path = Path("config/cloud_models.json")
@@ -2131,20 +2131,20 @@ class ClaudeTab(QWidget):
 
         self.approval_group = QGroupBox(t('desktop.cloudAI.approvalScopesGroup'))
         group = self.approval_group
-        group.setStyleSheet("""
-            QGroupBox {
+        group.setStyleSheet(f"""
+            QGroupBox {{
                 font-weight: bold;
-                border: 1px solid #0078d4;
+                border: 1px solid {COLORS['accent_dim']};
                 border-radius: 4px;
                 margin-top: 10px;
                 padding-top: 10px;
-            }
-            QGroupBox::title {
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 0 5px;
-                color: #0078d4;
-            }
+                color: {COLORS['accent_dim']};
+            }}
         """)
 
         layout = QVBoxLayout(group)
@@ -2205,7 +2205,7 @@ class ClaudeTab(QWidget):
         """入力エリアを作成 (v3.4.0: 会話継続UIを追加, v5.1: 添付ファイルバー追加)"""
         frame = QFrame()
         frame.setObjectName("inputFrame")
-        frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")
+        frame.setStyleSheet(f"#inputFrame {{ border-top: 1px solid {COLORS['border']}; }}")
         main_layout = QVBoxLayout(frame)
         main_layout.setContentsMargins(10, 5, 10, 5)
 
@@ -2222,6 +2222,8 @@ class ClaudeTab(QWidget):
         # v5.1: 添付ファイルバー（入力フィールドの上に表示）
         self.attachment_bar = CloudAIAttachmentBar()
         self.attachment_bar.attachments_changed.connect(self._on_attachments_changed)
+        self.attachment_bar.setVisible(False)
+        self.attachment_bar.setMaximumHeight(0)
         left_layout.addWidget(self.attachment_bar)
 
         # 入力フィールド (CloudAITextInput: 上下キーカーソル移動対応)
@@ -2231,8 +2233,8 @@ class ClaudeTab(QWidget):
         self.input_field.setMinimumHeight(40)
         self.input_field.setMaximumHeight(150)
         self.input_field.setStyleSheet(
-            "QTextEdit { background: #252526; color: #e2e8f0; border: none; "
-            "padding: 8px; }" + SCROLLBAR_STYLE
+            f"QTextEdit {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: none; "
+            f"padding: 8px; }}" + SCROLLBAR_STYLE
         )
         self.input_field.setAcceptDrops(True)
         self.input_field.send_requested.connect(self._on_send)
@@ -2287,14 +2289,14 @@ class ClaudeTab(QWidget):
         self.continue_send_btn_main.setFixedHeight(32)
         self.continue_send_btn_main.setToolTip(t('desktop.cloudAI.continueSendMainTooltip'))
         self.continue_send_btn_main.setEnabled(False)
-        self.continue_send_btn_main.setStyleSheet("""
-            QPushButton {
-                background: #064e3b; color: #34d399;
-                border: 1px solid #34d399; border-radius: 4px;
+        self.continue_send_btn_main.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['success_bg']}; color: {COLORS['success']};
+                border: 1px solid {COLORS['success']}; border-radius: 4px;
                 padding: 4px 12px; font-weight: bold; font-size: 11px;
-            }
-            QPushButton:hover { background: #2a4a3a; }
-            QPushButton:disabled { background: #131921; color: #475569; border-color: #334155; }
+            }}
+            QPushButton:hover {{ background: #2a4a3a; }}
+            QPushButton:disabled {{ background: {COLORS['bg_card']}; color: {COLORS['text_muted']}; border-color: {COLORS['text_disabled']}; }}
         """)
         self.continue_send_btn_main.clicked.connect(self._on_continue_send_main)
         btn_layout.addWidget(self.continue_send_btn_main)
@@ -2311,13 +2313,13 @@ class ClaudeTab(QWidget):
 
         # --- 右側: 会話継続エリア (約1/3幅) v3.4.0 ---
         continue_frame = QFrame()
-        continue_frame.setStyleSheet("""
-            QFrame {
-                background-color: #131921;
-                border: 1px solid #1e2d42;
+        continue_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
                 border-radius: 6px;
                 padding: 4px;
-            }
+            }}
         """)
         continue_layout = QVBoxLayout(continue_frame)
         continue_layout.setContentsMargins(8, 6, 8, 6)
@@ -2326,13 +2328,13 @@ class ClaudeTab(QWidget):
         # ヘッダー
         self.continue_header = QLabel(t('desktop.cloudAI.conversationContinueLabel'))
         continue_header = self.continue_header
-        continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px; border: none;")
+        continue_header.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold; font-size: 11px; border: none;")
         continue_layout.addWidget(continue_header)
 
         # 説明
         self.continue_desc = QLabel(t('desktop.cloudAI.continueDesc'))
         continue_desc = self.continue_desc
-        continue_desc.setStyleSheet("color: #94a3b8; font-size: 10px; border: none;")
+        continue_desc.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px; border: none;")
         continue_desc.setWordWrap(True)
         continue_layout.addWidget(continue_desc)
 
@@ -2341,10 +2343,10 @@ class ClaudeTab(QWidget):
         self.continue_input.setPlaceholderText(t('desktop.cloudAI.continuePlaceholder'))
         self.continue_input.setMinimumHeight(60)
         self.continue_input.setMaximumHeight(90)
-        self.continue_input.setStyleSheet("""
-            QTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
-                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }
-            QTextEdit:focus { border-color: #007acc; }
+        self.continue_input.setStyleSheet(f"""
+            QTextEdit {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border']};
+                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }}
+            QTextEdit:focus {{ border-color: {COLORS['accent_dim']}; }}
         """)
         continue_layout.addWidget(self.continue_input)
 
@@ -2422,12 +2424,12 @@ class ClaudeTab(QWidget):
         self.continue_send_btn.setToolTip(t('desktop.cloudAI.continueSendTooltip'))
         self.continue_send_btn.setFixedHeight(32)
         self.continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.continue_send_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d4; color: white; border: none;
+        self.continue_send_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['accent_dim']}; color: white; border: none;
                 border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #1088e4; }
+            }}
+            QPushButton:hover {{ background-color: #1088e4; }}
         """)
         continue_layout.addWidget(self.continue_send_btn)
 
@@ -2855,6 +2857,9 @@ class ClaudeTab(QWidget):
         import logging
         logger = logging.getLogger(__name__)
         self._attached_files = files.copy()
+        has_attachments = len(files) > 0
+        self.attachment_bar.setVisible(has_attachments)
+        self.attachment_bar.setMaximumHeight(16777215 if has_attachments else 0)
         logger.info(f"[ClaudeTab] Attachments updated: {len(files)} files")
 
     def _on_citation(self):

@@ -67,6 +67,11 @@ restore_ja.py
 ja_backup.json
 helix_source_bundle.txt
 
+# Pipeline artifacts
+screenshots/
+demo.gif
+demo.mp4
+
 # Personal/development files
 .claude/
 修正/

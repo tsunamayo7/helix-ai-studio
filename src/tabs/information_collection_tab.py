@@ -204,8 +204,8 @@ class InformationCollectionTab(QWidget):
         # ── ステータスバー ──
         self.rag_chat_status = QLabel(t('desktop.infoTab.ragStatusReady'))
         self.rag_chat_status.setStyleSheet(
-            "QLabel { background-color: #131921; color: #38bdf8; padding: 6px 12px; "
-            "border: 1px solid #1e2d42; border-radius: 4px; font-weight: bold; }"
+            f"QLabel {{ background-color: {COLORS['bg_card']}; color: {COLORS['accent']}; padding: 6px 12px; "
+            f"border: 1px solid {COLORS['border']}; border-radius: 4px; font-weight: bold; }}"
         )
         self.rag_chat_status.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
         layout.addWidget(self.rag_chat_status)
@@ -229,7 +229,7 @@ class InformationCollectionTab(QWidget):
         input_splitter = QSplitter(Qt.Orientation.Horizontal)
         input_splitter.setStyleSheet(
             f"QSplitter {{ background: {COLORS['bg_dark']}; }}"
-            "QSplitter::handle { background: #1e2d42; width: 3px; }"
+            f"QSplitter::handle {{ background: {COLORS['border']}; width: 3px; }}"
         )
         input_splitter.setFixedHeight(140)
 
@@ -243,8 +243,8 @@ class InformationCollectionTab(QWidget):
         self.rag_chat_input = QTextEdit()
         self.rag_chat_input.setPlaceholderText(t('desktop.infoTab.ragChatInputPlaceholder'))
         self.rag_chat_input.setStyleSheet(
-            f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
-            f"border: 1px solid #334155; border-radius: 4px; padding: 8px; }}" + SCROLLBAR_STYLE
+            f"QTextEdit {{ background: {COLORS['bg_base']}; color: {COLORS['text_primary']}; "
+            f"border: 1px solid {COLORS['text_disabled']}; border-radius: 4px; padding: 8px; }}" + SCROLLBAR_STYLE
         )
         left_layout.addWidget(self.rag_chat_input, stretch=1)
 
@@ -315,8 +315,8 @@ class InformationCollectionTab(QWidget):
         self.rag_continue_input = QTextEdit()
         self.rag_continue_input.setPlaceholderText(t('desktop.infoTab.ragContinuePlaceholder'))
         self.rag_continue_input.setStyleSheet(
-            f"QTextEdit {{ background: #0d0d1f; color: {COLORS['text_primary']}; "
-            f"border: 1px solid #334155; border-radius: 4px; padding: 6px; font-size: 11px; }}"
+            f"QTextEdit {{ background: {COLORS['bg_base']}; color: {COLORS['text_primary']}; "
+            f"border: 1px solid {COLORS['text_disabled']}; border-radius: 4px; padding: 6px; font-size: 11px; }}"
             + SCROLLBAR_STYLE
         )
         right_layout.addWidget(self.rag_continue_input, stretch=1)
@@ -333,21 +333,21 @@ class InformationCollectionTab(QWidget):
         quick_row = QHBoxLayout()
         quick_row.setSpacing(4)
         self.rag_quick_yes_btn = QPushButton(t('desktop.infoTab.ragQuickYes'))
-        self.rag_quick_yes_btn.setStyleSheet(_quick_btn_style("#2d8b4e", "#3d9d56"))
+        self.rag_quick_yes_btn.setStyleSheet(_quick_btn_style(COLORS['success_bg'], COLORS['success_bg']))
         self.rag_quick_yes_btn.setFixedHeight(26)
         self.rag_quick_yes_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_yes_btn.clicked.connect(self._on_rag_quick_yes)
         quick_row.addWidget(self.rag_quick_yes_btn)
 
         self.rag_quick_continue_btn = QPushButton(t('desktop.infoTab.ragQuickContinue'))
-        self.rag_quick_continue_btn.setStyleSheet(_quick_btn_style("#0066aa", "#1177bb"))
+        self.rag_quick_continue_btn.setStyleSheet(_quick_btn_style(COLORS['accent_muted'], COLORS['accent_dim']))
         self.rag_quick_continue_btn.setFixedHeight(26)
         self.rag_quick_continue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_continue_btn.clicked.connect(self._on_rag_quick_continue)
         quick_row.addWidget(self.rag_quick_continue_btn)
 
         self.rag_quick_exec_btn = QPushButton(t('desktop.infoTab.ragQuickExec'))
-        self.rag_quick_exec_btn.setStyleSheet(_quick_btn_style("#6c5ce7", "#7d6ef8"))
+        self.rag_quick_exec_btn.setStyleSheet(_quick_btn_style(COLORS['info'], COLORS['info']))
         self.rag_quick_exec_btn.setFixedHeight(26)
         self.rag_quick_exec_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.rag_quick_exec_btn.clicked.connect(self._on_rag_quick_exec)
@@ -470,10 +470,10 @@ class InformationCollectionTab(QWidget):
         legend_row.setSpacing(12)
         self._legend_labels = []
         for color, key in [
-            ("#00c853", "legendNew"),
-            ("#ffd600", "legendModified"),
-            ("#9e9e9e", "legendUnchanged"),
-            ("#ef5350", "legendDeleted"),
+            (COLORS['success'], "legendNew"),
+            (COLORS['warning'], "legendModified"),
+            (COLORS['text_secondary'], "legendUnchanged"),
+            (COLORS['error'], "legendDeleted"),
         ]:
             dot = QLabel("●")
             dot.setStyleSheet(f"color: {color}; font-size: 10px;")
@@ -538,7 +538,7 @@ class InformationCollectionTab(QWidget):
     def _create_settings_section(self) -> QGroupBox:
         """RAG設定セクション（v11.0.0: 外枠タイトル削除）"""
         self.settings_group = QGroupBox(t('desktop.infoTab.ragSettingsGroupTitle'))
-        self.settings_group.setStyleSheet("QGroupBox { border: none; margin-top: 16px; padding: 0; } QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: 8px; padding: 2px 8px; color: #9ca3af; font-size: 11px; }")
+        self.settings_group.setStyleSheet(f"QGroupBox {{ border: none; margin-top: 16px; padding: 0; }} QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top left; left: 8px; padding: 2px 8px; color: {COLORS['text_secondary']}; font-size: 11px; }}")
         layout = QVBoxLayout(self.settings_group)
 
         # 想定実行時間

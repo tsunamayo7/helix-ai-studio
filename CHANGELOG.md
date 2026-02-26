@@ -5,6 +5,34 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.9.1] - 2026-02-26 "Color Purge"
+
+### Changed
+- 9 files: Replaced ~100 remaining inline color literals (`#rrggbb` in `setStyleSheet()` f-strings) with `COLORS['key']` dict references. Target files: `claude_tab.py`(18), `local_ai_tab.py`(14), `helix_orchestrator_tab.py`(25), `information_collection_tab.py`(10), `history_tab.py`(12), `settings_cortex_tab.py`(10), `chat_input.py`(4), `chat_widgets.py`(8), `diff_viewer.py`(3).
+- 3 files: `#inputFrame` border color unified from `#3d3d3d` to `COLORS['border']` (`#1e2d42`)
+- 2 files: `#workflowFrame` background/border unified to `COLORS['bg_card']` / `COLORS['accent_dim']`
+- 5 files: Added missing `from ..utils.styles import COLORS` import
+- `HelixAIStudio.spec`: Added `('i18n', 'i18n')`, `('icon.ico', '.')`, `('icon.png', '.')` to `datas`
+- `src/utils/constants.py`: `APP_VERSION` → "11.9.1", `APP_CODENAME` → "Color Purge"
+
+## [11.9.0] - 2026-02-26 "Unified Obsidian"
+
+### Added
+- `src/utils/style_helpers.py`: SS semantic stylesheet helper singleton with methods `ok/err/warn/info/accent/muted/primary/dim` + compound helpers + use-case aliases
+- `version_info.txt`: PyInstaller VSVersionInfo metadata (11.9.0.0)
+- `HelixAIStudio.py`: `_create_splash_screen()` QPainter-drawn 400x200px splash
+- `src/utils/styles.py`: QSlider, QMenu, QToolBar, langBtn rules added to GLOBAL_APP_STYLESHEET
+
+### Changed
+- `src/main_window.py`: `create_application()` OS-based deterministic font selection, `_set_window_icon()` with `sys._MEIPASS` 4-stage fallback
+- `HelixAIStudio.py`: Split imports for visible splash, AppUserModelID changed to version-independent
+- 16 files: Replaced 153 inline color literals with `SS.xxx()` calls
+- `src/tabs/claude_tab.py`: AttachmentBar initially hidden (`setVisible(False)` + `setMaximumHeight(0)`)
+- `i18n/ja.json`, `i18n/en.json`: `sendBtnLabel` changed from `📤` to `↩` (unified with localAI)
+
+### Removed
+- Per-tab `_apply_stylesheet()` methods removed from all tabs
+
 ## [11.8.0] - 2026-02-25 "Polished Dark"
 
 ### Added

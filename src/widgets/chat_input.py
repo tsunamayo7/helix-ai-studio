@@ -21,6 +21,7 @@ from PyQt6.QtGui import QKeyEvent, QTextCursor
 
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
+from ..utils.styles import COLORS
 
 
 class EnhancedChatInput(QTextEdit):
@@ -50,18 +51,18 @@ class EnhancedChatInput(QTextEdit):
         self.setFixedHeight(font_metrics.height() * 3 + 20)
 
         # スタイル
-        self.setStyleSheet("""
-            QTextEdit {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                border: 1px solid #555;
+        self.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: {COLORS['bg_card']};
+                color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 8px;
                 padding: 8px;
                 font-size: 11pt;
-            }
-            QTextEdit:focus {
-                border-color: #0078d4;
-            }
+            }}
+            QTextEdit:focus {{
+                border-color: {COLORS['accent_dim']};
+            }}
         """)
 
     def keyPressEvent(self, event: QKeyEvent):
@@ -143,16 +144,16 @@ class AttachmentWidget(QFrame):
         super().__init__(parent)
         self.filepath = filepath
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            AttachmentWidget {
-                background-color: #2d2d2d;
-                border: 1px solid #555;
+        self.setStyleSheet(f"""
+            AttachmentWidget {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 6px;
                 padding: 4px 8px;
-            }
-            AttachmentWidget:hover {
-                border-color: #0078d4;
-            }
+            }}
+            AttachmentWidget:hover {{
+                border-color: {COLORS['accent_dim']};
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -173,17 +174,17 @@ class AttachmentWidget(QFrame):
         # ×ボタン
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(18, 18)
-        remove_btn.setStyleSheet("""
-            QPushButton {
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
-                color: #999;
+                color: {COLORS['text_secondary']};
                 border: none;
                 font-size: 14px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                color: #ff6666;
-            }
+            }}
+            QPushButton:hover {{
+                color: {COLORS['error']};
+            }}
         """)
         remove_btn.clicked.connect(lambda: self.removed.emit(self.filepath))
 
@@ -289,14 +290,14 @@ class ChatInputArea(QWidget):
         self.attach_btn = QPushButton("📎")
         self.attach_btn.setFixedSize(36, 36)
         self.attach_btn.setToolTip(t('desktop.widgets.chatInput.attachTooltip'))
-        self.attach_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3d3d3d;
-                border: 1px solid #555;
+        self.attach_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['border']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 6px;
                 font-size: 16px;
-            }
-            QPushButton:hover { background-color: #4d4d4d; }
+            }}
+            QPushButton:hover {{ background-color: {COLORS['border_strong']}; }}
         """)
         self.attach_btn.clicked.connect(self._on_attach_clicked)
 
@@ -308,16 +309,16 @@ class ChatInputArea(QWidget):
         # 送信ボタン
         self.send_btn = QPushButton(t('desktop.widgets.chatInput.sendBtn'))
         self.send_btn.setFixedSize(60, 36)
-        self.send_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4a90d9;
-                color: white;
+        self.send_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['accent_dim']};
+                color: {COLORS['text_on_accent']};
                 border: none;
                 border-radius: 6px;
                 font-weight: bold;
-            }
-            QPushButton:hover { background-color: #5aa0e9; }
-            QPushButton:disabled { background-color: #555; }
+            }}
+            QPushButton:hover {{ background-color: {COLORS['accent']}; }}
+            QPushButton:disabled {{ background-color: {COLORS['text_muted']}; }}
         """)
         self.send_btn.clicked.connect(self._on_send)
 

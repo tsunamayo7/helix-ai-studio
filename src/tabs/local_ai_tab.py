@@ -27,9 +27,10 @@ from PyQt6.QtGui import QFont, QTextCursor
 from ..utils.i18n import t
 from ..utils.constants import APP_VERSION
 from ..utils.styles import (
-    SCROLLBAR_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
+    COLORS, SCROLLBAR_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
     USER_MESSAGE_STYLE, AI_MESSAGE_STYLE, SECTION_CARD_STYLE,
 )
+from ..utils.style_helpers import SS
 from ..utils.markdown_renderer import markdown_to_html
 from ..widgets.no_scroll_widgets import NoScrollComboBox
 
@@ -237,41 +238,41 @@ class LocalAITab(QWidget):
 
         self.local_title = QLabel(t('desktop.localAI.title'))
         self.local_title.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.local_title.setStyleSheet("color: #e2e8f0; margin-right: 12px;")
+        self.local_title.setStyleSheet(f"color: {COLORS['text_primary']}; margin-right: 12px;")
         header.addWidget(self.local_title)
 
         self.model_label = QLabel(t('desktop.localAI.modelLabel'))
-        self.model_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-right: 4px;")
+        self.model_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px; margin-right: 4px;")
         header.addWidget(self.model_label)
 
         self.model_combo = NoScrollComboBox()
         self.model_combo.setMinimumWidth(200)
         self.model_combo.setToolTip(t('desktop.localAI.modelTip'))
-        self.model_combo.setStyleSheet("""
-            QComboBox {
-                background: #131921; color: #e2e8f0;
-                border: 1px solid #3d3d3d; border-radius: 4px;
+        self.model_combo.setStyleSheet(f"""
+            QComboBox {{
+                background: {COLORS['bg_card']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border']}; border-radius: 4px;
                 padding: 3px 8px; font-size: 11px; min-width: 160px;
-            }
-            QComboBox:hover { border-color: #38bdf8; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView {
-                background: #131921; color: #e2e8f0;
-                selection-background-color: #0078d4;
-            }
+            }}
+            QComboBox:hover {{ border-color: {COLORS['accent']}; }}
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox QAbstractItemView {{
+                background: {COLORS['bg_card']}; color: {COLORS['text_primary']};
+                selection-background-color: {COLORS['accent_dim']};
+            }}
         """)
         header.addWidget(self.model_combo)
 
         self.refresh_btn = QPushButton(t('desktop.localAI.refreshModelsBtn'))
         self.refresh_btn.setToolTip(t('desktop.localAI.refreshModelsTip'))
         self.refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.refresh_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: #9ca3af;
-                border: 1px solid #3d3d3d; border-radius: 4px;
+        self.refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['border']}; border-radius: 4px;
                 padding: 4px 10px; font-size: 11px;
-            }
-            QPushButton:hover { color: #e2e8f0; border-color: #38bdf8; }
+            }}
+            QPushButton:hover {{ color: {COLORS['text_primary']}; border-color: {COLORS['accent']}; }}
         """)
         self.refresh_btn.clicked.connect(self._refresh_models)
         header.addWidget(self.refresh_btn)
@@ -294,15 +295,15 @@ class LocalAITab(QWidget):
         self.chat_display.setFont(QFont("Yu Gothic UI", 10))
         self.chat_display.setPlaceholderText(t('desktop.localAI.chatReady'))
         self.chat_display.setStyleSheet(
-            "QTextEdit { background-color: #0a0a1a; border: none; "
-            "padding: 10px; color: #e2e8f0; }" + SCROLLBAR_STYLE
+            f"QTextEdit {{ background-color: {COLORS['bg_base']}; border: none; "
+            f"padding: 10px; color: {COLORS['text_primary']}; }}" + SCROLLBAR_STYLE
         )
         chat_layout.addWidget(self.chat_display, stretch=1)
 
         # === 下部: 入力欄(左) + 会話継続(右) ===
         bottom_frame = QFrame()
         bottom_frame.setObjectName("inputFrame")
-        bottom_frame.setStyleSheet("#inputFrame { border-top: 1px solid #3d3d3d; }")  # v11.5.3: cloudAI統一
+        bottom_frame.setStyleSheet(f"#inputFrame {{ border-top: 1px solid {COLORS['border']}; }}")  # v11.9.1: COLORS参照に統一
         bottom_layout = QHBoxLayout(bottom_frame)
         bottom_layout.setContentsMargins(10, 5, 10, 5)
         bottom_layout.setSpacing(10)
@@ -319,8 +320,8 @@ class LocalAITab(QWidget):
         self.input_field.setMinimumHeight(40)  # v11.5.2: cloudAI統一
         self.input_field.setMaximumHeight(150)
         self.input_field.setStyleSheet(
-            "QTextEdit { background: #252526; color: #e2e8f0; border: none; "
-            "padding: 8px; }" + SCROLLBAR_STYLE  # v11.5.2: cloudAI統一スタイル
+            f"QTextEdit {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: none; "
+            f"padding: 8px; }}" + SCROLLBAR_STYLE  # v11.5.2: cloudAI統一スタイル
         )
         left_layout.addWidget(self.input_field)
 
@@ -382,23 +383,23 @@ class LocalAITab(QWidget):
     def _create_continue_panel(self) -> QFrame:
         """v11.0.0: 会話継続パネル (cloudAIと統一スタイル)"""
         frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame {
-                background-color: #131921;
-                border: 1px solid #1e2d42;
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {COLORS['bg_card']};
+                border: 1px solid {COLORS['border']};
                 border-radius: 6px; padding: 4px;
-            }
+            }}
         """)
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(8, 6, 8, 6)
         layout.setSpacing(6)
 
         self.continue_header = QLabel(t('desktop.localAI.continueHeader'))
-        self.continue_header.setStyleSheet("color: #38bdf8; font-weight: bold; font-size: 11px; border: none;")
+        self.continue_header.setStyleSheet(f"color: {COLORS['accent']}; font-weight: bold; font-size: 11px; border: none;")
         layout.addWidget(self.continue_header)
 
         self.continue_sub = QLabel(t('desktop.localAI.continueSub'))
-        self.continue_sub.setStyleSheet("color: #94a3b8; font-size: 10px; border: none;")
+        self.continue_sub.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 10px; border: none;")
         self.continue_sub.setWordWrap(True)
         layout.addWidget(self.continue_sub)
 
@@ -407,10 +408,10 @@ class LocalAITab(QWidget):
         self.continue_input.setPlaceholderText(t('desktop.localAI.continuePlaceholder'))
         self.continue_input.setMinimumHeight(60)
         self.continue_input.setMaximumHeight(90)
-        self.continue_input.setStyleSheet("""
-            QPlainTextEdit { background: #252526; color: #dcdcdc; border: 1px solid #3c3c3c;
-                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }
-            QPlainTextEdit:focus { border-color: #007acc; }
+        self.continue_input.setStyleSheet(f"""
+            QPlainTextEdit {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border']};
+                        border-radius: 4px; padding: 4px 8px; font-size: 11px; }}
+            QPlainTextEdit:focus {{ border-color: {COLORS['accent_dim']}; }}
         """)
         layout.addWidget(self.continue_input)
 
@@ -441,10 +442,10 @@ class LocalAITab(QWidget):
         self.continue_send_btn = QPushButton(t('desktop.localAI.continueSend'))
         self.continue_send_btn.setFixedHeight(32)
         self.continue_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.continue_send_btn.setStyleSheet("""
-            QPushButton { background-color: #0078d4; color: white; border: none;
-                          border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }
-            QPushButton:hover { background-color: #1088e4; }
+        self.continue_send_btn.setStyleSheet(f"""
+            QPushButton {{ background-color: {COLORS['accent_dim']}; color: white; border: none;
+                          border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: #1088e4; }}
         """)
         self.continue_send_btn.clicked.connect(self._on_continue_send)
         layout.addWidget(self.continue_send_btn)
@@ -479,8 +480,8 @@ class LocalAITab(QWidget):
             else t('desktop.localAI.ollamaNotInstalled')
         )
         self.ollama_status_label.setStyleSheet(
-            "color: #34d399; font-weight: bold;" if ollama_installed
-            else "color: #ef4444; font-weight: bold;"
+            f"color: {COLORS['success']}; font-weight: bold;" if ollama_installed
+            else f"color: {COLORS['error']}; font-weight: bold;"
         )
         ollama_layout.addWidget(self.ollama_status_label)
 
@@ -534,11 +535,11 @@ class LocalAITab(QWidget):
         model_mgmt_row.addWidget(self.pull_btn)
 
         self.rm_btn = QPushButton(t('desktop.localAI.ollamaRmBtn'))
-        self.rm_btn.setStyleSheet("""
-            QPushButton { background: transparent; color: #ef4444;
-                border: 1px solid #ef4444; border-radius: 4px;
-                padding: 6px 14px; font-weight: bold; }
-            QPushButton:hover { background: rgba(239, 68, 68, 0.15); }
+        self.rm_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {COLORS['error']};
+                border: 1px solid {COLORS['error']}; border-radius: 4px;
+                padding: 6px 14px; font-weight: bold; }}
+            QPushButton:hover {{ background: rgba(239, 68, 68, 0.15); }}
         """)
         self.rm_btn.clicked.connect(self._on_remove_model)
         model_mgmt_row.addWidget(self.rm_btn)

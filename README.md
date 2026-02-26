@@ -6,7 +6,7 @@
 **Claude-centric multi-model AI orchestration platform with dual interface (Desktop + Web)**
 Claude Code CLI as the brain, local LLMs (Ollama) as specialized workers — unified in a Cyberpunk Minimal GUI with cross-device Web UI.
 
-![Version](https://img.shields.io/badge/version-11.5.4-00d4ff)
+![Version](https://img.shields.io/badge/version-11.9.1-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -51,7 +51,7 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ---
 
-## Key Features (v11.5.4 "Model Summary + Language Fix")
+## Key Features (v11.9.1 "Color Purge")
 
 ### Orchestration (mixAI)
 - **3+1 Phase Pipeline**: Claude plans → local team executes → Claude integrates & validates → (optional) Sonnet applies changes
@@ -320,6 +320,11 @@ Helix AI Studio/
 
 | Version | Codename | Highlights |
 |---------|----------|------------|
+| v11.9.1 | Color Purge | Remaining inline color literals fully eliminated (9 files, ~100 locations), COLORS/SS unified |
+| v11.9.0 | Unified Obsidian | Per-tab stylesheet abolished, SS semantic helpers, SplashScreen, EXE icon fix |
+| v11.8.0 | Polished Dark | Refined Obsidian 4-layer color system, GLOBAL_APP_STYLESHEET, thin EXE launcher |
+| v11.7.0 | Resilient Core | Error handling hardening across 12 files, CLI→API fallback chains |
+| v11.6.0 | Provider Aware | Phase 2 dynamic cloud model detection, Vision combo filtering |
 | v11.5.4 | Model Summary + Language Fix | Model name in responses, English language fix for mixAI |
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI tab (Ollama WebSocket), Discord notifications, visual parity cloudAI/localAI |
 | v11.5.2 | Visual Parity | Log rotation, path traversal fix, brute-force login protection, auto-cleanup, RAG 2-step |

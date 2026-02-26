@@ -8,6 +8,9 @@ a = Analysis(
     datas=[
         ('src', 'src'),
         ('config', 'config'),
+        ('i18n', 'i18n'),
+        ('icon.ico', '.'),
+        ('icon.png', '.'),
     ],
     hiddenimports=[
         # PyQt6 Core modules (required for EXE)

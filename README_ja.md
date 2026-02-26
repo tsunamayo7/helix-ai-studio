@@ -6,7 +6,7 @@
 **Claude中心のマルチモデルAIオーケストレーション デュアルインターフェースアプリ (Desktop + Web)**
 Claude Code CLIを「頭脳」、ローカルLLM（Ollama）を「専門チーム」として配置 — Cyberpunk Minimal GUIとクロスデバイスWeb UIで統合。
 
-![Version](https://img.shields.io/badge/version-11.5.4-00d4ff)
+![Version](https://img.shields.io/badge/version-11.9.1-00d4ff)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
@@ -51,7 +51,7 @@ Helix AI Studioは **3+1Phaseパイプライン** で動作します：
 
 ---
 
-## 主な機能 (v11.5.4 "Model Summary + Language Fix")
+## 主な機能 (v11.9.1 "Color Purge")
 
 ### オーケストレーション (mixAI)
 - **3+1Phaseパイプライン**: Claude計画 → ローカルチーム実行 → Claude統合・検証 → (任意) Sonnetが変更適用
@@ -299,6 +299,11 @@ cd ..
 
 | バージョン | コードネーム | 主な変更 |
 |-----------|------------|---------|
+| v11.9.1 | Color Purge | 残存インラインカラーリテラル完全排除（9ファイル・約100箇所）、COLORS/SS統一 |
+| v11.9.0 | Unified Obsidian | per-tab stylesheet撤廃、SSセマンティックヘルパー、SplashScreen、EXEアイコン修正 |
+| v11.8.0 | Polished Dark | Refined Obsidian 4層カラー、GLOBAL_APP_STYLESHEET、薄EXEランチャー |
+| v11.7.0 | Resilient Core | 12ファイルエラーハンドリング強化、CLI→APIフォールバックチェーン |
+| v11.6.0 | Provider Aware | Phase 2動的クラウドモデル検出、Visionコンボフィルタリング |
 | v11.5.4 | Model Summary + Language Fix | 返答末尾にモデル名表示、mixAI英語応答修正 |
 | v11.5.3 | Web LocalAI + Discord | Web LocalAI (Ollama WebSocket)、Discord通知、cloudAI/localAI表示統一 |
 | v11.5.2 | Visual Parity | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |

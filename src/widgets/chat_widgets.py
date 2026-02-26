@@ -19,6 +19,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont
 
 from ..utils.styles import (
+    COLORS,
     PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
     phase_node_style, PHASE_ARROW_STYLE,
     PHASE_DOT_INACTIVE, PHASE_TEXT_INACTIVE,
@@ -158,11 +159,11 @@ class CloudAIStatusBar(QWidget):
 
     def _setup_ui(self):
         from ..utils.constants import APP_VERSION
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #131921;
-                border-bottom: 1px solid #1e2d42;
-            }
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {COLORS['bg_card']};
+                border-bottom: 1px solid {COLORS['border']};
+            }}
         """)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(12, 6, 12, 6)
@@ -171,24 +172,24 @@ class CloudAIStatusBar(QWidget):
         # v9.7.1: タイトルラベル（mixAI形式に統一 - 左寄せ）
         self.title_label = QLabel(t('desktop.cloudAI.title'))
         self.title_label.setFont(QFont("Segoe UI", 12, QFont.Weight.Bold))
-        self.title_label.setStyleSheet("color: #e2e8f0;")
+        self.title_label.setStyleSheet(f"color: {COLORS['text_primary']};")
         layout.addWidget(self.title_label)
 
         # 新規セッションボタン（タイトルの直後 - mixAIと同じスタイル）
         self.btn_new_session = QPushButton(t('desktop.widgets.chatWidgets.newSession'))
         self.btn_new_session.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_new_session.setStyleSheet("""
-            QPushButton {
+        self.btn_new_session.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
-                color: #34d399;
-                border: 1px solid #34d399;
+                color: {COLORS['success']};
+                border: 1px solid {COLORS['success']};
                 border-radius: 4px;
                 padding: 4px 12px;
                 font-size: 11px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: rgba(0, 255, 136, 0.1);
-            }
+            }}
         """)
         self.btn_new_session.clicked.connect(self.new_session_clicked.emit)
         layout.addWidget(self.btn_new_session)
@@ -237,14 +238,14 @@ class ExecutionIndicator(QFrame):
         if not task_description:
             task_description = t('desktop.widgets.chatWidgets.cliRunning')
         super().__init__(parent)
-        self.setStyleSheet("""
-            QFrame {
-                background: #131921;
-                border: 1px solid #38bdf8;
+        self.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_card']};
+                border: 1px solid {COLORS['accent']};
                 border-radius: 8px;
                 padding: 8px 12px;
                 margin: 4px;
-            }
+            }}
         """)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(8, 6, 8, 6)
@@ -308,14 +309,14 @@ class InterruptionBanner(QFrame):
 
     def __init__(self, reason: str = "", parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QFrame {
-                background: #2a1a0a;
-                border: 1px solid #fbbf24;
+        self.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['warning_bg']};
+                border: 1px solid {COLORS['warning']};
                 border-radius: 8px;
                 padding: 8px;
                 margin: 4px;
-            }
+            }}
         """)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)

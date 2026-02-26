@@ -25,7 +25,7 @@ from PyQt6.QtGui import QFont, QTextCursor
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
 from ..utils.chat_logger import get_chat_logger
-from ..utils.styles import SCROLLBAR_STYLE
+from ..utils.styles import COLORS, SCROLLBAR_STYLE
 from ..widgets.no_scroll_widgets import NoScrollComboBox
 
 logger = logging.getLogger(__name__)
@@ -52,13 +52,13 @@ class HistoryTab(QWidget):
 
         # === フィルタバー ===
         filter_bar = QFrame()
-        filter_bar.setStyleSheet("""
-            QFrame {
-                background: #131921;
-                border: 1px solid #334155;
+        filter_bar.setStyleSheet(f"""
+            QFrame {{
+                background: {COLORS['bg_card']};
+                border: 1px solid {COLORS['text_disabled']};
                 border-radius: 6px;
                 padding: 6px;
-            }
+            }}
         """)
         filter_layout = QHBoxLayout(filter_bar)
         filter_layout.setContentsMargins(8, 4, 8, 4)
@@ -69,13 +69,13 @@ class HistoryTab(QWidget):
         filter_layout.addWidget(search_icon)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText(t('desktop.history.searchPlaceholder'))
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                background: #0d1117; color: #e6edf3;
-                border: 1px solid #334155; border-radius: 4px;
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: {COLORS['bg_surface']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['text_disabled']}; border-radius: 4px;
                 padding: 6px 10px; font-size: 12px;
-            }
-            QLineEdit:focus { border-color: #38bdf8; }
+            }}
+            QLineEdit:focus {{ border-color: {COLORS['accent']}; }}
         """)
         self.search_input.returnPressed.connect(self._refresh_data)
         filter_layout.addWidget(self.search_input, stretch=2)
@@ -87,12 +87,12 @@ class HistoryTab(QWidget):
         self.tab_filter.addItem("🔀 mixAI", "mixAI")
         self.tab_filter.addItem("🖥️ localAI", "localAI")
         self.tab_filter.addItem("🧠 RAG", "rag")
-        self.tab_filter.setStyleSheet("""
-            QComboBox {
-                background: #0d1117; color: #e6edf3;
-                border: 1px solid #334155; border-radius: 4px;
+        self.tab_filter.setStyleSheet(f"""
+            QComboBox {{
+                background: {COLORS['bg_surface']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['text_disabled']}; border-radius: 4px;
                 padding: 4px 8px; font-size: 11px; min-width: 100px;
-            }
+            }}
         """)
         self.tab_filter.currentIndexChanged.connect(self._refresh_data)
         filter_layout.addWidget(self.tab_filter)
@@ -101,12 +101,12 @@ class HistoryTab(QWidget):
         self.sort_combo = NoScrollComboBox()
         self.sort_combo.addItem(t('desktop.history.sortNewest'), "desc")
         self.sort_combo.addItem(t('desktop.history.sortOldest'), "asc")
-        self.sort_combo.setStyleSheet("""
-            QComboBox {
-                background: #0d1117; color: #e6edf3;
-                border: 1px solid #334155; border-radius: 4px;
+        self.sort_combo.setStyleSheet(f"""
+            QComboBox {{
+                background: {COLORS['bg_surface']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['text_disabled']}; border-radius: 4px;
                 padding: 4px 8px; font-size: 11px; min-width: 90px;
-            }
+            }}
         """)
         self.sort_combo.currentIndexChanged.connect(self._refresh_data)
         filter_layout.addWidget(self.sort_combo)
@@ -115,13 +115,13 @@ class HistoryTab(QWidget):
         self.refresh_btn = QPushButton("🔄")
         self.refresh_btn.setFixedSize(32, 32)
         self.refresh_btn.setToolTip("Refresh")
-        self.refresh_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: #38bdf8;
-                border: 1px solid #334155; border-radius: 4px;
+        self.refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; color: {COLORS['accent']};
+                border: 1px solid {COLORS['text_disabled']}; border-radius: 4px;
                 font-size: 14px;
-            }
-            QPushButton:hover { background: rgba(0, 212, 255, 0.1); }
+            }}
+            QPushButton:hover {{ background: rgba(0, 212, 255, 0.1); }}
         """)
         self.refresh_btn.clicked.connect(self._refresh_data)
         filter_layout.addWidget(self.refresh_btn)
@@ -137,7 +137,7 @@ class HistoryTab(QWidget):
         self.chat_list_area.setHorizontalScrollBarPolicy(
             Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.chat_list_area.setStyleSheet(
-            "QScrollArea { background: #0d1117; border: 1px solid #334155; border-radius: 4px; }"
+            f"QScrollArea {{ background: {COLORS['bg_surface']}; border: 1px solid {COLORS['text_disabled']}; border-radius: 4px; }}"
             + SCROLLBAR_STYLE
         )
         self.chat_list_widget = QWidget()
@@ -155,12 +155,12 @@ class HistoryTab(QWidget):
 
         self.detail_display = QTextEdit()
         self.detail_display.setReadOnly(True)
-        self.detail_display.setStyleSheet("""
-            QTextEdit {
-                background: #0d1117; color: #e6edf3;
-                border: 1px solid #334155; border-radius: 4px;
+        self.detail_display.setStyleSheet(f"""
+            QTextEdit {{
+                background: {COLORS['bg_surface']}; color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['text_disabled']}; border-radius: 4px;
                 padding: 12px; font-size: 13px;
-            }
+            }}
         """ + SCROLLBAR_STYLE)
         self.detail_display.setPlaceholderText(t('desktop.history.selectMessage'))
         detail_layout.addWidget(self.detail_display, stretch=1)
@@ -168,25 +168,25 @@ class HistoryTab(QWidget):
         # アクションボタン
         action_layout = QHBoxLayout()
         self.copy_btn = QPushButton("📋 " + t('desktop.history.copyMessage'))
-        self.copy_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: #38bdf8;
-                border: 1px solid #38bdf8; border-radius: 4px;
+        self.copy_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; color: {COLORS['accent']};
+                border: 1px solid {COLORS['accent']}; border-radius: 4px;
                 padding: 4px 12px; font-size: 11px;
-            }
-            QPushButton:hover { background: rgba(0, 212, 255, 0.1); }
+            }}
+            QPushButton:hover {{ background: rgba(0, 212, 255, 0.1); }}
         """)
         self.copy_btn.clicked.connect(self._copy_selected)
         action_layout.addWidget(self.copy_btn)
 
         self.quote_btn = QPushButton("📎 " + t('desktop.history.quoteToTab'))
-        self.quote_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent; color: #34d399;
-                border: 1px solid #34d399; border-radius: 4px;
+        self.quote_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; color: {COLORS['success']};
+                border: 1px solid {COLORS['success']}; border-radius: 4px;
                 padding: 4px 12px; font-size: 11px;
-            }
-            QPushButton:hover { background: rgba(0, 255, 136, 0.1); }
+            }}
+            QPushButton:hover {{ background: rgba(0, 255, 136, 0.1); }}
         """)
         self.quote_btn.clicked.connect(self._quote_selected)
         action_layout.addWidget(self.quote_btn)
@@ -244,7 +244,7 @@ class HistoryTab(QWidget):
             # 日付ヘッダー
             date_label = QLabel(f"📅 {date_str}")
             date_label.setStyleSheet(
-                "color: #94a3b8; font-size: 11px; font-weight: bold; "
+                f"color: {COLORS['text_secondary']}; font-size: 11px; font-weight: bold; "
                 "padding: 6px 4px 2px 4px;"
             )
             self.chat_list_layout.insertWidget(insert_idx, date_label)
@@ -258,17 +258,17 @@ class HistoryTab(QWidget):
     def _create_entry_card(self, entry: dict) -> QFrame:
         """メッセージカードを作成"""
         card = QFrame()
-        card.setStyleSheet("""
-            QFrame {
+        card.setStyleSheet(f"""
+            QFrame {{
                 background: #161b22;
-                border: 1px solid #1e2d42;
+                border: 1px solid {COLORS['border']};
                 border-radius: 6px;
                 padding: 8px;
-            }
-            QFrame:hover {
-                border-color: #38bdf8;
+            }}
+            QFrame:hover {{
+                border-color: {COLORS['accent']};
                 background: #1a2030;
-            }
+            }}
         """)
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card_layout = QVBoxLayout(card)
@@ -349,7 +349,7 @@ class HistoryTab(QWidget):
             html += f'<div style="color: #94a3b8; font-size: 10px; margin-bottom: 8px;">🔑 Session: {session[:16]}...</div>'
 
         html += f"""
-            <div style="color: #e6edf3; font-size: 13px; line-height: 1.5;
+            <div style="color: {COLORS['text_primary']}; font-size: 13px; line-height: 1.5;
                         white-space: pre-wrap; word-wrap: break-word;">
 {content}
             </div>

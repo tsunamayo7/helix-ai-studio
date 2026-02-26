@@ -24,8 +24,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 
 try:
-    from ..utils.styles import SPINBOX_STYLE, SECTION_CARD_STYLE
+    from ..utils.styles import COLORS, SPINBOX_STYLE, SECTION_CARD_STYLE
 except ImportError:
+    COLORS = {}
     SPINBOX_STYLE = ""
     SECTION_CARD_STYLE = ""
 
@@ -175,7 +176,7 @@ class SettingsCortexTab(QWidget):
     def _update_lang_button_styles(self, current_lang: str):
         """言語ボタンのスタイルを更新"""
         active_style = "background-color: #059669; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
-        inactive_style = "background-color: #2d2d2d; color: #94a3b8; padding: 8px 20px; border-radius: 6px;"
+        inactive_style = f"background-color: {COLORS['bg_card']}; color: {COLORS['text_secondary']}; padding: 8px 20px; border-radius: 6px;"
         self.lang_ja_btn.setStyleSheet(active_style if current_lang == 'ja' else inactive_style)
         self.lang_en_btn.setStyleSheet(active_style if current_lang == 'en' else inactive_style)
 
@@ -699,7 +700,7 @@ class SettingsCortexTab(QWidget):
         # v11.5.1: セキュリティ注意ラベル
         self.api_security_label = QLabel(t('desktop.settings.apiKeySecurityNote'))
         self.api_security_label.setStyleSheet(
-            "color: #f59e0b; font-size: 10px; "
+            f"color: {COLORS['warning']}; font-size: 10px; "
             "padding: 4px 6px; "
             "background: rgba(245,158,11,0.1); "
             "border: 1px solid rgba(245,158,11,0.3); "
@@ -922,7 +923,7 @@ class SettingsCortexTab(QWidget):
 
         self.memory_stats_label = QLabel(t('desktop.settings.memoryStatsDefault'))
         self.memory_stats_label.setToolTip(t('desktop.settings.memoryStatsTip'))
-        self.memory_stats_label.setStyleSheet("color: #aaa; padding-left: 10px;")
+        self.memory_stats_label.setStyleSheet(f"color: {COLORS['text_secondary']}; padding-left: 10px;")
         layout.addWidget(self.memory_stats_label)
 
         # v11.0.0: RAG有効化はRAGタブで制御（ここでは常にON）
@@ -1090,15 +1091,15 @@ class SettingsCortexTab(QWidget):
         toggle_row = QHBoxLayout()
         self.web_ui_toggle = QPushButton(t('desktop.settings.webStart'))
         self.web_ui_toggle.setCheckable(True)
-        self.web_ui_toggle.setStyleSheet("""
-            QPushButton {
+        self.web_ui_toggle.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #059669; color: white;
                 padding: 10px 20px; border-radius: 8px;
                 font-size: 13px; font-weight: bold;
-            }
-            QPushButton:checked {
-                background-color: #dc2626;
-            }
+            }}
+            QPushButton:checked {{
+                background-color: {COLORS['error']};
+            }}
         """)
         self.web_ui_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
         self.web_ui_toggle.clicked.connect(self._toggle_web_server)
@@ -1143,52 +1144,52 @@ class SettingsCortexTab(QWidget):
 
         # v11.0.0: パスワード設定ボタン
         self.web_password_btn = QPushButton(t('desktop.settings.webPasswordBtn'))
-        self.web_password_btn.setStyleSheet("""
-            QPushButton { background: #2d3748; color: #e2e8f0; border: 1px solid #4a5568;
-                border-radius: 4px; padding: 6px 14px; font-size: 11px; margin-top: 6px; }
-            QPushButton:hover { background: #4a5568; }
+        self.web_password_btn.setStyleSheet(f"""
+            QPushButton {{ background: {COLORS['bg_elevated']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['border_strong']};
+                border-radius: 4px; padding: 6px 14px; font-size: 11px; margin-top: 6px; }}
+            QPushButton:hover {{ background: {COLORS['border_strong']}; }}
         """)
         self.web_password_btn.clicked.connect(self._on_set_web_password)
         layout.addWidget(self.web_password_btn)
 
         # v9.7.2: Discord Webhook送信
         discord_label = QLabel(t('desktop.settings.discordWebhook'))
-        discord_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 8px;")
+        discord_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px; margin-top: 8px;")
         layout.addWidget(discord_label)
 
         discord_row = QHBoxLayout()
         self.discord_webhook_edit = QLineEdit()
         self.discord_webhook_edit.setPlaceholderText(t('desktop.settings.discordWebhookPlaceholder'))
-        self.discord_webhook_edit.setStyleSheet("""
-            QLineEdit {
-                background-color: #131921;
-                color: #e2e8f0;
-                border: 1px solid #4a5568;
+        self.discord_webhook_edit.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {COLORS['bg_card']};
+                color: {COLORS['text_primary']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 4px;
                 padding: 6px 8px;
                 font-size: 11px;
-            }
+            }}
         """)
         discord_row.addWidget(self.discord_webhook_edit)
 
         self.discord_send_btn = QPushButton(t('desktop.settings.discordSendBtn'))
         self.discord_send_btn.setToolTip(t('desktop.settings.discordSendBtnTip'))
-        self.discord_send_btn.setStyleSheet("""
-            QPushButton {
+        self.discord_send_btn.setStyleSheet(f"""
+            QPushButton {{
                 background-color: #5865F2;
                 color: white;
                 padding: 6px 14px;
                 border-radius: 6px;
                 font-size: 11px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #4752C4;
-            }
-            QPushButton:disabled {
+            }}
+            QPushButton:disabled {{
                 background-color: #3d3d5c;
-                color: #94a3b8;
-            }
+                color: {COLORS['text_secondary']};
+            }}
         """)
         self.discord_send_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.discord_send_btn.clicked.connect(self._send_discord_webhook)
@@ -1204,7 +1205,7 @@ class SettingsCortexTab(QWidget):
 
         # v11.0.0: Discord通知イベント選択
         self.discord_event_label = QLabel(t('desktop.settings.discordNotifyLabel'))
-        self.discord_event_label.setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 6px;")
+        self.discord_event_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-size: 11px; margin-top: 6px;")
         layout.addWidget(self.discord_event_label)
 
         self.discord_notify_start_cb = QCheckBox(t('desktop.settings.discordNotifyStart'))

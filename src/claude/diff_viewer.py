@@ -12,6 +12,7 @@ from ..utils.diff_risk import DiffRiskReport, analyze_diff
 from ..security.risk_gate import RiskGate, ApprovalScope
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
+from ..utils.styles import COLORS
 
 
 class DiffSyntaxHighlighter(QSyntaxHighlighter):
@@ -113,13 +114,13 @@ class DiffViewerDialog(QDialog):
 
         if self.risk_report.risk_level == "HIGH":
             risk_level_label.setText(t('desktop.diffViewer.riskLevelHigh', score=self.risk_report.risk_score))
-            risk_level_label.setStyleSheet("color: #ef4444; background-color: #fee2e2; padding: 8px; border-radius: 4px;")
+            risk_level_label.setStyleSheet(f"color: {COLORS['error']}; background-color: {COLORS['error_bg']}; padding: 8px; border-radius: 4px;")
         elif self.risk_report.risk_level == "MEDIUM":
             risk_level_label.setText(t('desktop.diffViewer.riskLevelMedium', score=self.risk_report.risk_score))
-            risk_level_label.setStyleSheet("color: #f59e0b; background-color: #fef3c7; padding: 8px; border-radius: 4px;")
+            risk_level_label.setStyleSheet(f"color: {COLORS['warning']}; background-color: {COLORS['warning_bg']}; padding: 8px; border-radius: 4px;")
         else:
             risk_level_label.setText(t('desktop.diffViewer.riskLevelLow', score=self.risk_report.risk_score))
-            risk_level_label.setStyleSheet("color: #22c55e; background-color: #dcfce7; padding: 8px; border-radius: 4px;")
+            risk_level_label.setStyleSheet(f"color: {COLORS['success']}; background-color: {COLORS['success_bg']}; padding: 8px; border-radius: 4px;")
 
         layout.addWidget(risk_level_label)
 
@@ -199,7 +200,7 @@ class DiffViewerDialog(QDialog):
         # HIGH判定の場合、警告スタイル
         if self.risk_report.risk_level == "HIGH":
             self.apply_btn.setStyleSheet(
-                "background-color: #dc2626; color: white; font-weight: bold; padding: 8px 16px;"
+                f"background-color: {COLORS['error']}; color: white; font-weight: bold; padding: 8px 16px;"
             )
             self.apply_btn.setText(t('desktop.diffViewer.applyBtnHighRisk'))
 
