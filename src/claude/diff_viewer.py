@@ -23,26 +23,26 @@ class DiffSyntaxHighlighter(QSyntaxHighlighter):
         # 追加行（緑）
         if text.startswith('+') and not text.startswith('+++'):
             format = QTextCharFormat()
-            format.setForeground(QColor("#22c55e"))
+            format.setForeground(QColor(COLORS["success"]))
             self.setFormat(0, len(text), format)
 
         # 削除行（赤）
         elif text.startswith('-') and not text.startswith('---'):
             format = QTextCharFormat()
-            format.setForeground(QColor("#ef4444"))
+            format.setForeground(QColor(COLORS["error"]))
             self.setFormat(0, len(text), format)
 
         # ファイルヘッダ（青）
         elif text.startswith('diff --git') or text.startswith('+++') or text.startswith('---'):
             format = QTextCharFormat()
-            format.setForeground(QColor("#3b82f6"))
+            format.setForeground(QColor(COLORS["accent"]))
             format.setFontWeight(QFont.Weight.Bold)
             self.setFormat(0, len(text), format)
 
         # ハンク情報（シアン）
         elif text.startswith('@@'):
             format = QTextCharFormat()
-            format.setForeground(QColor("#06b6d4"))
+            format.setForeground(QColor(COLORS["accent"]))
             self.setFormat(0, len(text), format)
 
 

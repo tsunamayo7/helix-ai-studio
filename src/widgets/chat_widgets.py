@@ -40,8 +40,8 @@ class PhaseIndicator(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.phases = [
-            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#38bdf8"),
-            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#34d399"),
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), COLORS["accent"]),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), COLORS["success"]),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
             ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
@@ -135,8 +135,8 @@ class PhaseIndicator(QWidget):
     def retranslateUi(self):
         """Update all translatable text (called on language switch)."""
         self.phases = [
-            ("P1", t('desktop.widgets.chatWidgets.p1Label'), "#38bdf8"),
-            ("P2", t('desktop.widgets.chatWidgets.p2Label'), "#34d399"),
+            ("P1", t('desktop.widgets.chatWidgets.p1Label'), COLORS["accent"]),
+            ("P2", t('desktop.widgets.chatWidgets.p2Label'), COLORS["success"]),
             ("P3", t('desktop.widgets.chatWidgets.p3Label'), "#ff9800"),
             ("P4", t('desktop.widgets.chatWidgets.p4Label'), "#9b59b6"),
         ]
@@ -207,13 +207,13 @@ class CloudAIStatusBar(QWidget):
         status: "waiting" / "running" / "completed" / "error" / "interrupted"
         """
         status_map = {
-            "waiting": ("#94a3b8", t('desktop.widgets.chatWidgets.statusMap.idle')),
-            "running": ("#38bdf8", t('desktop.widgets.chatWidgets.statusMap.running')),
-            "completed": ("#34d399", t('desktop.widgets.chatWidgets.statusMap.completed')),
-            "error": ("#ff4444", t('desktop.widgets.chatWidgets.statusMap.error')),
-            "interrupted": ("#fbbf24", t('desktop.widgets.chatWidgets.statusMap.cancelled')),
+            "waiting": (COLORS["text_secondary"], t('desktop.widgets.chatWidgets.statusMap.idle')),
+            "running": (COLORS["accent"], t('desktop.widgets.chatWidgets.statusMap.running')),
+            "completed": (COLORS["success"], t('desktop.widgets.chatWidgets.statusMap.completed')),
+            "error": (COLORS["error"], t('desktop.widgets.chatWidgets.statusMap.error')),
+            "interrupted": (COLORS["warning"], t('desktop.widgets.chatWidgets.statusMap.cancelled')),
         }
-        c, text = status_map.get(status, ("#94a3b8", status))
+        c, text = status_map.get(status, (COLORS["text_secondary"], status))
         if color:
             c = color
         self.status_dot.setStyleSheet(f"color: {c}; font-size: 10px;")

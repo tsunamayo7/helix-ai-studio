@@ -33,6 +33,7 @@ from PyQt6.QtGui import (
 
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
+from ..utils.styles import COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -70,23 +71,36 @@ class PhaseNode(QGraphicsEllipseItem):
 
     # 状態別カラー定義（Cyberpunk Minimal）
     STATE_COLORS = {
-        PhaseState.IDLE: QColor("#3d3d3d"),       # ダークグレー
-        PhaseState.RUNNING: QColor("#38bdf8"),    # ネオンシアン
-        PhaseState.COMPLETED: QColor("#34d399"),  # ネオングリーン
-        PhaseState.FAILED: QColor("#ff4757"),     # ネオンレッド
-        PhaseState.SKIPPED: QColor("#ffa502"),    # ネオンオレンジ
+        PhaseState.IDLE: QColor("#3d3d3d"),                # ダークグレー
+        PhaseState.RUNNING: QColor(COLORS["accent"]),      # ネオンシアン
+        PhaseState.COMPLETED: QColor(COLORS["success"]),   # ネオングリーン
+        PhaseState.FAILED: QColor(COLORS["error"]),        # ネオンレッド
+        PhaseState.SKIPPED: QColor(COLORS["warning"]),     # ネオンオレンジ
     }
 
-    GLOW_COLORS = {
-        PhaseState.IDLE: QColor(61, 61, 61, 50),
-        PhaseState.RUNNING: QColor(56, 189, 248, 150),
-        PhaseState.COMPLETED: QColor(52, 211, 153, 100),
-        PhaseState.FAILED: QColor(255, 71, 87, 100),
-        PhaseState.SKIPPED: QColor(255, 165, 2, 80),
-    }
+    @staticmethod
+    def _glow(hex_color: str, alpha: int) -> QColor:
+        """Create a QColor from a hex string with the given alpha."""
+        c = QColor(hex_color)
+        c.setAlpha(alpha)
+        return c
+
+    GLOW_COLORS: Dict[PhaseState, QColor] = {}  # populated in _init_glow_colors
+
+    @classmethod
+    def _init_glow_colors(cls):
+        cls.GLOW_COLORS = {
+            PhaseState.IDLE: cls._glow("#3d3d3d", 50),
+            PhaseState.RUNNING: cls._glow(COLORS["accent"], 150),
+            PhaseState.COMPLETED: cls._glow(COLORS["success"], 100),
+            PhaseState.FAILED: cls._glow(COLORS["error"], 100),
+            PhaseState.SKIPPED: cls._glow(COLORS["warning"], 80),
+        }
 
     def __init__(self, phase_data: PhaseData, x: float, y: float, radius: float = 45):
         super().__init__(-radius, -radius, radius * 2, radius * 2)
+        if not self.GLOW_COLORS:
+            self._init_glow_colors()
         self.phase_data = phase_data
         self.radius = radius
         self._pulse_scale = 1.0
@@ -245,7 +259,7 @@ class ConnectionLine(QGraphicsPathItem):
         """外観を更新"""
         if active:
             # 活性化時（データフロー中）
-            pen = QPen(QColor("#38bdf8"), 3)
+            pen = QPen(QColor(COLORS["accent"]), 3)
             pen.setStyle(Qt.PenStyle.SolidLine)
         else:
             # 非活性時
@@ -324,7 +338,7 @@ class PhaseDetailDialog(QDialog):
 
         if self.phase_data.execution_time_ms > 0:
             time_label = QLabel(f"⏱️ {self.phase_data.execution_time_ms:.0f}ms")
-            time_label.setStyleSheet("color: #34d399;")
+            time_label.setStyleSheet(f"color: {COLORS['success']};")
             meta_layout.addWidget(time_label)
 
         state_text = self.phase_data.state.value.upper()
@@ -343,15 +357,15 @@ class PhaseDetailDialog(QDialog):
         self.output_text = QTextEdit()
         self.output_text.setReadOnly(True)
         self.output_text.setText(self.phase_data.output or t('desktop.widgets.neuralViz.noOutput'))
-        self.output_text.setStyleSheet("""
-            QTextEdit {
+        self.output_text.setStyleSheet(f"""
+            QTextEdit {{
                 background-color: #1a1a1a;
-                color: #e2e8f0;
+                color: {COLORS['text_primary']};
                 border: 1px solid #3d3d3d;
                 border-radius: 6px;
                 padding: 8px;
                 font-family: "Consolas", "Cascadia Code", monospace;
-            }
+            }}
         """)
         layout.addWidget(self.output_text)
 
@@ -365,14 +379,14 @@ class PhaseDetailDialog(QDialog):
             error_text.setReadOnly(True)
             error_text.setText(self.phase_data.error)
             error_text.setMaximumHeight(100)
-            error_text.setStyleSheet("""
-                QTextEdit {
-                    background-color: #2d1f1f;
-                    color: #ff6b6b;
-                    border: 1px solid #ff4757;
+            error_text.setStyleSheet(f"""
+                QTextEdit {{
+                    background-color: {COLORS['error_bg']};
+                    color: {COLORS['error']};
+                    border: 1px solid {COLORS['error']};
                     border-radius: 6px;
                     padding: 8px;
-                }
+                }}
             """)
             layout.addWidget(error_text)
 
@@ -386,21 +400,21 @@ class PhaseDetailDialog(QDialog):
 
     def _apply_style(self):
         """スタイルを適用"""
-        self.setStyleSheet("""
-            QDialog {
+        self.setStyleSheet(f"""
+            QDialog {{
                 background-color: #1e1e1e;
-            }
-            QPushButton {
+            }}
+            QPushButton {{
                 background-color: #3d3d3d;
                 color: #ffffff;
                 border: 1px solid #4a4a4a;
                 border-radius: 6px;
                 padding: 8px 24px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background-color: #4a4a4a;
-                border-color: #38bdf8;
-            }
+                border-color: {COLORS['accent']};
+            }}
         """)
 
 
@@ -686,10 +700,10 @@ class NeuralFlowCompactWidget(QWidget):
         """状態に応じたラベルスタイルを取得"""
         colors = {
             PhaseState.IDLE: "#6b6b6b",
-            PhaseState.RUNNING: "#38bdf8",
-            PhaseState.COMPLETED: "#34d399",
-            PhaseState.FAILED: "#ff4757",
-            PhaseState.SKIPPED: "#ffa502",
+            PhaseState.RUNNING: COLORS["accent"],
+            PhaseState.COMPLETED: COLORS["success"],
+            PhaseState.FAILED: COLORS["error"],
+            PhaseState.SKIPPED: COLORS["warning"],
         }
         color = colors.get(state, colors[PhaseState.IDLE])
 

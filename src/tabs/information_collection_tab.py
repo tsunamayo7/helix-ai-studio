@@ -1258,14 +1258,14 @@ class InformationCollectionTab(QWidget):
             html = (
                 f"<div style='margin: 8px 0; padding: 8px 12px; "
                 f"background: rgba(0,212,255,0.1); border-radius: 6px;'>"
-                f"<b style='color:#38bdf8;'>You:</b> "
+                f"<b style='color:{COLORS['accent']};'>You:</b> "
                 f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
             )
         elif role == "assistant":
             html = (
                 f"<div style='margin: 8px 0; padding: 8px 12px; "
                 f"background: rgba(0,255,136,0.05); border-radius: 6px;'>"
-                f"<b style='color:#34d399;'>RAG:</b> "
+                f"<b style='color:{COLORS['success']};'>RAG:</b> "
                 f"{html_lib.escape(content).replace(chr(10), '<br>')}</div>"
             )
         else:
@@ -1709,10 +1709,10 @@ class InformationCollectionTab(QWidget):
 
         # カラーコーディング
         color_map = {
-            "new": QColor("#00c853"),       # 緑
-            "modified": QColor("#ffd600"),  # 黄
-            "unchanged": QColor("#9e9e9e"), # グレー
-            "deleted": QColor("#ef5350"),   # 赤
+            "new": QColor(COLORS["success"]),       # 緑
+            "modified": QColor(COLORS["warning"]),   # 黄
+            "unchanged": QColor(COLORS["text_secondary"]),  # グレー
+            "deleted": QColor(COLORS["error"]),      # 赤
         }
         color = color_map.get(status)
         if color:

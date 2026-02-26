@@ -15,6 +15,7 @@ from PyQt6.QtGui import QFont
 
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
+from ..utils.styles import COLORS
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ class _ModelRow(QFrame):
         self._time_label = QLabel("")
         self._time_label.setFixedWidth(60)
         self._time_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self._time_label.setStyleSheet("color: #94a3b8; font-family: monospace;")
+        self._time_label.setStyleSheet(f"color: {COLORS['text_secondary']}; font-family: monospace;")
 
         self._output_label = QLabel("")
         self._output_label.setStyleSheet(SS.dim("11px"))
@@ -87,7 +88,7 @@ class _ModelRow(QFrame):
             self.setStyleSheet("background-color: transparent;")
         elif state == _STATE_STALLED:
             self._icon_label.setText("\U0001f534")  # 🔴
-            self.setStyleSheet("background-color: #3a1515;")
+            self.setStyleSheet(f"background-color: {COLORS['error_bg']};")
         else:  # IDLE
             if success is True:
                 self._icon_label.setText("\u2705")  # ✅
@@ -149,12 +150,12 @@ class ExecutionMonitorWidget(QWidget):
 
     def _setup_ui(self):
         self.setMaximumHeight(120)
-        self.setStyleSheet("""
-            ExecutionMonitorWidget {
-                background-color: #0d0d1f;
-                border: 1px solid #1e2d42;
+        self.setStyleSheet(f"""
+            ExecutionMonitorWidget {{
+                background-color: {COLORS['bg_base']};
+                border: 1px solid {COLORS['border']};
                 border-radius: 4px;
-            }
+            }}
         """)
 
         self._main_layout = QVBoxLayout(self)
@@ -163,7 +164,7 @@ class ExecutionMonitorWidget(QWidget):
 
         # ヘッダー
         header = QLabel(t('widget.monitor.title'))
-        header.setStyleSheet("color: #38bdf8; font-size: 11px; font-weight: bold; padding: 2px 4px;")
+        header.setStyleSheet(f"color: {COLORS['accent']}; font-size: 11px; font-weight: bold; padding: 2px 4px;")
         self._main_layout.addWidget(header)
         self._header = header
 

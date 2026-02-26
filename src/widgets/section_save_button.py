@@ -6,6 +6,7 @@
 from PyQt6.QtWidgets import QPushButton, QHBoxLayout, QWidget
 from PyQt6.QtCore import QTimer
 from ..utils.i18n import t
+from ..utils.styles import COLORS
 
 import logging
 logger = logging.getLogger(__name__)
@@ -28,15 +29,15 @@ def create_section_save_button(save_callback, parent=None) -> QWidget:
 
     save_btn = QPushButton("💾 " + t('common.saveSection'))
     save_btn._is_section_save_btn = True
-    save_btn.setStyleSheet("""
-        QPushButton {
-            background: #064e3b; color: #34d399;
-            border: 1px solid #34d399; border-radius: 4px;
+    save_btn.setStyleSheet(f"""
+        QPushButton {{
+            background: {COLORS["success_bg"]}; color: {COLORS["success"]};
+            border: 1px solid {COLORS["success"]}; border-radius: 4px;
             padding: 4px 16px; font-size: 11px; font-weight: bold;
-        }
-        QPushButton:hover { background: #2a4a3a; }
-        QPushButton:pressed { background: #0a2a1a; }
-        QPushButton:disabled { background: #131921; color: #475569; border-color: #334155; }
+        }}
+        QPushButton:hover {{ background: {COLORS["success_bg"]}; }}
+        QPushButton:pressed {{ background: {COLORS["success_bg"]}; }}
+        QPushButton:disabled {{ background: {COLORS["bg_card"]}; color: {COLORS["text_muted"]}; border-color: {COLORS["text_disabled"]}; }}
     """)
 
     def _on_click():

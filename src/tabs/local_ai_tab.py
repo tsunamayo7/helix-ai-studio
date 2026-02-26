@@ -350,13 +350,13 @@ class LocalAITab(QWidget):
         self.bible_btn.setChecked(False)
         self.bible_btn.setFixedHeight(32)
         self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet("""
-            QPushButton { background: transparent; color: #ffa500;
-                border: 1px solid #ffa500; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }
-            QPushButton:checked { background: rgba(255, 165, 0, 0.2);
-                border: 2px solid #ffa500; font-weight: bold; }
-            QPushButton:hover { background: rgba(255, 165, 0, 0.1); }
+        self.bible_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {COLORS['warning']};
+                border: 1px solid {COLORS['warning']}; border-radius: 4px;
+                padding: 4px 12px; font-size: 11px; }}
+            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
+                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
+            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
         """)
         btn_row.addWidget(self.bible_btn)
 
@@ -445,7 +445,7 @@ class LocalAITab(QWidget):
         self.continue_send_btn.setStyleSheet(f"""
             QPushButton {{ background-color: {COLORS['accent_dim']}; color: white; border: none;
                           border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: #1088e4; }}
+            QPushButton:hover {{ background-color: {COLORS['accent']}; }}
         """)
         self.continue_send_btn.clicked.connect(self._on_continue_send)
         layout.addWidget(self.continue_send_btn)
@@ -690,7 +690,7 @@ class LocalAITab(QWidget):
         # ユーザーメッセージ表示
         self.chat_display.append(
             f"<div style='{USER_MESSAGE_STYLE}'>"
-            f"<b style='color:#38bdf8;'>You:</b> {message}"
+            f"<b style='color:{COLORS['accent']};'>You:</b> {message}"
             f"</div>"
         )
 
@@ -721,7 +721,7 @@ class LocalAITab(QWidget):
         # ストリーミングバブル開始
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#34d399;'>{model}:</b> "
+            f"<b style='color:{COLORS['success']};'>{model}:</b> "
         )
         self._streaming_div_open = True
 
@@ -816,9 +816,9 @@ class LocalAITab(QWidget):
             self._streaming_div_open = False
 
         self.chat_display.append(
-            f"<div style='background:#2a1515; border-left:3px solid #ef4444; "
+            f"<div style='background:{COLORS['error_bg']}; border-left:3px solid {COLORS['error']}; "
             f"padding:8px; margin:4px; border-radius:4px;'>"
-            f"<b style='color:#ef4444;'>Error:</b> {error}"
+            f"<b style='color:{COLORS['error']};'>Error:</b> {error}"
             f"</div>"
         )
         self.send_btn.setEnabled(True)
@@ -833,8 +833,8 @@ class LocalAITab(QWidget):
         icon = "✅" if success else "❌"
         self.statusChanged.emit(f"🔧 {tool_name} {icon}")
         self.chat_display.append(
-            f"<div style='background:#1a2332; border-left:3px solid #3b82f6; "
-            f"padding:4px 8px; margin:2px; border-radius:4px; font-size:11px; color:#94a3b8;'>"
+            f"<div style='background:{COLORS['bg_elevated']}; border-left:3px solid {COLORS['accent']}; "
+            f"padding:4px 8px; margin:2px; border-radius:4px; font-size:11px; color:{COLORS['text_secondary']};'>"
             f"🔧 Tool: <b>{tool_name}</b> {icon}"
             f"</div>"
         )

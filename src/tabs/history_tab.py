@@ -260,14 +260,14 @@ class HistoryTab(QWidget):
         card = QFrame()
         card.setStyleSheet(f"""
             QFrame {{
-                background: #161b22;
+                background: {COLORS['bg_surface']};
                 border: 1px solid {COLORS['border']};
                 border-radius: 6px;
                 padding: 8px;
             }}
             QFrame:hover {{
                 border-color: {COLORS['accent']};
-                background: #1a2030;
+                background: {COLORS['bg_elevated']};
             }}
         """)
         card.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -338,15 +338,15 @@ class HistoryTab(QWidget):
 
         html = f"""
         <div style="padding: 8px;">
-            <div style="color: #38bdf8; font-size: 12px; margin-bottom: 8px;">
+            <div style="color: {COLORS['accent']}; font-size: 12px; margin-bottom: 8px;">
                 <b>{role_icon}</b> | {tab} | {model} | {ts}
             </div>
         """
 
         if duration:
-            html += f'<div style="color: #94a3b8; font-size: 10px; margin-bottom: 4px;">⏱ {duration:.0f}ms</div>'
+            html += f'<div style="color: {COLORS["text_secondary"]}; font-size: 10px; margin-bottom: 4px;">⏱ {duration:.0f}ms</div>'
         if session:
-            html += f'<div style="color: #94a3b8; font-size: 10px; margin-bottom: 8px;">🔑 Session: {session[:16]}...</div>'
+            html += f'<div style="color: {COLORS["text_secondary"]}; font-size: 10px; margin-bottom: 8px;">🔑 Session: {session[:16]}...</div>'
 
         html += f"""
             <div style="color: {COLORS['text_primary']}; font-size: 13px; line-height: 1.5;

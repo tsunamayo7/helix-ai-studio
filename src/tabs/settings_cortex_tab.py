@@ -175,7 +175,7 @@ class SettingsCortexTab(QWidget):
 
     def _update_lang_button_styles(self, current_lang: str):
         """言語ボタンのスタイルを更新"""
-        active_style = "background-color: #059669; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
+        active_style = f"background-color: {COLORS['success']}; color: white; font-weight: bold; padding: 8px 20px; border-radius: 6px; border: none;"
         inactive_style = f"background-color: {COLORS['bg_card']}; color: {COLORS['text_secondary']}; padding: 8px 20px; border-radius: 6px;"
         self.lang_ja_btn.setStyleSheet(active_style if current_lang == 'ja' else inactive_style)
         self.lang_en_btn.setStyleSheet(active_style if current_lang == 'en' else inactive_style)
@@ -1093,7 +1093,7 @@ class SettingsCortexTab(QWidget):
         self.web_ui_toggle.setCheckable(True)
         self.web_ui_toggle.setStyleSheet(f"""
             QPushButton {{
-                background-color: #059669; color: white;
+                background-color: {COLORS['success']}; color: white;
                 padding: 10px 20px; border-radius: 8px;
                 font-size: 13px; font-weight: bold;
             }}
@@ -1176,7 +1176,7 @@ class SettingsCortexTab(QWidget):
         self.discord_send_btn.setToolTip(t('desktop.settings.discordSendBtnTip'))
         self.discord_send_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: #5865F2;
+                background-color: {COLORS['info']};
                 color: white;
                 padding: 6px 14px;
                 border-radius: 6px;
@@ -1187,7 +1187,7 @@ class SettingsCortexTab(QWidget):
                 background-color: #4752C4;
             }}
             QPushButton:disabled {{
-                background-color: #3d3d5c;
+                background-color: {COLORS['bg_elevated']};
                 color: {COLORS['text_secondary']};
             }}
         """)

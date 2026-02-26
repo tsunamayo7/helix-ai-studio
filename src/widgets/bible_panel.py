@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal
 
 from ..utils.styles import (
-    BIBLE_PANEL_STYLE, BIBLE_HEADER_STYLE,
+    COLORS, BIBLE_PANEL_STYLE, BIBLE_HEADER_STYLE,
     BIBLE_STATUS_FOUND_STYLE, BIBLE_STATUS_NOT_FOUND_STYLE,
     PRIMARY_BTN, SECONDARY_BTN, SCROLLBAR_STYLE,
     score_color, score_bar_style,
@@ -83,12 +83,12 @@ class BibleStatusPanel(QWidget):
             t('desktop.widgets.biblePanel.pathPlaceholder')
         )
         self.path_input.setStyleSheet(
-            "QLineEdit {"
-            "  background: #080c14; border: 1px solid #1e2d42;"
-            "  border-radius: 4px; padding: 4px 8px;"
-            "  color: #e2e8f0; font-size: 12px;"
-            "}"
-            "QLineEdit:focus { border: 1px solid #38bdf8; }"
+            f"QLineEdit {{"
+            f"  background: {COLORS['bg_base']}; border: 1px solid {COLORS['border']};"
+            f"  border-radius: 4px; padding: 4px 8px;"
+            f"  color: {COLORS['text_primary']}; font-size: 12px;"
+            f"}}"
+            f"QLineEdit:focus {{ border: 1px solid {COLORS['accent']}; }}"
         )
         self.path_input.setToolTip(
             t('desktop.widgets.biblePanel.pathTooltip')

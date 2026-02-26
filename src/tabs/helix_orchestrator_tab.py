@@ -1216,7 +1216,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#38bdf8;'>You:</b> {message}"
+                f"<b style='color:{COLORS['accent']};'>You:</b> {message}"
                 f"</div>"
             )
         if hasattr(self, 'input_text'):
@@ -1271,9 +1271,9 @@ class HelixOrchestratorTab(QWidget):
                 self.chat_display.clear()
                 for msg in messages:
                     if msg["role"] == "user":
-                        self.chat_display.append(f'<div style="background:#1a2233; border-left:3px solid #38bdf8; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
+                        self.chat_display.append(f'<div style="background:{COLORS["bg_elevated"]}; border-left:3px solid {COLORS["accent"]}; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
                     elif msg["role"] == "assistant":
-                        self.chat_display.append(f'<div style="background:#131921; border-left:3px solid #34d399; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
+                        self.chat_display.append(f'<div style="background:{COLORS["bg_card"]}; border-left:3px solid {COLORS["success"]}; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
             self.statusChanged.emit(t('desktop.mixAI.chatLoaded', title=chat.get("title", "")))
         except Exception as e:
             logger.warning(f"Failed to load chat from history: {e}")
@@ -2095,7 +2095,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#38bdf8;'>You:</b> {prompt}"
+                f"<b style='color:{COLORS['accent']};'>You:</b> {prompt}"
                 f"</div>"
             )
 
@@ -2417,10 +2417,10 @@ class HelixOrchestratorTab(QWidget):
 
         # v10.1.0: Phase開始バブルをchat_displayに追加
         if hasattr(self, 'chat_display'):
-            phase_colors = {1: "#38bdf8", 2: "#818cf8", 3: "#34d399"}
+            phase_colors = {1: COLORS["accent"], 2: COLORS["info"], 3: COLORS["success"]}
             color = phase_colors.get(phase_num, "#888")
             self.chat_display.append(
-                f"<div style='background:#131921; border-left:3px solid {color}; "
+                f"<div style='background:{COLORS['bg_card']}; border-left:3px solid {color}; "
                 f"padding:8px; margin:4px; border-radius:4px;'>"
                 f"<b style='color:{color};'>Phase {phase_num}:</b> {description}"
                 f"</div>"
@@ -2876,12 +2876,12 @@ class HelixOrchestratorTab(QWidget):
         ])
 
         if result.get("success"):
-            item.setForeground(2, QColor("#22c55e"))  # ステータス列のインデックスを更新
+            item.setForeground(2, QColor(COLORS["success"]))  # ステータス列のインデックスを更新
         else:
-            item.setForeground(2, QColor("#ef4444"))
+            item.setForeground(2, QColor(COLORS["error"]))
 
         # モデル名列に色を付ける（識別しやすくするため）
-        item.setForeground(1, QColor("#60a5fa"))  # 青系
+        item.setForeground(1, QColor(COLORS["accent_bright"]))  # 青系
 
         self.tool_log_tree.addTopLevelItem(item)
 
@@ -2897,7 +2897,7 @@ class HelixOrchestratorTab(QWidget):
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#34d399;'>{t('desktop.mixAI.phase3FinalBubbleTitle')}</b><br>"
+                f"<b style='color:{COLORS['success']};'>{t('desktop.mixAI.phase3FinalBubbleTitle')}</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -2952,9 +2952,9 @@ class HelixOrchestratorTab(QWidget):
         # v10.1.0: エラーバブルをchat_displayに追加
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
-                f"<div style='background:#2a1515; border-left:3px solid #ef4444; "
+                f"<div style='background:{COLORS['error_bg']}; border-left:3px solid {COLORS['error']}; "
                 f"padding:8px; margin:4px; border-radius:4px;'>"
-                f"<b style='color:#ef4444;'>Error:</b> {error}"
+                f"<b style='color:{COLORS['error']};'>Error:</b> {error}"
                 f"</div>"
             )
         self.statusChanged.emit(t('desktop.mixAI.errorStatus', error=error[:50]))

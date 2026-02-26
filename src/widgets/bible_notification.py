@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import pyqtSignal
 
-from ..utils.styles import BIBLE_NOTIFICATION_STYLE
+from ..utils.styles import BIBLE_NOTIFICATION_STYLE, COLORS
 from ..bible.bible_schema import BibleInfo
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
@@ -54,18 +54,18 @@ class BibleNotificationWidget(QFrame):
 
         # コンテキストに追加ボタン
         self.btn_add = QPushButton(t('desktop.widgets.bibleNotification.addToContext'))
-        self.btn_add.setStyleSheet("""
-            QPushButton {
+        self.btn_add.setStyleSheet(f"""
+            QPushButton {{
                 background: rgba(0, 212, 255, 0.15);
-                color: #38bdf8;
-                border: 1px solid #38bdf8;
+                color: {COLORS["accent"]};
+                border: 1px solid {COLORS["accent"]};
                 border-radius: 4px;
                 padding: 3px 10px;
                 font-size: 11px;
-            }
-            QPushButton:hover {
+            }}
+            QPushButton:hover {{
                 background: rgba(0, 212, 255, 0.25);
-            }
+            }}
         """)
         self.btn_add.clicked.connect(self._on_add)
         layout.addWidget(self.btn_add)
@@ -73,17 +73,17 @@ class BibleNotificationWidget(QFrame):
         # 無視ボタン
         self.btn_dismiss = QPushButton("x")
         self.btn_dismiss.setFixedSize(24, 24)
-        self.btn_dismiss.setStyleSheet("""
-            QPushButton {
+        self.btn_dismiss.setStyleSheet(f"""
+            QPushButton {{
                 background: transparent;
-                color: #94a3b8;
+                color: {COLORS["text_secondary"]};
                 border: none;
                 font-size: 14px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                color: #f87171;
-            }
+            }}
+            QPushButton:hover {{
+                color: {COLORS["error"]};
+            }}
         """)
         self.btn_dismiss.clicked.connect(self._on_dismiss)
         layout.addWidget(self.btn_dismiss)

@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 from PyQt6.QtGui import QFont, QAction, QTextCursor, QKeyEvent
 from ..utils.i18n import t
+from ..utils.styles import COLORS
 from ..utils.style_helpers import SS
 
 
@@ -345,16 +346,16 @@ class CloudAIAttachmentWidget(QFrame):
         import os
         self.filepath = filepath
         self.setFrameStyle(QFrame.Shape.StyledPanel)
-        self.setStyleSheet("""
-            CloudAIAttachmentWidget {
-                background-color: #2d3748;
-                border: 1px solid #4a5568;
+        self.setStyleSheet(f"""
+            CloudAIAttachmentWidget {{
+                background-color: {COLORS['bg_elevated']};
+                border: 1px solid {COLORS['border_strong']};
                 border-radius: 6px;
                 padding: 2px 6px;
-            }
-            CloudAIAttachmentWidget:hover {
-                border-color: #63b3ed;
-            }
+            }}
+            CloudAIAttachmentWidget:hover {{
+                border-color: {COLORS['accent_bright']};
+            }}
         """)
 
         layout = QHBoxLayout(self)
@@ -374,17 +375,17 @@ class CloudAIAttachmentWidget(QFrame):
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(24, 20)
         remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        remove_btn.setStyleSheet("""
-            QPushButton {
-                background: #e53e3e;
+        remove_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {COLORS['error']};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: bold;
                 padding: 0px 4px;
-            }
-            QPushButton:hover { background: #fc8181; }
+            }}
+            QPushButton:hover {{ background: {COLORS['error']}; }}
         """)
         remove_btn.clicked.connect(lambda: self.removed.emit(self.filepath))
 
@@ -741,12 +742,12 @@ class ClaudeTab(QWidget):
     def _set_ollama_ui_disabled(self, disabled: bool):
         """v3.9.2: Ollamaモード時のUI無効化制御 (v3.9.4: グレーアウト視覚フィードバック追加)"""
         # v3.9.4: 無効化時のグレーアウトスタイル
-        disabled_style = """
-            QComboBox:disabled {
-                background-color: #404040;
-                color: #808080;
-                border: 1px solid #505050;
-            }
+        disabled_style = f"""
+            QComboBox:disabled {{
+                background-color: {COLORS['text_muted']};
+                color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['border_strong']};
+            }}
         """
         enabled_style = ""
 
@@ -903,7 +904,7 @@ class ClaudeTab(QWidget):
         banner_text.setWordWrap(True)
         banner_layout.addWidget(banner_text, 1)
         banner_btn = QPushButton(t('desktop.cloudAI.goToModelSettings'))
-        banner_btn.setStyleSheet("QPushButton { color: #3b82f6; font-size: 10px; border: none; }")
+        banner_btn.setStyleSheet(f"QPushButton {{ color: {COLORS['accent']}; font-size: 10px; border: none; }}")
         banner_btn.clicked.connect(lambda: self.sub_tabs.setCurrentIndex(1))
         banner_layout.addWidget(banner_btn)
         chat_layout.addWidget(self._no_models_banner)
@@ -2272,13 +2273,13 @@ class ClaudeTab(QWidget):
         self.bible_btn.setChecked(False)
         self.bible_btn.setFixedHeight(32)
         self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet("""
-            QPushButton { background: transparent; color: #ffa500;
-                border: 1px solid #ffa500; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }
-            QPushButton:checked { background: rgba(255, 165, 0, 0.2);
-                border: 2px solid #ffa500; font-weight: bold; }
-            QPushButton:hover { background: rgba(255, 165, 0, 0.1); }
+        self.bible_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {COLORS['warning']};
+                border: 1px solid {COLORS['warning']}; border-radius: 4px;
+                padding: 4px 12px; font-size: 11px; }}
+            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
+                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
+            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
         """)
         btn_layout.addWidget(self.bible_btn)
 
@@ -2295,7 +2296,7 @@ class ClaudeTab(QWidget):
                 border: 1px solid {COLORS['success']}; border-radius: 4px;
                 padding: 4px 12px; font-weight: bold; font-size: 11px;
             }}
-            QPushButton:hover {{ background: #2a4a3a; }}
+            QPushButton:hover {{ background: {COLORS['success_bg']}; }}
             QPushButton:disabled {{ background: {COLORS['bg_card']}; color: {COLORS['text_muted']}; border-color: {COLORS['text_disabled']}; }}
         """)
         self.continue_send_btn_main.clicked.connect(self._on_continue_send_main)
@@ -2359,19 +2360,19 @@ class ClaudeTab(QWidget):
         self.quick_yes_btn.setFixedHeight(26)
         self.quick_yes_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.quick_yes_btn.setToolTip(t('desktop.cloudAI.quickYesTooltip'))
-        self.quick_yes_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2d8b4e;
+        self.quick_yes_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['success']};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 padding: 3px 10px;
                 font-size: 10px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #3d9d56;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['success']};
+            }}
         """)
         quick_btn_layout.addWidget(self.quick_yes_btn)
 
@@ -2380,19 +2381,19 @@ class ClaudeTab(QWidget):
         self.quick_continue_btn.setFixedHeight(26)
         self.quick_continue_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.quick_continue_btn.setToolTip(t('desktop.cloudAI.quickContinueTooltip'))
-        self.quick_continue_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0066aa;
+        self.quick_continue_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['accent_dim']};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 padding: 3px 10px;
                 font-size: 10px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #1177bb;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['accent']};
+            }}
         """)
         quick_btn_layout.addWidget(self.quick_continue_btn)
 
@@ -2401,19 +2402,19 @@ class ClaudeTab(QWidget):
         self.quick_exec_btn.setFixedHeight(26)
         self.quick_exec_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.quick_exec_btn.setToolTip(t('desktop.cloudAI.quickExecTooltip'))
-        self.quick_exec_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6c5ce7;
+        self.quick_exec_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['info']};
                 color: white;
                 border: none;
                 border-radius: 4px;
                 padding: 3px 10px;
                 font-size: 10px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #7d6ef8;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['info']};
+            }}
         """)
         quick_btn_layout.addWidget(self.quick_exec_btn)
 
@@ -2429,7 +2430,7 @@ class ClaudeTab(QWidget):
                 background-color: {COLORS['accent_dim']}; color: white; border: none;
                 border-radius: 4px; padding: 4px; font-size: 11px; font-weight: bold;
             }}
-            QPushButton:hover {{ background-color: #1088e4; }}
+            QPushButton:hover {{ background-color: {COLORS['accent']}; }}
         """)
         continue_layout.addWidget(self.continue_send_btn)
 
@@ -2508,9 +2509,9 @@ class ClaudeTab(QWidget):
             self.chat_display.clear()
             for msg in messages:
                 if msg["role"] == "user":
-                    self.chat_display.append(f'<div style="background:#1a2233; border-left:3px solid #38bdf8; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
+                    self.chat_display.append(f'<div style="background:{COLORS["bg_elevated"]}; border-left:3px solid {COLORS["accent"]}; padding:8px; margin:4px 40px 4px 4px; border-radius:4px;"><b>You:</b> {msg["content"]}</div>')
                 elif msg["role"] == "assistant":
-                    self.chat_display.append(f'<div style="background:#131921; border-left:3px solid #34d399; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
+                    self.chat_display.append(f'<div style="background:{COLORS["bg_card"]}; border-left:3px solid {COLORS["success"]}; padding:8px; margin:4px 4px 4px 40px; border-radius:4px;"><b>AI:</b> {msg["content"]}</div>')
             self.statusChanged.emit(t('desktop.cloudAI.chatLoaded', title=chat.get("title", "")))
         except Exception as e:
             logger.warning(f"Failed to load chat from history: {e}")
@@ -2772,7 +2773,7 @@ class ClaudeTab(QWidget):
         # Display user message
         self.chat_display.append(
             f"<div style='{USER_MESSAGE_STYLE}'>"
-            f"<b style='color:#38bdf8;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
+            f"<b style='color:{COLORS['accent']};'>{t('desktop.cloudAI.userPrefix')}</b><br>"
             f"{message.replace(chr(10), '<br>')}"
             f"</div>"
         )
@@ -3279,7 +3280,7 @@ class ClaudeTab(QWidget):
             if template_applied:
                 self.statusChanged.emit(t('desktop.cloudAI.templateApplied', name=template_name))
                 self.chat_display.append(
-                    f"<div style='color: #ffa500; font-size: 9pt;'>"
+                    f"<div style='color: {COLORS['warning']}; font-size: 9pt;'>"
                     f"{t('desktop.cloudAI.templateAppliedMsg', template=template_name)}"
                     f"</div>"
                 )
@@ -3288,16 +3289,16 @@ class ClaudeTab(QWidget):
             attachment_html = ""
             if hasattr(self, '_attached_files') and self._attached_files:
                 file_chips = ''.join(
-                    f'<span style="background:#1a2233;border:1px solid #38bdf8;'
+                    f'<span style="background:{COLORS["bg_elevated"]};border:1px solid {COLORS["accent"]};'
                     f'border-radius:4px;padding:2px 8px;margin:2px 4px 2px 0;'
-                    f'font-size:11px;color:#38bdf8;display:inline-block;">'
+                    f'font-size:11px;color:{COLORS["accent"]};display:inline-block;">'
                     f'{os.path.basename(f)}</span>'
                     for f in self._attached_files
                 )
                 attachment_html = f'<div style="margin-bottom:6px;">{file_chips}</div>'
             self.chat_display.append(
                 f"<div style='{USER_MESSAGE_STYLE}'>"
-                f"<b style='color:#38bdf8;'>{t('desktop.cloudAI.userPrefix')}</b><br>"
+                f"<b style='color:{COLORS['accent']};'>{t('desktop.cloudAI.userPrefix')}</b><br>"
                 f"{attachment_html}"
                 f"{message.replace(chr(10), '<br>')}"
                 f"</div>"
@@ -3339,8 +3340,8 @@ class ClaudeTab(QWidget):
                 ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
                 if not ollama_model:
                     self.chat_display.append(
-                        "<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
-                        "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
+                        f"<div style='color: {COLORS['warning']}; padding: 8px; border: 1px solid {COLORS['warning']}; "
+                        f"border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
                     )
                     return
                 logger.info(f"[ClaudeTab._send_message] Ollama mode: model={ollama_model}")
@@ -3350,8 +3351,8 @@ class ClaudeTab(QWidget):
             # モデル未設定チェック
             if not model_id:
                 self.chat_display.append(
-                    "<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
-                    "border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
+                    f"<div style='color: {COLORS['warning']}; padding: 8px; border: 1px solid {COLORS['warning']}; "
+                    f"border-radius: 4px;'>" + t('desktop.cloudAI.noModelsConfigured') + "</div>"
                 )
                 return
 
@@ -3366,7 +3367,7 @@ class ClaudeTab(QWidget):
                     self._send_via_anthropic_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
                 else:
                     self.chat_display.append(
-                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'Anthropic API key not configured')}</div>"
+                        f"<div style='color: {COLORS['error']};'>&#10060; {kwargs.get('reason', 'Anthropic API key not configured')}</div>"
                     )
 
             elif provider == "openai_api":
@@ -3375,7 +3376,7 @@ class ClaudeTab(QWidget):
                     self._send_via_openai_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
                 else:
                     self.chat_display.append(
-                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'OpenAI API key not configured')}</div>"
+                        f"<div style='color: {COLORS['error']};'>&#10060; {kwargs.get('reason', 'OpenAI API key not configured')}</div>"
                     )
 
             elif provider == "anthropic_cli":
@@ -3388,7 +3389,7 @@ class ClaudeTab(QWidget):
                     self._send_via_google_api(processed_message, session_id, kwargs["api_key"], model_id=model_id)
                 else:
                     self.chat_display.append(
-                        f"<div style='color: #ef4444;'>&#10060; {kwargs.get('reason', 'Google API key not configured')}</div>"
+                        f"<div style='color: {COLORS['error']};'>&#10060; {kwargs.get('reason', 'Google API key not configured')}</div>"
                     )
 
             elif provider == "openai_cli":
@@ -3401,7 +3402,7 @@ class ClaudeTab(QWidget):
                 # v11.5.1: unknown provider → ユーザーガイド表示
                 guide_msg = t('desktop.cloudAI.unknownProviderGuide').format(model_id=model_id)
                 self.chat_display.append(
-                    f"<div style='color: #fbbf24; padding: 8px; border: 1px solid #fbbf24; "
+                    f"<div style='color: {COLORS['warning']}; padding: 8px; border: 1px solid {COLORS['warning']}; "
                     f"border-radius: 4px;'>&#9888; {guide_msg}</div>"
                 )
 
@@ -3417,7 +3418,7 @@ class ClaudeTab(QWidget):
 
             # UIにエラー表示
             self.chat_display.append(
-                f"<div style='color: #ef4444; margin-top: 10px;'>"
+                f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                 f"<b>{t('desktop.cloudAI.sendErrorHtml')}</b><br>"
                 f"{error_msg}<br><br>"
                 f"{t('desktop.cloudAI.crashLogDetail')}"
@@ -3441,8 +3442,8 @@ class ClaudeTab(QWidget):
 
         if not is_google_genai_sdk_available():
             self.chat_display.append(
-                "<div style='color: #ef4444;'>google-genai SDK not installed.<br>"
-                "Run: <code>pip install google-genai</code></div>"
+                f"<div style='color: {COLORS['error']};'>google-genai SDK not installed.<br>"
+                f"Run: <code>pip install google-genai</code></div>"
             )
             return
 
@@ -3465,7 +3466,7 @@ class ClaudeTab(QWidget):
                 self.solo_status_bar.set_status("idle")
             if error:
                 self.chat_display.append(
-                    f"<div style='color: #ef4444;'><b>Gemini API Error:</b> {error}</div>"
+                    f"<div style='color: {COLORS['error']};'><b>Gemini API Error:</b> {error}</div>"
                 )
             else:
                 self._display_ai_response(full_text, model_id, "google_api")
@@ -3501,10 +3502,10 @@ class ClaudeTab(QWidget):
 
         if not shutil.which("gemini"):
             self.chat_display.append(
-                "<div style='color: #ef4444;'>"
-                "Gemini CLI not found.<br>"
-                "Install: <code>npm install -g @google/gemini-cli</code>"
-                "</div>"
+                f"<div style='color: {COLORS['error']};'>"
+                f"Gemini CLI not found.<br>"
+                f"Install: <code>npm install -g @google/gemini-cli</code>"
+                f"</div>"
             )
             return
 
@@ -3550,7 +3551,7 @@ class ClaudeTab(QWidget):
                     self.solo_status_bar.set_status("idle" if not error else "error")
                 if error:
                     self.chat_display.append(
-                        f"<div style='color: #ef4444;'><b>Gemini CLI Error:</b> {error}</div>"
+                        f"<div style='color: {COLORS['error']};'><b>Gemini CLI Error:</b> {error}</div>"
                     )
                 elif full_text:
                     self._display_ai_response(full_text, model_id, "google_cli")
@@ -3574,7 +3575,7 @@ class ClaudeTab(QWidget):
         if not codex_available:
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#ef4444;'>{t('desktop.cloudAI.codexUnavailableTitle')}</b><br>"
+                f"<b style='color:{COLORS['error']};'>{t('desktop.cloudAI.codexUnavailableTitle')}</b><br>"
                 f"{t('desktop.cloudAI.codexUnavailableMsg')}"
                 f"</div>"
             )
@@ -3620,7 +3621,7 @@ class ClaudeTab(QWidget):
         rendered = markdown_to_html(response_text)
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#fbbf24;'>GPT-5.3-Codex (CLI):</b><br>"
+            f"<b style='color:{COLORS['warning']};'>GPT-5.3-Codex (CLI):</b><br>"
             f"{rendered}"
             f"</div>"
         )
@@ -3632,7 +3633,7 @@ class ClaudeTab(QWidget):
         """v9.9.1: Codex CLIエラー処理"""
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#ef4444;'>Codex Error:</b><br>"
+            f"<b style='color:{COLORS['error']};'>Codex Error:</b><br>"
             f"{error_msg[:500]}"
             f"</div>"
         )
@@ -3688,7 +3689,7 @@ class ClaudeTab(QWidget):
         if not is_anthropic_sdk_available():
             logger.warning("[ClaudeTab] anthropic SDK not installed")
             self.chat_display.append(
-                "<div style='color: #ef4444;'>Anthropic SDK not installed. Run: pip install anthropic</div>"
+                f"<div style='color: {COLORS['error']};'>Anthropic SDK not installed. Run: pip install anthropic</div>"
             )
             return
 
@@ -3709,7 +3710,7 @@ class ClaudeTab(QWidget):
                 self.solo_status_bar.set_status("idle")
             if error:
                 self.chat_display.append(
-                    f"<div style='color: #ef4444;'><b>API Error:</b> {error}</div>"
+                    f"<div style='color: {COLORS['error']};'><b>API Error:</b> {error}</div>"
                 )
             else:
                 if hasattr(self, '_chat_logger') and self._chat_logger:
@@ -3756,7 +3757,7 @@ class ClaudeTab(QWidget):
         if not is_openai_sdk_available():
             logger.warning("[ClaudeTab] openai SDK not installed")
             self.chat_display.append(
-                "<div style='color: #ef4444;'>OpenAI SDK not installed. Run: pip install openai</div>"
+                f"<div style='color: {COLORS['error']};'>OpenAI SDK not installed. Run: pip install openai</div>"
             )
             return
 
@@ -3777,7 +3778,7 @@ class ClaudeTab(QWidget):
                 self.solo_status_bar.set_status("idle")
             if error:
                 self.chat_display.append(
-                    f"<div style='color: #ef4444;'><b>API Error:</b> {error}</div>"
+                    f"<div style='color: {COLORS['error']};'><b>API Error:</b> {error}</div>"
                 )
             else:
                 if hasattr(self, '_chat_logger') and self._chat_logger:
@@ -3824,7 +3825,7 @@ class ClaudeTab(QWidget):
         if not self._cli_backend or not self._cli_backend.is_available():
             error_msg = t('desktop.cloudAI.cliUnavailableInstructions')
             self.chat_display.append(
-                f"<div style='color: #ef4444; margin-top: 10px;'>"
+                f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                 f"<b>{t('desktop.cloudAI.cliUnavailableHtml')}</b><br>"
                 f"{error_msg}"
                 f"</div>"
@@ -3903,7 +3904,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#34d399;'>Claude CLI (Max/Pro):</b><br>"
+                f"<b style='color:{COLORS['success']};'>Claude CLI (Max/Pro):</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4036,7 +4037,7 @@ class ClaudeTab(QWidget):
                 self.model_combo.blockSignals(False)
 
                 self.chat_display.append(
-                    f"<div style='color: #ffa500; margin-top: 10px;'>"
+                    f"<div style='color: {COLORS['warning']}; margin-top: 10px;'>"
                     f"<b>{t('desktop.cloudAI.haikuUnavailableHtml')}</b><br>"
                     f"{t('desktop.cloudAI.modelNotAvailableMsg').replace(chr(10), '<br>')}"
                     f"</div>"
@@ -4053,7 +4054,7 @@ class ClaudeTab(QWidget):
             self._pending_user_message = None
 
             self.chat_display.append(
-                f"<div style='color: #ef4444; margin-top: 10px;'>"
+                f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                 f"<b>{t('desktop.cloudAI.cliErrorHtml', error_type=error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"
@@ -4074,7 +4075,7 @@ class ClaudeTab(QWidget):
         logger.error(f"[ClaudeTab._on_cli_error] {error_msg}")
 
         self.chat_display.append(
-            f"<div style='color: #ef4444; margin-top: 10px;'>"
+            f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
             f"<b>{t('desktop.cloudAI.cliExecErrorHtml')}</b><br>"
             f"{error_msg}"
             f"</div>"
@@ -4193,7 +4194,7 @@ class ClaudeTab(QWidget):
         rendered = markdown_to_html(response_text)
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:#34d399;'>{ollama_model} (Ollama):</b><br>"
+            f"<b style='color:{COLORS['success']};'>{ollama_model} (Ollama):</b><br>"
             f"{rendered}"
             f"</div>"
         )
@@ -4233,7 +4234,7 @@ class ClaudeTab(QWidget):
         logger.error(f"[ClaudeTab._on_ollama_error] {error_msg}")
 
         self.chat_display.append(
-            f"<div style='color: #ef4444; margin-top: 10px;'>"
+            f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
             f"<b>{t('desktop.cloudAI.ollamaErrorHtml')}</b><br>"
             f"{error_msg}"
             f"</div>"
@@ -4309,7 +4310,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#34d399;'>{self.backend.get_name()}:</b><br>"
+                f"<b style='color:{COLORS['success']};'>{self.backend.get_name()}:</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4327,7 +4328,7 @@ class ClaudeTab(QWidget):
         else:
             # 失敗時: エラーメッセージを表示
             self.chat_display.append(
-                f"<div style='color: #ef4444; margin-top: 10px;'>"
+                f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                 f"<b>{t('desktop.cloudAI.errorHtml', error_type=response.error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"
@@ -4365,7 +4366,7 @@ class ClaudeTab(QWidget):
         # フォールバックがあった場合
         if len(fallback_chain) > 1:
             self.chat_display.append(
-                f"<div style='color: #fbbf24; font-size: 9pt;'>"
+                f"<div style='color: {COLORS['warning']}; font-size: 9pt;'>"
                 f"[Fallback] {' → '.join(fallback_chain)}"
                 f"</div>"
             )
@@ -4387,7 +4388,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#34d399;'>{selected_backend}:</b><br>"
+                f"<b style='color:{COLORS['success']};'>{selected_backend}:</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -4459,7 +4460,7 @@ class ClaudeTab(QWidget):
             if policy_blocked:
                 # ポリシーブロック
                 self.chat_display.append(
-                    f"<div style='color: #fbbf24; margin-top: 10px;'>"
+                    f"<div style='color: {COLORS['warning']}; margin-top: 10px;'>"
                     f"<b>{t('desktop.cloudAI.policyBlockHtml')}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}<br><br>"
                     f"{t('desktop.cloudAI.getApprovalRetry')}"
@@ -4470,7 +4471,7 @@ class ClaudeTab(QWidget):
             elif error_type == "BudgetExceeded":
                 # 予算超過
                 self.chat_display.append(
-                    f"<div style='color: #ef4444; margin-top: 10px;'>"
+                    f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                     f"<b>{t('desktop.cloudAI.budgetExceededHtml')}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}<br><br>"
                     f"{t('desktop.cloudAI.checkBudgetMsg')}"
@@ -4481,7 +4482,7 @@ class ClaudeTab(QWidget):
             else:
                 # その他のエラー
                 self.chat_display.append(
-                    f"<div style='color: #ef4444; margin-top: 10px;'>"
+                    f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                     f"<b>{t('desktop.cloudAI.errorHtml', error_type=error_type)}</b><br>"
                     f"{response.response_text.replace(chr(10), '<br>')}"
                     f"</div>"
@@ -4902,7 +4903,7 @@ class ClaudeTab(QWidget):
 
         # チャットに表示
         self.chat_display.append(
-            f"<div style='color: #4fc3f7;'><b>{t('desktop.cloudAI.continueMessageHtml')}</b> {message}</div>"
+            f"<div style='color: {COLORS['accent_bright']};'><b>{t('desktop.cloudAI.continueMessageHtml')}</b> {message}</div>"
         )
         self.chat_display.append(
             f"<div style='color: #888; font-size: 9pt;'>"
@@ -4972,7 +4973,7 @@ class ClaudeTab(QWidget):
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
                 f"<div style='{AI_MESSAGE_STYLE}'>"
-                f"<b style='color:#34d399;'>{t('desktop.cloudAI.cliContinueLabel')}</b><br>"
+                f"<b style='color:{COLORS['success']};'>{t('desktop.cloudAI.cliContinueLabel')}</b><br>"
                 f"{rendered}"
                 f"</div>"
             )
@@ -5010,7 +5011,7 @@ class ClaudeTab(QWidget):
             error_type = response.error_type or "ContinueError"
 
             self.chat_display.append(
-                f"<div style='color: #ef4444; margin-top: 10px;'>"
+                f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
                 f"<b>{t('desktop.cloudAI.continueErrorHtml', error_type=error_type)}</b><br>"
                 f"{response.response_text.replace(chr(10), '<br>')}"
                 f"</div>"

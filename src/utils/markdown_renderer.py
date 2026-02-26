@@ -9,6 +9,8 @@ QTextEdit/QTextBrowserで美しく表示する。
 import re
 from typing import List
 
+from .styles import COLORS
+
 
 def markdown_to_html(text: str) -> str:
     """
@@ -41,16 +43,16 @@ def markdown_to_html(text: str) -> str:
             else:
                 code_lang = line.strip()[3:].strip()
                 lang_label = (
-                    f'<div style="color:#94a3b8;font-size:11px;'
+                    f'<div style="color:{COLORS["text_secondary"]};font-size:11px;'
                     f'margin-bottom:4px;">{code_lang}</div>'
                     if code_lang else ''
                 )
                 html_parts.append(
                     f'{lang_label}'
-                    f'<pre style="background:#131921;border:1px solid #334155;'
+                    f'<pre style="background:{COLORS["bg_card"]};border:1px solid {COLORS["text_disabled"]};'
                     f'border-radius:6px;padding:12px;margin:8px 0;'
                     f'font-family:Consolas,\'Courier New\',monospace;font-size:13px;'
-                    f'color:#e2e8f0;overflow-x:auto;white-space:pre-wrap;'
+                    f'color:{COLORS["text_primary"]};overflow-x:auto;white-space:pre-wrap;'
                     f'word-wrap:break-word;"><code>'
                 )
                 in_code_block = True
@@ -65,7 +67,7 @@ def markdown_to_html(text: str) -> str:
         # 水平線
         if re.match(r'^-{3,}$|^\*{3,}$|^_{3,}$', line.strip()):
             html_parts.append(
-                '<hr style="border:none;border-top:1px solid #334155;margin:16px 0;">'
+                f'<hr style="border:none;border-top:1px solid {COLORS["text_disabled"]};margin:16px 0;">'
             )
             continue
 
@@ -73,15 +75,15 @@ def markdown_to_html(text: str) -> str:
         if line.startswith('### '):
             content = _apply_inline(line[4:])
             html_parts.append(
-                f'<h3 style="color:#38bdf8;margin:16px 0 8px;'
-                f'font-size:15px;border-bottom:1px solid #334155;'
+                f'<h3 style="color:{COLORS["accent"]};margin:16px 0 8px;'
+                f'font-size:15px;border-bottom:1px solid {COLORS["text_disabled"]};'
                 f'padding-bottom:4px;">{content}</h3>'
             )
         elif line.startswith('## '):
             content = _apply_inline(line[3:])
             html_parts.append(
-                f'<h2 style="color:#38bdf8;margin:20px 0 10px;'
-                f'font-size:17px;border-bottom:1px solid #444;'
+                f'<h2 style="color:{COLORS["accent"]};margin:20px 0 10px;'
+                f'font-size:17px;border-bottom:1px solid {COLORS["text_disabled"]};'
                 f'padding-bottom:6px;">{content}</h2>'
             )
         elif line.startswith('# '):
@@ -99,7 +101,7 @@ def markdown_to_html(text: str) -> str:
                 margin = 8 + indent * 4
                 html_parts.append(
                     f'<div style="margin-left:{margin}px;padding:2px 0;">'
-                    f'<span style="color:#38bdf8;font-size:10px;">&#9679;</span> '
+                    f'<span style="color:{COLORS["accent"]};font-size:10px;">&#9679;</span> '
                     f'{content}</div>'
                 )
         # 番号付きリスト
@@ -123,12 +125,12 @@ def markdown_to_html(text: str) -> str:
                 continue
             cells = [c.strip() for c in line.strip().strip('|').split('|')]
             cells_html = ''.join(
-                f'<td style="padding:4px 8px;border:1px solid #334155;">'
+                f'<td style="padding:4px 8px;border:1px solid {COLORS["text_disabled"]};">'
                 f'{_apply_inline(c)}</td>'
                 for c in cells
             )
             html_parts.append(
-                f'<tr style="background:#131921;">{cells_html}</tr>'
+                f'<tr style="background:{COLORS["bg_card"]};">{cells_html}</tr>'
             )
         # 通常テキスト
         else:
@@ -179,8 +181,8 @@ def _apply_inline(text: str) -> str:
     # Inline code: `code`
     text = re.sub(
         r'`([^`]+)`',
-        r'<code style="background:#131921;padding:2px 6px;border-radius:3px;'
-        r'font-family:Consolas,monospace;font-size:12px;color:#ff9800;">\1</code>',
+        f'<code style="background:{COLORS["bg_card"]};padding:2px 6px;border-radius:3px;'
+        f'font-family:Consolas,monospace;font-size:12px;color:#ff9800;">\\1</code>',
         text
     )
     return text

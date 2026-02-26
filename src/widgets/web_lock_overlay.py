@@ -9,6 +9,7 @@ from PyQt6.QtGui import QFont
 
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
+from ..utils.styles import COLORS
 
 
 class WebLockOverlay(QWidget):
@@ -36,7 +37,7 @@ class WebLockOverlay(QWidget):
         # メッセージ
         self.message_label = QLabel(t('desktop.widgets.webLock.lockMsg'))
         self.message_label.setStyleSheet(
-            "color: #10b981; font-size: 16px; font-weight: bold; padding: 10px;")
+            f"color: {COLORS['success']}; font-size: 16px; font-weight: bold; padding: 10px;")
         self.message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.message_label.setWordWrap(True)
         layout.addWidget(self.message_label)

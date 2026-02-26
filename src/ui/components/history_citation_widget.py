@@ -17,6 +17,7 @@ from PyQt6.QtGui import QFont
 from ...data.chat_history_manager import get_chat_history_manager, ChatEntry
 from ...utils.i18n import t
 from ...utils.style_helpers import SS
+from ...utils.styles import COLORS
 
 import logging
 
@@ -199,9 +200,9 @@ class HistoryCitationWidget(QWidget):
 
             # プレビュー表示
             preview = (
-                f"<div style='color: #a0c8ff;'><b>{t('desktop.historyCitation.promptLabel')}</b></div>"
+                f"<div style='color: {COLORS['accent_bright']};'><b>{t('desktop.historyCitation.promptLabel')}</b></div>"
                 f"<div style='margin-left: 10px;'>{entry.prompt}</div><br>"
-                f"<div style='color: #dcdcdc;'><b>{t('desktop.historyCitation.responseLabel', source=entry.ai_source)}</b></div>"
+                f"<div style='color: {COLORS['text_primary']};'><b>{t('desktop.historyCitation.responseLabel', source=entry.ai_source)}</b></div>"
                 f"<div style='margin-left: 10px;'>{entry.response[:500]}{'...' if len(entry.response) > 500 else ''}</div>"
             )
             self.preview_text.setHtml(preview)

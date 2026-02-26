@@ -17,21 +17,22 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QAction
 
 from ..utils.i18n import t
+from ..utils.styles import COLORS
 
 logger = logging.getLogger(__name__)
 
-# ─── カラー定数 ───
-BG_DARK = "#0a0e14"
-BG_ITEM = "#111827"
-BG_HOVER = "#131921"
-BG_SELECTED = "#064e3b"
+# ─── カラー定数（COLORS dict に統合）───
+BG_DARK = COLORS["bg_base"]
+BG_ITEM = COLORS["bg_card"]
+BG_HOVER = COLORS["bg_elevated"]
+BG_SELECTED = COLORS["success_bg"]
 BADGE_SOLO = "#0891b2"
 BADGE_MIX = "#7c3aed"
-TEXT_PRIMARY = "#e5e7eb"
-TEXT_SECONDARY = "#9ca3af"
-TEXT_MUTED = "#6b7280"
-BORDER_COLOR = "#131921"
-ACCENT_CYAN = "#38bdf8"
+TEXT_PRIMARY = COLORS["text_primary"]
+TEXT_SECONDARY = COLORS["text_secondary"]
+TEXT_MUTED = COLORS["text_muted"]
+BORDER_COLOR = COLORS["border"]
+ACCENT_CYAN = COLORS["accent"]
 
 
 class ChatItemWidget(QFrame):
@@ -113,7 +114,7 @@ class ChatItemWidget(QFrame):
             self.setStyleSheet(f"""
                 ChatItemWidget {{
                     background-color: {BG_SELECTED};
-                    border: 1px solid #10b981;
+                    border: 1px solid {COLORS["success"]};
                     border-radius: 6px;
                 }}
             """)
@@ -275,7 +276,7 @@ class ChatHistoryPanel(QDockWidget):
                 border-radius: 3px;
             }}
             QScrollBar::handle:vertical {{
-                background: #334155;
+                background: {COLORS["text_disabled"]};
                 border-radius: 3px;
                 min-height: 20px;
             }}
@@ -312,7 +313,7 @@ class ChatHistoryPanel(QDockWidget):
                 titlebar-close-icon: url(none);
             }}
             QDockWidget::title {{
-                background-color: #111827;
+                background-color: {BG_ITEM};
                 color: {ACCENT_CYAN};
                 padding: 8px;
                 font-weight: bold;
