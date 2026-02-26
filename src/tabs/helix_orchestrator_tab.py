@@ -970,15 +970,25 @@ mixAI 動作検証 JSON を検索
 
 
 class _ContinueTextEdit(QPlainTextEdit):
-    """会話継続パネル用テキスト入力（Enter=送信、Shift+Enter=改行）"""
+    """会話継続パネル用テキスト入力 (v11.9.2: enter_to_send設定対応)"""
     def __init__(self, send_callback, parent=None):
         super().__init__(parent)
         self._send_cb = send_callback
 
     def keyPressEvent(self, e):
         from PyQt6.QtCore import Qt as _Qt
-        if e.key() in (_Qt.Key.Key_Return, _Qt.Key.Key_Enter) and not (e.modifiers() & _Qt.KeyboardModifier.ShiftModifier):
-            self._send_cb()
+        if e.key() in (_Qt.Key.Key_Return, _Qt.Key.Key_Enter):
+            has_shift = bool(e.modifiers() & _Qt.KeyboardModifier.ShiftModifier)
+            from ..widgets.chat_input import _is_enter_to_send
+            if _is_enter_to_send():
+                if not has_shift:
+                    self._send_cb()
+                    return
+            else:
+                if has_shift:
+                    self._send_cb()
+                    return
+            super().keyPressEvent(e)
             return
         super().keyPressEvent(e)
 
