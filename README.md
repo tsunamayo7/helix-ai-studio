@@ -115,6 +115,9 @@ Access from **anywhere** via the built-in Web UI — chat from your phone, table
 
 ## Demo
 
+### App Overview
+![Helix AI Studio Demo](docs/images/demo.gif)
+
 ### mixAI — 3+1 Phase Pipeline (Claude → Local LLMs → Claude → Sonnet)
 ![mixAI Demo](docs/screenshots/mixai_demo.gif)
 
@@ -412,6 +415,13 @@ Key points:
 | Anthropic API key (Commercial) | None | Automation, sensitive data |
 | Claude Code CLI (Pro/Max login) | Opt-out recommended | Interactive personal use |
 | Ollama (local) | None | Privacy-sensitive Phase 2 |
+
+---
+
+## Articles (note.com)
+
+- [Introduction & Setup Guide (Japanese)](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) — beginner-friendly app overview and installation walkthrough
+- [Architecture Deep Dive (Japanese)](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) — 3+1 Phase pipeline, dual UI, memory system, security design
 
 ---
 

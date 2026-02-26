@@ -69,8 +69,8 @@ helix_source_bundle.txt
 
 # Pipeline artifacts
 screenshots/
-demo.gif
-demo.mp4
+/demo.gif
+/demo.mp4
 
 # Personal/development files
 .claude/

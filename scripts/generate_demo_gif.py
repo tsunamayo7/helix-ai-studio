@@ -13,19 +13,30 @@ import sys
 from pathlib import Path
 
 
+FFMPEG_PATHS = ["ffmpeg", r"C:\ffmpeg\bin\ffmpeg.exe"]
+
+
+def find_ffmpeg() -> str:
+    """ffmpegの実行パスを検索して返す"""
+    for path in FFMPEG_PATHS:
+        try:
+            result = subprocess.run(
+                [path, "-version"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                return path
+        except FileNotFoundError:
+            continue
+    return ""
+
+
 def check_ffmpeg():
     """ffmpegが利用可能か確認"""
-    try:
-        result = subprocess.run(
-            ["ffmpeg", "-version"],
-            capture_output=True, text=True, timeout=10
-        )
-        return result.returncode == 0
-    except FileNotFoundError:
-        return False
+    return bool(find_ffmpeg())
 
 
-def generate_gif(input_dir: Path, output: str, fps: int):
+def generate_gif(input_dir: Path, output: str, fps: int, ffmpeg: str = "ffmpeg"):
     """2パスGIF生成（高品質）"""
     images = sorted(input_dir.glob("*.png"))
     if not images:
@@ -47,7 +58,7 @@ def generate_gif(input_dir: Path, output: str, fps: int):
     try:
         # Pass 1: パレット生成
         subprocess.run([
-            "ffmpeg", "-y",
+            ffmpeg, "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
             "-vf", "fps=10,scale=800:-1:flags=lanczos,palettegen",
             str(palette)
@@ -55,7 +66,7 @@ def generate_gif(input_dir: Path, output: str, fps: int):
 
         # Pass 2: GIF生成
         subprocess.run([
-            "ffmpeg", "-y",
+            ffmpeg, "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
             "-i", str(palette),
             "-lavfi", "fps=10,scale=800:-1:flags=lanczos [x]; [x][1:v] paletteuse",
@@ -68,7 +79,7 @@ def generate_gif(input_dir: Path, output: str, fps: int):
         palette.unlink(missing_ok=True)
 
 
-def generate_mp4(input_dir: Path, output: str, fps: int):
+def generate_mp4(input_dir: Path, output: str, fps: int, ffmpeg: str = "ffmpeg"):
     """MP4動画生成"""
     images = sorted(input_dir.glob("*.png"))
     if not images:
@@ -85,7 +96,7 @@ def generate_mp4(input_dir: Path, output: str, fps: int):
 
     try:
         subprocess.run([
-            "ffmpeg", "-y",
+            ffmpeg, "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
             "-vf", "scale=800:-1",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
@@ -114,7 +125,8 @@ def main():
     )
     args = parser.parse_args()
 
-    if not check_ffmpeg():
+    ffmpeg = find_ffmpeg()
+    if not ffmpeg:
         print("ERROR: ffmpeg not found. Install with: winget install --id Gyan.FFmpeg")
         sys.exit(1)
 
@@ -126,9 +138,9 @@ def main():
     output = args.output or f"demo.{args.format}"
 
     if args.format == "gif":
-        generate_gif(input_dir, output, args.fps)
+        generate_gif(input_dir, output, args.fps, ffmpeg)
     else:
-        generate_mp4(input_dir, output, args.fps)
+        generate_mp4(input_dir, output, args.fps, ffmpeg)
 
 
 if __name__ == "__main__":
