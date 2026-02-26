@@ -1755,6 +1755,7 @@ class HelixOrchestratorTab(QWidget):
         # v11.0.0: P1/P3エンジン選択 — cloudAI登録済みモデル全表示
         from ..utils.model_catalog import get_cloud_models
         self.engine_combo = NoScrollComboBox()
+        self.engine_combo.setMinimumWidth(350)
         self.engine_combo.setToolTip(t('desktop.mixAI.engineTip'))
         self._populate_engine_combo()
         saved_engine_id = self._load_engine_setting()
@@ -1769,8 +1770,7 @@ class HelixOrchestratorTab(QWidget):
         self.engine_combo.currentIndexChanged.connect(self._on_engine_changed)
         self.p1p3_engine_label = QLabel(t('desktop.mixAI.p1p3ModelLabel'))
         engine_combo_row = QHBoxLayout()
-        engine_combo_row.addWidget(self.engine_combo)
-        engine_combo_row.addStretch()
+        engine_combo_row.addWidget(self.engine_combo, 1)
         claude_layout.addRow(self.p1p3_engine_label, engine_combo_row)
 
         # v11.3.0: エンジン説明ラベル
@@ -2329,34 +2329,33 @@ class HelixOrchestratorTab(QWidget):
         is_claude = engine_id.startswith("claude-")
         self._update_claude_controls_availability(is_claude)
         self._update_engine_desc(engine_id)
-        self._update_engine_desc(engine_id)
 
     def _update_engine_desc(self, engine_id: str):
-        """エンジン説明ラベルを更新（v11.3.0）"""
+        """エンジン説明ラベルを更新（v11.9.3: provider-based判定）"""
         if not hasattr(self, 'engine_desc_label'):
             return
         if not engine_id:
             self.engine_desc_label.setText("")
             return
-        if engine_id.startswith("claude-"):
-            desc = t('desktop.mixAI.engineDescClaude')
-        elif "codex" in engine_id.lower() or engine_id.startswith("gpt-"):
-            desc = t('desktop.mixAI.engineDescCodex')
-        else:
-            desc = t('desktop.mixAI.engineDescLocal')
-        self.engine_desc_label.setText(desc)
-
-    def _update_engine_desc(self, engine_id: str):
-        """エンジン説明ラベルを更新（v11.3.0）"""
-        if not hasattr(self, 'engine_desc_label'):
-            return
-        if not engine_id:
-            self.engine_desc_label.setText("")
-            return
-        if engine_id.startswith("claude-"):
-            desc = t('desktop.mixAI.engineDescClaude')
-        elif "codex" in engine_id.lower() or engine_id.startswith("gpt-"):
-            desc = t('desktop.mixAI.engineDescCodex')
+        from ..utils.model_catalog import get_provider_for_engine
+        provider = get_provider_for_engine(engine_id)
+        if provider:
+            if "cli" in provider:
+                if "anthropic" in provider:
+                    desc = t('desktop.mixAI.engineDescClaudeCli')
+                elif "openai" in provider:
+                    desc = t('desktop.mixAI.engineDescCodex')
+                else:
+                    desc = t('desktop.mixAI.engineDescCloud')
+            else:
+                if "anthropic" in provider:
+                    desc = t('desktop.mixAI.engineDescClaude')
+                elif "google" in provider:
+                    desc = t('desktop.mixAI.engineDescGemini')
+                elif "openai" in provider:
+                    desc = t('desktop.mixAI.engineDescOpenAI')
+                else:
+                    desc = t('desktop.mixAI.engineDescCloud')
         else:
             desc = t('desktop.mixAI.engineDescLocal')
         self.engine_desc_label.setText(desc)

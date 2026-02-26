@@ -235,7 +235,8 @@ def _create_splash_screen(app):
         painter.setPen(QColor("#38bdf8"))
         ver_font = QFont("Segoe UI", 10)
         painter.setFont(ver_font)
-        painter.drawText(110, 105, "v11.9.0  Unified Obsidian")
+        from src.utils.constants import APP_VERSION, APP_CODENAME
+        painter.drawText(110, 105, f"v{APP_VERSION}  {APP_CODENAME}")
 
         painter.setPen(QColor("#475569"))
         small_font = QFont("Segoe UI", 9)
@@ -268,6 +269,14 @@ def main():
         from src.main_window import create_application
         app = create_application()
         app.aboutToQuit.connect(cleanup_on_exit)
+
+        # v11.9.3: タスクバーアイコンを早期に設定
+        from PyQt6.QtGui import QIcon
+        _icon_path = Path(__file__).parent / "icon.ico"
+        if not _icon_path.exists():
+            _icon_path = Path(__file__).parent / "icon.png"
+        if _icon_path.exists():
+            app.setWindowIcon(QIcon(str(_icon_path)))
 
         # v11.9.0: SplashScreen 表示
         splash = _create_splash_screen(app)
