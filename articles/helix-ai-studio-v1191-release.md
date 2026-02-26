@@ -1,5 +1,5 @@
 ---
-title: "Helix AI Studio v11.9.1 リリース — インラインカラー240箇所完全排除とパイプライン自動化"
+title: "Helix AI Studio v11.9.2 リリース — カラー排除240箇所 + ターミナル表示 + Enter送信切替"
 emoji: "🎨"
 type: "tech"
 topics: ["ai", "python", "release", "pyqt6", "cicd"]
@@ -8,11 +8,27 @@ published: true
 
 ## 概要
 
-**Helix AI Studio** は、Claude / ChatGPT / Gemini / ローカルLLM を5Phaseパイプラインで統合するPyQt6デスクトップアプリです。v11.9.1 "Color Purge" をリリースしました。
+**Helix AI Studio** は、Claude / ChatGPT / Gemini / ローカルLLM を5Phaseパイプラインで統合するPyQt6デスクトップアプリです。v11.9.2 をリリースしました。
 
 https://github.com/tsunamayo7/helix-ai-studio
 
-## v11.9.1 変更点
+## v11.9.2 変更点
+
+### 新機能: ターミナル表示トグル
+
+設定タブから、コンソールウィンドウの表示/非表示をリアルタイムで切り替えられるようになりました。デバッグ時にログ確認が容易になります。
+
+- Windows API (`GetConsoleWindow` + `ShowWindow`) を使用
+- `general_settings.json` に `terminal_visible` として保存
+
+### 新機能: Enter/Shift+Enter 送信切替
+
+チャット送信のキーバインドを選択できるようになりました:
+
+- **ON** (デフォルト): `Enter` で送信、`Shift+Enter` で改行
+- **OFF**: `Shift+Enter` で送信、`Enter` で改行
+
+全5つの入力ウィジェット (cloudAI / localAI / mixAI / 会話継続パネル) で統一動作します。
 
 ### Color Purge: インラインカラー完全排除
 
@@ -80,9 +96,10 @@ PR作成 (gh pr create)
 
 ## 今後の予定
 
-- Zenn / Qiita クロスポスト対応
+- スクリーンショット + PC操作委任機能 (Computer Use)
 - テーマ切替機能 (COLORS辞書の差し替えで実現可能に)
 - Phase 2 並列実行の最適化
+- Qiita クロスポスト対応
 
 ## リンク
 
