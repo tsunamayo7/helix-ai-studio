@@ -9,7 +9,9 @@ Helix AI Studio - Chat Input Widgets (v5.0.0)
 - ChatInputArea: 入力エリア統合
 """
 
+import json
 import os
+from pathlib import Path
 from typing import List
 
 from PyQt6.QtWidgets import (
@@ -22,6 +24,18 @@ from PyQt6.QtGui import QKeyEvent, QTextCursor
 from ..utils.i18n import t
 from ..utils.style_helpers import SS
 from ..utils.styles import COLORS
+
+
+def _is_enter_to_send() -> bool:
+    """v11.9.2: general_settings.json の enter_to_send を読み取る"""
+    try:
+        p = Path(__file__).resolve().parent.parent.parent / "config" / "general_settings.json"
+        if p.exists():
+            with open(p, "r", encoding="utf-8") as f:
+                return json.load(f).get("enter_to_send", True)
+    except Exception:
+        pass
+    return True  # デフォルト: Enterで送信
 
 
 class EnhancedChatInput(QTextEdit):
@@ -66,13 +80,25 @@ class EnhancedChatInput(QTextEdit):
         """)
 
     def keyPressEvent(self, event: QKeyEvent):
-        """キーイベント処理"""
+        """キーイベント処理 (v11.9.2: enter_to_send 設定対応)"""
         key = event.key()
         modifiers = event.modifiers()
+        has_shift = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
 
-        # Enter（Shift無し）-> 送信
-        if key == Qt.Key.Key_Return and not (modifiers & Qt.KeyboardModifier.ShiftModifier):
-            self.send_requested.emit()
+        # Enter/Shift+Enter 送信切替
+        if key == Qt.Key.Key_Return:
+            if _is_enter_to_send():
+                # Enter=送信, Shift+Enter=改行
+                if not has_shift:
+                    self.send_requested.emit()
+                    return
+            else:
+                # Shift+Enter=送信, Enter=改行
+                if has_shift:
+                    self.send_requested.emit()
+                    return
+            # 改行として処理
+            super().keyPressEvent(event)
             return
 
         # 上キー処理

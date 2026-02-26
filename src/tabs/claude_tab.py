@@ -404,12 +404,23 @@ class CloudAITextInput(QTextEdit):
     send_requested = pyqtSignal()
 
     def keyPressEvent(self, event: QKeyEvent):
+        """v11.9.2: enter_to_send 設定対応"""
         key = event.key()
         modifiers = event.modifiers()
+        has_shift = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
 
-        # Ctrl+Enter -> 送信
-        if key == Qt.Key.Key_Return and (modifiers & Qt.KeyboardModifier.ControlModifier):
-            self.send_requested.emit()
+        # Enter/Shift+Enter 送信切替
+        if key == Qt.Key.Key_Return:
+            from ..widgets.chat_input import _is_enter_to_send
+            if _is_enter_to_send():
+                if not has_shift:
+                    self.send_requested.emit()
+                    return
+            else:
+                if has_shift:
+                    self.send_requested.emit()
+                    return
+            super().keyPressEvent(event)
             return
 
         # 上キー処理

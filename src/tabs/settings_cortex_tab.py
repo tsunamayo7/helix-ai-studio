@@ -1055,7 +1055,38 @@ class SettingsCortexTab(QWidget):
         font_layout.addStretch()
         layout.addLayout(font_layout)
 
+        # v11.9.2: ターミナル表示トグル
+        self.terminal_visible_cb = QCheckBox(t('desktop.settings.terminalVisible'))
+        self.terminal_visible_cb.setToolTip(t('desktop.settings.terminalVisibleTip'))
+        self.terminal_visible_cb.setChecked(False)
+        self.terminal_visible_cb.stateChanged.connect(self._on_terminal_visibility_changed)
+        layout.addWidget(self.terminal_visible_cb)
+
+        # v11.9.2: Enter送信トグル
+        self.enter_to_send_cb = QCheckBox(t('desktop.settings.enterToSend'))
+        self.enter_to_send_cb.setToolTip(t('desktop.settings.enterToSendTip'))
+        self.enter_to_send_cb.setChecked(True)  # デフォルト: Enterで送信
+        layout.addWidget(self.enter_to_send_cb)
+
         return group
+
+    def _on_terminal_visibility_changed(self, state):
+        """v11.9.2: ターミナル表示/非表示を即時切替"""
+        import ctypes
+        import sys
+        if sys.platform != "win32":
+            return
+        try:
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                SW_SHOW, SW_HIDE = 5, 0
+                ctypes.windll.user32.ShowWindow(hwnd, SW_SHOW if state else SW_HIDE)
+            else:
+                # コンソールが存在しない場合 (pythonw / PyInstaller)
+                if state:
+                    ctypes.windll.kernel32.AllocConsole()
+        except Exception:
+            pass
 
     # ========================================
     # 6. 自動化
@@ -1536,6 +1567,8 @@ class SettingsCortexTab(QWidget):
                 "font_size": int(self.font_size_spin.value()),
                 "auto_save": bool(self.auto_save_cb.isChecked()),
                 "auto_context": bool(self.auto_context_cb.isChecked()),
+                "terminal_visible": bool(self.terminal_visible_cb.isChecked()),
+                "enter_to_send": bool(self.enter_to_send_cb.isChecked()),
             }
 
             # --- 常駐モデル設定（config.json 専用） ---
@@ -1763,6 +1796,12 @@ class SettingsCortexTab(QWidget):
             if "auto_context" in data:
                 self.auto_context_cb.setChecked(data["auto_context"])
 
+            # v11.9.2: ターミナル・Enter送信
+            if "terminal_visible" in data:
+                self.terminal_visible_cb.setChecked(data["terminal_visible"])
+            if "enter_to_send" in data:
+                self.enter_to_send_cb.setChecked(data["enter_to_send"])
+
         except Exception as e:
             logger.warning(f"Settings load failed: {e}")
 
@@ -1819,6 +1858,12 @@ class SettingsCortexTab(QWidget):
         self.dark_mode_cb.setToolTip(t('desktop.settings.darkModeTip'))
         self.font_size_label.setText(t('desktop.settings.fontSize'))
         self.font_size_spin.setToolTip(t('desktop.settings.fontSizeTip'))
+
+        # v11.9.2: Terminal & Enter-to-send
+        self.terminal_visible_cb.setText(t('desktop.settings.terminalVisible'))
+        self.terminal_visible_cb.setToolTip(t('desktop.settings.terminalVisibleTip'))
+        self.enter_to_send_cb.setText(t('desktop.settings.enterToSend'))
+        self.enter_to_send_cb.setToolTip(t('desktop.settings.enterToSendTip'))
 
         # Auto group
         self.auto_save_cb.setText(t('desktop.settings.autoSave'))
