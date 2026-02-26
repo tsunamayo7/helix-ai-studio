@@ -478,14 +478,17 @@ class MixAIOrchestrator(QThread):
         if not engine:
             return {"error": "No model configured. Register a model in cloudAI > Settings > Cloud Model Management.", "phase": "phase1"}
 
-        if engine.startswith("claude-"):
-            return self._execute_phase1_claude(engine)
-        elif engine == "gpt-5.3-codex":
-            return self._execute_phase1_codex()
-        elif engine.startswith("gemini-"):
-            return self._execute_phase1_gemini(engine)
-        else:
-            return self._execute_phase1_local(engine)
+        from ..utils.model_catalog import get_provider_for_engine
+        provider = get_provider_for_engine(engine)
+        if provider:
+            if "anthropic" in provider:
+                return self._execute_phase1_claude(engine)
+            elif "openai" in provider:
+                return self._execute_phase1_codex()
+            elif "google" in provider:
+                return self._execute_phase1_gemini(engine)
+        # cloud_models.json に未登録 → ローカルLLM
+        return self._execute_phase1_local(engine)
 
     def _execute_phase1_claude(self, model_id: str) -> dict:
         """Phase 1: Claude版（v11.4.0: API-first / v10.0.0: Prompt Cache最適化）"""
@@ -1032,14 +1035,17 @@ codingカテゴリの指示書を生成する際は、使用するライブラ�
         if not engine:
             return {"error": "No model configured. Register a model in cloudAI > Settings > Cloud Model Management.", "phase": "phase3"}
 
-        if engine.startswith("claude-"):
-            return self._execute_phase3_claude(phase1_answer, phase2_results, engine)
-        elif engine == "gpt-5.3-codex":
-            return self._execute_phase3_codex(phase1_answer, phase2_results)
-        elif engine.startswith("gemini-"):
-            return self._execute_phase3_gemini(phase1_answer, phase2_results, engine)
-        else:
-            return self._execute_phase3_local(phase1_answer, phase2_results, engine)
+        from ..utils.model_catalog import get_provider_for_engine
+        provider = get_provider_for_engine(engine)
+        if provider:
+            if "anthropic" in provider:
+                return self._execute_phase3_claude(phase1_answer, phase2_results, engine)
+            elif "openai" in provider:
+                return self._execute_phase3_codex(phase1_answer, phase2_results)
+            elif "google" in provider:
+                return self._execute_phase3_gemini(phase1_answer, phase2_results, engine)
+        # cloud_models.json に未登録 → ローカルLLM
+        return self._execute_phase3_local(phase1_answer, phase2_results, engine)
 
     def _execute_phase3_claude(self, phase1_answer: str,
                                 phase2_results: list[SequentialResult], model_id: str) -> dict:

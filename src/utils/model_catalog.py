@@ -33,6 +33,18 @@ def get_cloud_model_names() -> list[str]:
     return [m.get("name", "") for m in get_cloud_models() if m.get("name")]
 
 
+def get_provider_for_engine(engine_id: str) -> str | None:
+    """v11.9.3: engine_id (model_id or display name) から provider を返す"""
+    for m in get_cloud_models():
+        if m.get("model_id") == engine_id or m.get("name") == engine_id:
+            return m.get("provider")
+    return None
+
+def is_cloud_engine(engine_id: str) -> bool:
+    """v11.9.3: engine_idがクラウドモデルかどうか判定"""
+    return get_provider_for_engine(engine_id) is not None
+
+
 def get_ollama_installed_models(ollama_url: str = None) -> list[str]:
     """Ollamaインストール済みモデル名を取得 (/api/tags)"""
     url = ollama_url or OLLAMA_DEFAULT_URL
