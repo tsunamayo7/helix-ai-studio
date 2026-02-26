@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.9.1"
-APP_CODENAME = "Color Purge"
+APP_VERSION = "11.9.2"
+APP_CODENAME = "Settings & Outreach"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.9.1 'Color Purge' - "
-    "残存インラインカラーリテラル完全排除・COLORS/SS統一・spec修正"
+    "Helix AI Studio v11.9.2 'Settings & Outreach' - "
+    "ターミナルトグル・Enter送信切替・240+カラー排除・プロモーション基盤"
 )
 
 # v8.5.0: 情報収集フォルダ
