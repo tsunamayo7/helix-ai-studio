@@ -1191,6 +1191,7 @@ class SettingsCortexTab(QWidget):
         discord_row = QHBoxLayout()
         self.discord_webhook_edit = QLineEdit()
         self.discord_webhook_edit.setPlaceholderText(t('desktop.settings.discordWebhookPlaceholder'))
+        self.discord_webhook_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.discord_webhook_edit.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {COLORS['bg_card']};
@@ -1202,6 +1203,27 @@ class SettingsCortexTab(QWidget):
             }}
         """)
         discord_row.addWidget(self.discord_webhook_edit)
+
+        # 表示/非表示トグルボタン
+        self.discord_show_btn = QPushButton("👁")
+        self.discord_show_btn.setFixedWidth(32)
+        self.discord_show_btn.setToolTip("URL を表示/非表示")
+        self.discord_show_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['bg_card']};
+                color: {COLORS['text_secondary']};
+                border: 1px solid {COLORS['border_strong']};
+                border-radius: 4px;
+                padding: 4px;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['bg_elevated']};
+            }}
+        """)
+        self.discord_show_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.discord_show_btn.clicked.connect(self._toggle_discord_url_visibility)
+        discord_row.addWidget(self.discord_show_btn)
 
         self.discord_send_btn = QPushButton(t('desktop.settings.discordSendBtn'))
         self.discord_send_btn.setToolTip(t('desktop.settings.discordSendBtnTip'))
@@ -1312,6 +1334,15 @@ class SettingsCortexTab(QWidget):
             self.web_ui_toggle.setText(t('desktop.settings.webStart'))
             self.web_ui_status_label.setText(t('desktop.settings.webStopped'))
             self.web_ui_url_label.setText("")
+
+    def _toggle_discord_url_visibility(self):
+        """Discord Webhook URL の表示/非表示を切り替え"""
+        if self.discord_webhook_edit.echoMode() == QLineEdit.EchoMode.Password:
+            self.discord_webhook_edit.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.discord_show_btn.setText("🔒")
+        else:
+            self.discord_webhook_edit.setEchoMode(QLineEdit.EchoMode.Password)
+            self.discord_show_btn.setText("👁")
 
     def _load_discord_webhook_setting(self):
         """Discord Webhook URLを設定から読み込み"""
