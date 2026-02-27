@@ -124,20 +124,35 @@ python HelixAIStudio.py
 ### パイプラインモニター -- AIの動作をリアルタイムで監視
 ![パイプラインモニター](docs/demo/mixai_monitor.png)
 
+### パイプライン完了 -- PASS/FAIL検証済みの最終出力
+![パイプライン完了](docs/demo/mixai_complete.png)
+
+### Claude Sonnetチャット -- クラウドAIとの直接対話
+![Claudeチャット](docs/demo/cloudai_chat.png)
+
 ### Gemini APIチャット -- マルチプロバイダー対応
 ![Geminiチャット](docs/demo/gemini_chat.png)
 
-### ローカルAIチャット（gemma3）
+### ローカルAIチャット（gemma3） -- マルチモデル切替
 ![ローカルAIチャット](docs/demo/desktop_localai_chat.png)
+
+### マルチモデル会話 -- チャットの途中でモデルを切り替え
+![マルチモデル](docs/demo/localai_multimodel.png)
 
 ### RAGナレッジベース -- 知識の構築と検索
 ![RAG構築](docs/demo/rag_build.png)
 
-### 設定画面 -- すべてカスタマイズ可能
+### 設定画面 -- APIキー、テーマ、自動化設定
 ![設定](docs/demo/desktop_settings.png)
 
 ### Web UI -- スマホからチャット
 ![Web UIチャット](docs/demo/webui_chat.png)
+
+### Web UI（英語） -- 完全なi18n対応
+![Web UI英語](docs/demo/webui_english.png)
+
+### Web UIファイルブラウザ -- プロジェクトファイルの閲覧・転送
+![Web UIファイル](docs/demo/webui_files.png)
 
 </details>
 

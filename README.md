@@ -124,20 +124,35 @@ Most AI tools give you a chat window with one model. Helix gives you a **pipelin
 ### Pipeline Monitor -- Watch your AIs work in real time
 ![Pipeline Monitor](docs/demo/mixai_monitor.png)
 
+### Pipeline Complete -- Validated output with PASS/FAIL checks
+![Pipeline Complete](docs/demo/mixai_complete.png)
+
+### Claude Sonnet Chat -- Cloud AI direct conversation
+![Claude Chat](docs/demo/cloudai_chat.png)
+
 ### Gemini API Chat -- Multi-provider support
 ![Gemini Chat](docs/demo/gemini_chat.png)
 
-### Local AI Chat with gemma3
+### Local AI Chat with gemma3 -- Multi-model switching
 ![Local AI Chat](docs/demo/desktop_localai_chat.png)
+
+### Multi-Model Conversation -- Switch between models mid-chat
+![Multi-Model](docs/demo/localai_multimodel.png)
 
 ### RAG Knowledge Base -- Build and search your own knowledge
 ![RAG Build](docs/demo/rag_build.png)
 
-### Settings -- Everything is configurable
+### Settings -- API keys, themes, and automation
 ![Settings](docs/demo/desktop_settings.png)
 
 ### Web UI -- Chat from your phone
 ![Web UI Chat](docs/demo/webui_chat.png)
+
+### Web UI (English) -- Full i18n support
+![Web UI English](docs/demo/webui_english.png)
+
+### Web UI File Browser -- Browse and transfer project files
+![Web UI Files](docs/demo/webui_files.png)
 
 </details>
 
