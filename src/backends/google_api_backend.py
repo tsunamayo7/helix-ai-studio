@@ -92,7 +92,9 @@ def call_google_api_stream(
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=key)
+    # v11.9.4: vertexai=False を明示し、環境変数 GOOGLE_GENAI_USE_VERTEXAI=true による
+    # Vertex AI ルーティングを防止（AI Studio の API Key 認証を強制）
+    client = genai.Client(api_key=key, vertexai=False)
 
     config_kwargs = {
         "max_output_tokens": max_output_tokens,

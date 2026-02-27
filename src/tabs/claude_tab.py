@@ -324,6 +324,46 @@ class OllamaWorkerThread(QThread):
             self.errorOccurred.emit(f"{type(e).__name__}: {str(e)}")
 
 
+# --- v11.9.4: Gemini API ストリーミングスレッド (Qt Signal方式) ---
+class GeminiWorkerThread(QThread):
+    """Gemini API経由でAI応答を取得するスレッド"""
+    completed = pyqtSignal(str, float)   # full_text, duration_ms
+    errorOccurred = pyqtSignal(str)       # error_message
+    chunkReceived = pyqtSignal(str)       # chunk (ストリーミング用、将来対応)
+
+    def __init__(self, prompt: str, model_id: str, api_key: str, parent=None):
+        super().__init__(parent)
+        self._prompt = prompt
+        self._model_id = model_id
+        self._api_key = api_key
+
+    def run(self):
+        import logging
+        import time
+        logger = logging.getLogger(__name__)
+        start_time = time.time()
+
+        try:
+            from ..backends.google_api_backend import call_google_api_stream
+            full_text = ""
+            for chunk in call_google_api_stream(
+                prompt=self._prompt,
+                model_id=self._model_id,
+                api_key=self._api_key,
+            ):
+                full_text += chunk
+                self.chunkReceived.emit(chunk)
+
+            duration_ms = (time.time() - start_time) * 1000
+            logger.info(f"[GeminiWorkerThread] Completed: model={self._model_id}, duration={duration_ms:.2f}ms")
+            self.completed.emit(full_text, duration_ms)
+
+        except Exception as e:
+            duration_ms = (time.time() - start_time) * 1000
+            logger.error(f"[GeminiWorkerThread] Error: {e}", exc_info=True)
+            self.errorOccurred.emit(str(e))
+
+
 # =============================================================================
 # v5.1: cloudAI用添付ファイルウィジェット
 # =============================================================================
@@ -1033,7 +1073,8 @@ class ClaudeTab(QWidget):
         model_settings_layout.addWidget(self.cloud_model_list_label)
 
         self.cloud_model_list = QListWidget()
-        self.cloud_model_list.setMaximumHeight(140)
+        self.cloud_model_list.setMinimumHeight(170)
+        self.cloud_model_list.setMaximumHeight(240)
         self.cloud_model_list.setStyleSheet(f"""
             QListWidget {{ background: {COLORS['bg_surface']}; color: {COLORS['text_primary']}; border: 1px solid {COLORS['text_disabled']};
                 border-radius: 4px; padding: 4px; font-size: 11px; }}
@@ -1871,8 +1912,16 @@ class ClaudeTab(QWidget):
                         "openai_cli":    "OpenAI CLI",
                         "google_cli":    "Google CLI",
                     }.get(provider, f"? {provider}")
+                    # v11.9.4: model_id の表示を短縮（CLIコマンド引数を除去）
+                    raw_id = model.get('model_id', '')
+                    # "claude --model xxx" → "xxx", "codex -m xxx" → "xxx" のように最後の引数を表示
+                    display_id = raw_id
+                    if ' --model ' in raw_id:
+                        display_id = raw_id.split('--model ')[-1].strip()
+                    elif ' -m ' in raw_id:
+                        display_id = raw_id.split('-m ')[-1].strip()
                     self.cloud_model_list.addItem(
-                        f"{i}. {model['name']}  |  {model.get('model_id', '')}  [{provider_badge}]"
+                        f"{i}. {model['name']}  |  {display_id}  [{provider_badge}]"
                     )
         except Exception as e:
             logger.warning(f"Failed to refresh cloud model list: {e}")
@@ -2792,6 +2841,8 @@ class ClaudeTab(QWidget):
 
         # Get model from header combo
         selected_model = self.cloud_model_combo.currentData() or self.model_combo.currentData() or ""
+        # v11.9.4: 表示名を保存（finish_modelで使用）
+        self._cli_selected_model = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else (selected_model or "Claude CLI")
 
         import os
         working_dir = os.getcwd()
@@ -2822,7 +2873,9 @@ class ClaudeTab(QWidget):
         self._cli_worker.start()
 
         if hasattr(self, 'monitor_widget'):
-            self.monitor_widget.start_model(selected_model or "Claude CLI", "CLI --resume")
+            # v11.9.4: 表示名を使用（model_idではなくcomboのテキスト）
+            monitor_name = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else (selected_model or "Claude CLI")
+            self.monitor_widget.start_model(monitor_name, "CLI --resume")
 
         logger.info(f"[ClaudeTab] Sent with --resume session: {self._claude_session_id[:8]}...")
 
@@ -3391,7 +3444,7 @@ class ClaudeTab(QWidget):
                     )
 
             elif provider == "anthropic_cli":
-                self._send_via_cli(processed_message, session_id, phase)
+                self._send_via_cli(processed_message, session_id, phase, model_id=model_id)
 
             elif provider == "google_api":
                 from ..backends.api_priority_resolver import resolve_google_connection
@@ -3447,9 +3500,8 @@ class ClaudeTab(QWidget):
     # =========================================================================
 
     def _send_via_google_api(self, prompt: str, session_id: str, api_key: str, model_id: str = None):
-        """v11.5.0 L-G: Google Gemini API 経由でストリーミング送信"""
-        import threading
-        from ..backends.google_api_backend import call_google_api_stream, is_google_genai_sdk_available
+        """v11.5.0 L-G / v11.9.4: Google Gemini API — GeminiWorkerThread (Qt Signal方式)"""
+        from ..backends.google_api_backend import is_google_genai_sdk_available
 
         if not is_google_genai_sdk_available():
             self.chat_display.append(
@@ -3461,8 +3513,6 @@ class ClaudeTab(QWidget):
         if not model_id:
             model_id = self._get_first_model_by_provider("google_api") or "gemini-2.5-flash"
 
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f"[ClaudeTab._send_via_google_api] model={model_id}")
         self.statusChanged.emit(f"Google Gemini API ({model_id})...")
         if hasattr(self, 'solo_status_bar'):
@@ -3472,39 +3522,57 @@ class ClaudeTab(QWidget):
             f"<div style='color: #888; font-size: 9pt;'>[Gemini API: {model_id}]</div>"
         )
 
-        def _on_done(full_text, error, sid):
-            if hasattr(self, 'solo_status_bar'):
-                self.solo_status_bar.set_status("idle")
-            if error:
-                self.chat_display.append(
-                    f"<div style='color: {COLORS['error']};'><b>Gemini API Error:</b> {error}</div>"
-                )
-            else:
-                self._display_ai_response(full_text, model_id, "google_api")
+        # v11.9.4: GeminiWorkerThread — Qt Signal でスレッド安全にコールバック
+        self._gemini_worker = GeminiWorkerThread(
+            prompt=prompt, model_id=model_id, api_key=api_key, parent=self
+        )
 
-        def _thread_run():
-            full_text = ""
-            error = ""
+        # 保存用変数（ラムダ内で model_id を参照）
+        _model_id = model_id
+
+        self._gemini_worker.completed.connect(
+            lambda full_text, duration_ms: self._on_gemini_completed(full_text, duration_ms, _model_id)
+        )
+        self._gemini_worker.errorOccurred.connect(self._on_gemini_error)
+        self._gemini_worker.start()
+
+    def _on_gemini_completed(self, full_text: str, duration_ms: float, model_id: str):
+        """v11.9.4: Gemini API 応答完了（メインスレッドで実行される）"""
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("idle")
+
+        # Markdown → HTML レンダリング + バブル表示
+        rendered = markdown_to_html(full_text)
+        self.chat_display.append(
+            f"<div style='{AI_MESSAGE_STYLE}'>"
+            f"<b style='color:{COLORS['success']};'>Gemini ({model_id}):</b><br>"
+            f"{rendered}"
+            f"</div>"
+        )
+
+        self.statusChanged.emit(f"Gemini API complete ({duration_ms:.0f}ms)")
+        logger.info(f"[ClaudeTab._on_gemini_completed] model={model_id}, duration={duration_ms:.0f}ms")
+
+        # チャット履歴を保存
+        if self._pending_user_message:
             try:
-                for chunk in call_google_api_stream(
-                    prompt=prompt,
-                    model_id=model_id,
-                    api_key=api_key,
-                ):
-                    full_text += chunk
-                    if self._streaming_callback_enabled and hasattr(self, '_on_cli_chunk'):
-                        from PyQt6.QtCore import QMetaObject, Qt
-                        QMetaObject.invokeMethod(
-                            self.chat_display, "append",
-                            Qt.ConnectionType.QueuedConnection,
-                        )
+                self.chat_history_manager.add_entry(
+                    prompt=self._pending_user_message,
+                    response=full_text,
+                    ai_source=f"Gemini-{model_id}",
+                    metadata={"backend": "google_api", "model": model_id, "duration_ms": duration_ms}
+                )
             except Exception as e:
-                error = str(e)
-            from PyQt6.QtCore import QTimer
-            QTimer.singleShot(0, lambda: _on_done(full_text, error, session_id))
+                logger.warning(f"[ClaudeTab._on_gemini_completed] History save failed: {e}")
 
-        self._streaming_callback_enabled = False  # Gemini はバッチ表示
-        threading.Thread(target=_thread_run, daemon=True).start()
+    def _on_gemini_error(self, error_msg: str):
+        """v11.9.4: Gemini API エラー（メインスレッドで実行される）"""
+        if hasattr(self, 'solo_status_bar'):
+            self.solo_status_bar.set_status("idle")
+        self.chat_display.append(
+            f"<div style='color: {COLORS['error']};'><b>Gemini API Error:</b> {error_msg}</div>"
+        )
+        logger.error(f"[ClaudeTab._on_gemini_error] {error_msg}")
 
     def _send_via_google_cli(self, prompt: str, session_id: str, model_id: str = None):
         """v11.5.0 L-G: Google Gemini CLI 経由で送信（非対話モード）"""
@@ -3820,7 +3888,7 @@ class ClaudeTab(QWidget):
 
         threading.Thread(target=_thread_run, daemon=True).start()
 
-    def _send_via_cli(self, prompt: str, session_id: str, phase: str):
+    def _send_via_cli(self, prompt: str, session_id: str, phase: str, model_id: str = ""):
         """
         v3.2.0: CLI経由で送信（Max/Proプラン）
         v3.9.2: E/F フォールバック対応
@@ -3829,6 +3897,7 @@ class ClaudeTab(QWidget):
             prompt: 送信するプロンプト
             session_id: セッションID
             phase: 現在の工程
+            model_id: 使用するモデルID（cloud_model_comboから取得済み）
         """
         import logging
         logger = logging.getLogger(__name__)
@@ -3845,9 +3914,13 @@ class ClaudeTab(QWidget):
             logger.error(f"[ClaudeTab._send_via_cli] CLI not available: {self._cli_backend.get_availability_message() if self._cli_backend else 'Backend is None'}")
             return
 
-        # v7.1.0: モデル選択とフォールバック準備
-        model_text = self.model_combo.currentText()
-        selected_model = self.model_combo.currentData() or model_text
+        # v11.9.4: model_id が渡された場合はそれを優先使用
+        if model_id:
+            selected_model = model_id
+            model_text = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else model_id
+        else:
+            model_text = self.model_combo.currentText()
+            selected_model = self.model_combo.currentData() or model_text
         self._cli_selected_model = model_text  # フォールバック用に保存
         self._cli_prompt = prompt  # フォールバック用に保存
         self._cli_session_id = session_id
@@ -3891,9 +3964,10 @@ class ClaudeTab(QWidget):
         self._cli_worker.errorOccurred.connect(self._on_cli_error)
         self._cli_worker.start()
 
-        # v10.1.0: モニター開始
+        # v10.1.0: モニター開始（v11.9.4: model_text 表示名を使用）
         if hasattr(self, 'monitor_widget'):
-            self.monitor_widget.start_model(selected_model or "Claude CLI", "CLI")
+            monitor_name = model_text if model_text else (selected_model or "Claude CLI")
+            self.monitor_widget.start_model(monitor_name, "CLI")
 
     def _on_cli_chunk(self, chunk: str):
         """CLIストリーミングチャンク受信時"""

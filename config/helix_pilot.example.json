@@ -1,0 +1,30 @@
+{
+  "_comment": "Helix Pilot 設定テンプレート。config/helix_pilot.json にコピーして編集してください。",
+  "ollama_endpoint": "http://localhost:11434",
+  "vision_model": "llama3.2-vision:11b",
+  "allowed_windows": [],
+  "denied_windows": [
+    "Windows Security",
+    "Task Manager",
+    "Administrator:",
+    "Password",
+    "Credential",
+    "Windows Defender"
+  ],
+  "denied_input_patterns": [
+    "password",
+    "credential",
+    "secret",
+    "api_key",
+    "token"
+  ],
+  "user_idle_seconds": 3,
+  "operation_timeout": 30,
+  "log_file": "logs/helix_pilot.log",
+  "screenshot_dir": "data/helix_pilot_screenshots",
+  "lock_file": "data/helix_pilot_lock.json",
+  "emergency_stop_corner": "top-left",
+  "emergency_stop_threshold_px": 5,
+  "vision_timeout": 60,
+  "safe_mode": true
+}
