@@ -3,403 +3,298 @@
 
 # Helix AI Studio
 
-**Claude中心のマルチモデルAIオーケストレーション デュアルインターフェースアプリ (Desktop + Web)**
-Claude Code CLIを「頭脳」、ローカルLLM（Ollama）を「専門チーム」として配置 — Cyberpunk Minimal GUIとクロスデバイスWeb UIで統合。
+**ひとつのプロンプト。複数のAI。ひとつの統合された回答。**
 
-![Version](https://img.shields.io/badge/version-11.9.1-00d4ff)
-![Python](https://img.shields.io/badge/python-3.12-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+Helix AI Studio は、異なるAIモデルを本当の意味で「協力」させるデスクトップアプリです。あなたがプロンプトを入力すると、Claudeが計画を立て、ローカルLLMがそれぞれ問題の一部を担当し、Claudeが全体をまとめて検証済みの結果を返します。ツール間のコピペも、コーディングも不要です。
+
+[![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
+[![Version](https://img.shields.io/badge/version-v11.9.4-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
-> English README: [README.md](README.md)
-
-> 🧩 **目的**: クラウドAI（Claude）の強みを活かしながら、ローカルLLMの得意分野（軽量推論、常駐・監視機能）を分離・併用して、回答品質と再現性を底上げする。
+> **English README**: [README.md](README.md)
 
 ---
 
-## 動作概要
+## 動いている様子を見てみよう
 
-Helix AI Studioは **3+1Phaseパイプライン** で動作します：
+### mixAI パイプライン -- 複数のAIがあなたのタスクに協力
 
-1. **Phase 1 (Claude Code CLI)** — 設計分析 → 各ローカルモデルへの構造化指示書を生成
-2. **Phase 2 (ローカルLLMチーム / Ollama, 順次実行)** — 専門カテゴリ別に実行 (coding / research / reasoning / translation / vision)
-3. **Phase 3 (Claude Code CLI)** — 統合、Acceptance Criteria (PASS/FAIL) で検証・最終回答を生成
-4. **Phase 4（オプション）** — Sonnet 4.6/4.5がPhase 3の構造化出力からファイル変更を適用
+![mixAI パイプラインデモ](docs/demo/mixai_pipeline.gif)
 
-このアプローチは、複数の視点を統合することで回答品質を向上させつつ、**VRAM負荷の高い120Bクラスモデル**（順次実行）にも対応します。
+> Claudeが作業計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。ワンクリックで全自動。
 
----
+### localAI チャット -- ローカルモデルと直接対話
 
-## なぜ Helix なのか？
+![localAI チャットデモ](docs/demo/localai_chat.gif)
 
-| | Helix AI Studio | CLIコーディングエージェント¹ | ローカルLLM UI² | エージェントFW³ |
-|---|---|---|---|---|
-| **Claudeがオーケストレーター** | ✅ 計画立案＋品質検証 | ✅ コーディング特化 | ❌ | 構成次第 |
-| **ローカルLLMがワーカー** | ✅ 多角的検証 | ❌ | ✅ 推論のみ | 構成次第 |
-| **デスクトップ＋Web デュアルUI** | ✅ DB/設定共有 | ❌ | 一部 | ❌ |
-| **BIBLEファースト** | ✅ 自動注入 | ❌ | ❌ | ❌ |
-| **すぐ使える（コード不要）** | ✅ アプリとして完結 | ❌ | ✅ | ❌ コード必要 |
+> Ollamaのモデルを選んですぐチャット。会話の途中でモデルを切り替えることもできます。すべてあなたのGPUで動作します。
 
-¹ OpenCode, Aider, Cline — コーディングタスクに特化、単一モデル中心
-² OpenWebUI, AnythingLLM, LM Studio — ローカル推論UIとして優秀、オーケストレーション機能なし
-³ CrewAI, LangGraph, AutoGen — 強力なフレームワーク、ただしエージェントロジックを自分で書く必要あり
+### デスクトップ + Web UI -- どこからでも使える
 
-**Helix はこれらの上位レイヤー**に位置します。Claudeが計画立案と品質検証を担い、ローカルLLM（Ollama）が多角的な検証を行う。その全パイプラインが、コードを書かずに使えるデスクトップ＋Webアプリとして動作します。
+| デスクトップ (PyQt6) | Web UI (React) |
+|:---:|:---:|
+| ![デスクトップ](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main.png) |
 
-> 研究メモ: マルチエージェントオーケストレーションは単一エージェントと比較して[80〜140倍の品質向上](https://arxiv.org/abs/2511.15755)を達成した事例があります。
+> デスクトップアプリはあなたのPCで動作。Web UIを使えば、スマホやタブレット、ネットワーク上のどのブラウザからでもチャットできます。
 
 ---
 
-## 主な機能 (v11.9.1 "Color Purge")
+## 60秒で始めよう
 
-### オーケストレーション (mixAI)
-- **3+1Phaseパイプライン**: Claude計画 → ローカルチーム実行 → Claude統合・検証 → (任意) Sonnetが変更適用
-- **Phase 4（オプション）**: Sonnet 4.6/4.5がPhase 3の構造化出力からファイル変更を適用
-- **構造化Phase 1**: design_analysis + acceptance_criteria + expected_output_format
-- **Phase 3でのAcceptance Criteria評価** (PASS/FAILチェックリスト)
-- **品質ループ**: 設定可能なPhase 2リトライ上限 (`max_phase2_retries`)
-- **Phase 2スキップ**: 各ローカルLLMカテゴリを「未選択」にしてスキップ可能
-- **Neural Flow / Phase進捗可視化** (パイプラインの透明性)
-- **P1/P3エンジン切替**: Claude API、ローカルLLM、GPT-5.3-Codexに対応
-- **プリセット**: 「P1=Opus4.6 / P3=GPT-5.3-Codex」ワンクリックプリセット
+```bash
+git clone https://github.com/tsunamayo7/helix-ai-studio.git
+cd helix-ai-studio
+pip install -r requirements.txt
+python HelixAIStudio.py
+```
 
-### Claude直接チャット (soloAI)
-- **Claude Code CLI** 直接対話モード
-- **GPT-5.3-Codex (CLI)** — Codex CLIバックエンド経由の実行オプション
-- **Opus 4.6専用Adaptive thinking (effort)** — 推論強度を調整可能 (low/medium/high)
-- **検索/ブラウズ方式**: なし / Claude WebSearch / Browser Use 選択式
-- WebSocketによるストリーミング応答
-- ファイル添付とコンテキスト注入
+これだけです。アプリが起動し、`http://localhost:8500` でWeb UIにもアクセスできます。
 
-### ローカルLLMチーム (Ollama)
-- **5つの専門カテゴリ**: coding / research / reasoning / translation / vision（各カテゴリのスキップ可能）
-- **SequentialExecutor**: 大型モデル用 (ロード → 実行 → アンロード)
-- **常駐モデル**: 制御AI + Embeddingモデルを一般設定で管理（任意、GPU検出対応）
+設定画面でAPIキーを追加するか、[Ollama](https://ollama.com) をインストールすれば、完全にローカルで動くプライベートなAI環境が手に入ります。
 
-### デュアルインターフェース (Desktop + Web)
-- **デスクトップ**: PyQt6ネイティブアプリ（全設定フルコントロール）
-- **Web UI**: React SPA（スマートフォン・タブレット・リモートPCからアクセス可能）
-- **クロスデバイス同期**: Tailscale VPN経由のセキュアアクセス、実行ロック、ファイル転送
-- **チャット履歴永続化**: コンテキストモード（single/session/full）付きセッション管理
-- **デスクトップチャット履歴** (v9.7.0): QDockWidgetサイドパネル。検索/タブフィルタ/日付グループ化。Web UIと同じSQLite DBを共有
-
-### メモリ・ナレッジ (Adaptive / Living Memory)
-- **4層メモリ**: Thread / Episodic / Semantic / Procedural
-- **Memory Risk Gate**: 常駐LLMが記憶候補を品質判定 (ADD/UPDATE/DEPRECATE/SKIP)
-- **RAPTOR多段要約** (session → weekly) でスケーラブルな長期コンテキスト
-- **Temporal KGエッジ** + **GraphRAGコミュニティ要約**
-- **防御的メモリ注入** (保存済み記憶からのプロンプトインジェクションを防止するガードテキスト)
-
-### "BIBLE-first" ドキュメントシステム
-- **BIBLE Manager**: 自動検出 → パース → Phase 1/3注入 → ライフサイクル管理
-- 現在のBIBLEの完全性スコア・セクション数を表示
-
-### UX / デスクトップアプリ
-- Cyberpunk Minimalなデザイン、一貫したスタイルとツールチップ（セルフドキュメンティングUI）
-- ファイル添付 / クリップボードインポート / スポットアクション / ツール実行ログ
-- **VRAM Budget Simulator**
-- **GPUモニター** (タイムライン + 記録機能)
-
-### MCP (Model Context Protocol) サポート
-- MCPサーバー管理 (filesystem / git / web search コネクタ等)
-- MCPの使用には注意が必要です。サードパーティMCPサーバーはプロンプトインジェクションのリスクがあります。
-  詳細は公式MCPドキュメントを参照してください。
+> **はじめての方へ**: [SETUP_GUIDE.md](SETUP_GUIDE.md) にPython、Ollama、APIキーの設定まで丁寧に解説しています。
 
 ---
 
-## デモ
+## Helix の何がすごいのか？
 
-### mixAI — 3+1Phaseパイプライン (Claude → ローカルLLM → Claude → Sonnet)
-![mixAI デモ](docs/screenshots/mixai_demo.gif)
+多くのAIツールは「1つのモデルとのチャット画面」です。Helix は**複数のモデルが協力するパイプライン**です。
 
-### cloudAI — Claudeチャット
-![cloudAI Chat](docs/screenshots/HelixAIStudio_20260225_073406.png)
+**核心的なアイデア**: どのAIにも得意・不得意があります。異なるアーキテクチャや学習データを持つモデルにプロンプトを分配し、強力なモデルが結果をまとめて検証することで、どの単一モデルよりも正確で包括的な回答が得られます。
+
+| | Helix AI Studio | 単一モデルのチャットアプリ |
+|---|---|---|
+| **マルチAIパイプライン** | Claudeが計画、ローカルLLMが実行、Claudeが検証 | 1つのモデルが全部やる |
+| **コスト効率** | 高価なモデル（Claude）は仕事の20%。無料のローカルモデルが80%を担当 | すべて有料APIに依存 |
+| **プライバシー重視** | 実行フェーズはすべてあなたのGPU上。機密コードが外部に出ることはありません | クラウドのみ -- すべて外部サーバーに送信 |
+| **デスクトップ + モバイル** | ネイティブデスクトップアプリ + 内蔵Web UI。スマホからもチャット可能 | たいてい片方だけ |
+| **コード不要** | 設定画面のあるGUIアプリ。クリックするだけ | オーケストレーションツールの多くはコードが必要 |
+| **無料・オープン** | MITライセンス。サブスクなし、テレメトリなし | SaaSやフリーミアムが多い |
+
+---
+
+## パイプラインの仕組み
+
+```
+                あなたのプロンプト
+                       |
+                       v
+           ┌───────────────────────┐
+           │  Phase 1: 計画立案     │  Claude / GPT / Gemini
+           │  - 設計分析            │
+           │  - 合格基準の設定      │
+           │  - モデル別タスク作成  │
+           └───────────────────────┘
+                       |
+      ┌────────┬───────┴───────┬────────┐
+      v        v               v        v
+  ┌────────┐┌────────┐  ┌────────┐┌────────┐
+  │コーディング││リサーチ│  │推論     ││ビジョン│  Phase 2: ローカル
+  │devstral││gemma3  │  │ministral││gemma3  │  (あなたのGPU)
+  └────────┘└────────┘  └────────┘└────────┘
+      |        |               |        |
+      └────────┴───────┬───────┴────────┘
+                       v
+           ┌───────────────────────┐
+           │  Phase 3: 統合・検証   │  Claude / GPT / Gemini
+           │  - 全出力の統合        │
+           │  - PASS/FAIL チェック  │
+           │  - 最終回答の生成      │
+           └───────────────────────┘
+                       |
+                       v
+                   最終出力
+```
+
+**Phase 1**（クラウドAI）がプロンプトを分析し、各ローカルモデルへの構造化された指示を作成。
+**Phase 2**（ローカルLLM）があなたのGPU上で動作 -- コーディング、リサーチ、推論、翻訳、ビジョンの各スペシャリストが担当。
+**Phase 3**（クラウドAI）が全てを統合し、合格基準と照合して最終回答を生成。
 
 ---
 
 ## スクリーンショット
 
-| mixAI Chat | mixAI Settings | cloudAI Chat | cloudAI Settings | localAI Chat |
-|---|---|---|---|---|
-| ![mixAI Chat](docs/screenshots/HelixAIStudio_20260225_073402.png) | ![mixAI Settings](docs/screenshots/HelixAIStudio_20260225_073404.png) | ![cloudAI Chat](docs/screenshots/HelixAIStudio_20260225_073406.png) | ![cloudAI Settings](docs/screenshots/HelixAIStudio_20260225_073407.png) | ![localAI Chat](docs/screenshots/HelixAIStudio_20260225_073408.png) |
+<details>
+<summary><strong>クリックでスクリーンショットを表示</strong></summary>
 
-| localAI Settings | History | RAG Chat | RAG Build | RAG Settings |
-|---|---|---|---|---|
-| ![localAI Settings](docs/screenshots/HelixAIStudio_20260225_073410.png) | ![History](docs/screenshots/HelixAIStudio_20260225_073411.png) | ![RAG Chat](docs/screenshots/HelixAIStudio_20260225_073412.png) | ![RAG Build](docs/screenshots/HelixAIStudio_20260225_074153.png) | ![RAG Settings](docs/screenshots/HelixAIStudio_20260225_074155.png) |
+### パイプラインモニター -- AIの動作をリアルタイムで監視
+![パイプラインモニター](docs/demo/mixai_monitor.png)
+
+### パイプライン完了 -- PASS/FAIL検証済みの最終出力
+![パイプライン完了](docs/demo/mixai_complete.png)
+
+### Claude Sonnetチャット -- クラウドAIとの直接対話
+![Claudeチャット](docs/demo/cloudai_chat.png)
+
+### Gemini APIチャット -- マルチプロバイダー対応
+![Geminiチャット](docs/demo/gemini_chat.png)
+
+### ローカルAIチャット（gemma3） -- マルチモデル切替
+![ローカルAIチャット](docs/demo/desktop_localai_chat.png)
+
+### マルチモデル会話 -- チャットの途中でモデルを切り替え
+![マルチモデル](docs/demo/localai_multimodel.png)
+
+### RAGナレッジベース -- 知識の構築と検索
+![RAG構築](docs/demo/rag_build.png)
+
+### 設定画面 -- APIキー、テーマ、自動化設定
+![設定](docs/demo/desktop_settings.png)
+
+### Web UI -- スマホからチャット
+![Web UIチャット](docs/demo/webui_chat.png)
+
+### Web UI（英語） -- 完全なi18n対応
+![Web UI英語](docs/demo/webui_english.png)
+
+### Web UIファイルブラウザ -- プロジェクトファイルの閲覧・転送
+![Web UIファイル](docs/demo/webui_files.png)
+
+</details>
 
 ---
 
-## クイックスタート
+## 主な機能
 
-### 前提条件
-- Windows 10/11
-- Python 3.12+
-- NVIDIA GPU (CUDA) 推奨
-- **Ollama** がローカルで動作していること (デフォルトAPI: `http://localhost:11434/api`)
-- **Claude Code CLI** (Node.js 18+)
+| 機能 | 説明 |
+|------|------|
+| **mixAI パイプライン** | 3+1フェーズのオーケストレーション: 計画 → 実行 → 検証 → (任意) ファイル変更適用 |
+| **cloudAI チャット** | Claude、GPT、Gemini と API や CLI で直接チャット |
+| **localAI チャット** | Ollama のローカルモデルとGPU上でチャット |
+| **RAG ビルダー** | ドキュメントを入れるだけで、AIが検索可能なナレッジベースを自動構築 |
+| **Web UI** | React ベースのモバイルフレンドリーなインターフェース。どのデバイスからもアクセス可能 |
+| **4層メモリ** | Thread / Episodic / Semantic / Procedural -- セッションを超えてコンテキストを記憶 |
+| **多言語対応** | 日本語と英語の完全対応。いつでも切り替え可能 |
+| **Discord通知** | AIタスクの完了をリアルタイムで通知 |
+| **チャット履歴** | SQLiteベースの履歴をデスクトップとWebで共有 |
+| **BIBLEシステム** | プロジェクトドキュメントをAIプロンプトに自動注入し、より良いコンテキストを提供 |
 
-公式ドキュメント:
-- Claude Code CLI 概要: https://docs.claude.com/en/docs/claude-code/overview
-- Ollama API 入門: https://docs.ollama.com/api/introduction
-- MCP ドキュメント: https://docs.anthropic.com/en/docs/mcp
+---
 
-### インストール
+## インストールガイド
 
+### 必要な環境
+
+- **Windows 10/11**
+- **Python 3.10以上**（3.11推奨）
+- **NVIDIA GPU** + CUDA対応（ローカルLLM使用時 -- 任意）
+- **RAM 16GB以上**（大型モデルには32GB以上推奨）
+
+### 手順
+
+**1. クローンとインストール**
 ```bash
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
-
-# インタラクティブインストーラー（推奨）
-install.bat
-
-# または手動インストール:
 pip install -r requirements.txt
+```
 
-# Claude Code CLI のインストール (Node.js 18+)
-npm install -g @anthropic-ai/claude-code
-
-# (任意) Phase 2用のローカルモデルをOllamaでプル
-ollama pull devstral-2:123b
-ollama pull command-a:latest
-ollama pull gpt-oss:120b
-ollama pull translategemma:27b
-ollama pull gemma3:27b
-
-# 常駐モデル (任意)
-ollama pull ministral-3:8b
-ollama pull qwen3-embedding:4b
-
-# アプリ起動
-python HelixAIStudio.py
-````
-
-> **初めての方**: [SETUP_GUIDE.md](SETUP_GUIDE.md) に Python / Node.js / Ollama / APIキー取得の詳細手順とトラブルシューティングがあります。
-
-### スタンドアロン実行ファイルのビルド (Windows)
-
+**2. （任意）ローカルLLMのセットアップ**
 ```bash
-pip install pyinstaller
-pyinstaller HelixAIStudio.spec --noconfirm
-# dist/HelixAIStudio/HelixAIStudio.exe
+# Ollama をダウンロード: https://ollama.com/download
+# インストール後、モデルをダウンロード:
+ollama pull gemma3:4b           # 軽量モデル。ほとんどのGPUで動作
+ollama pull gemma3:27b          # 高品質。16GB以上のVRAMが必要
+ollama pull mistral-small3.2    # 画像認識にも対応するモデル
 ```
 
----
+**3. （任意）クラウドAI用のAPIキーを設定**
 
-## アーキテクチャ
-
-```mermaid
-graph LR
-  User["User"] --> P1a["Phase 1a: Design analysis (Claude Code CLI)"]
-  P1a --> P1b["Phase 1b: Instructions + Acceptance Criteria (Claude Code CLI)"]
-  P1b --> P2["Phase 2: Local LLM Team (Ollama, Sequential)"]
-  P2 --> P3["Phase 3: Integrate + Criteria Evaluation (Claude Code CLI)"]
-  P3 --> P4["Phase 4 (Optional): Apply file changes (Sonnet 4.6/4.5)"]
-  P4 --> User
-
-  P2 --> coding["coding: devstral-2:123b"]
-  P2 --> research["research: command-a:latest"]
-  P2 --> reasoning["reasoning: gpt-oss:120b"]
-  P2 --> translation["translation: translategemma:27b"]
-  P2 --> vision["vision: gemma3:27b"]
+設定テンプレートをコピーしてキーを追加:
+```bash
+copy config\general_settings.example.json config\general_settings.json
 ```
 
----
+`config/general_settings.json` をエディタで開いて、以下のキーを設定:
 
-## セキュリティ・プライバシーについて
+| プロバイダー | キーの取得先 | 使えるようになる機能 |
+|---|---|---|
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claudeチャット、パイプライン計画立案 |
+| Google | [aistudio.google.com](https://aistudio.google.com/app/apikey)（無料枠あり） | Geminiチャット |
+| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | GPTチャット |
 
-### 設計原則
+**4. 起動**
+```bash
+python HelixAIStudio.py
+```
 
-* **機密データはローカル優先** — Phase 2 はすべてローカルLLM (Ollama) で実行されます。検証段階で機密コードやドキュメントがマシン外に送信されることはありません。
-* **APIキーはローカル保存** — キーは `config/general_settings.json` (git-ignored) または環境変数に保存されます。Helix が第三者にクレデンシャルを送信することはありません。
-* **Web UIは非公開設計** — 内蔵Webサーバーは [Tailscale VPN](https://tailscale.com) 経由のアクセスを想定しています。ポート 8500 を公共インターネットに公開しないでください。
-* **メモリ注入ガード** — 保存済みメモリには、蓄積コンテキストからのプロンプトインジェクション攻撃を防止するセーフティゲートプロンプトが含まれます。
+**5. （任意）スマホからアクセス**
 
-### MCP (Model Context Protocol)
+アプリには Web UI が内蔵されています。設定画面で有効化し、ネットワーク上の任意のデバイスから `http://localhost:8500` にアクセスしてください。
 
-MCPサーバーはHelixの機能を拡張しますが、サードパーティサーバーは**デフォルトで信頼されません**。
-
-* 2025年に[AnthropicのGit MCPサーバーにセキュリティ脆弱性](https://www.techradar.com/pro/security/anthropics-official-git-mcp-servers-had-worrying-security-flaws)が発見・修正されました。リスクカテゴリとして実在します。
-* ファイル、git、ネットワークに触れるMCPサーバーには、許可リスト・最小権限・人間承認ゲートを使用してください。
-* コミュニティ製より[公式リファレンスサーバー](https://github.com/modelcontextprotocol/servers)を優先してください。
-
-### Phase 4 (ファイル変更)
-
-Phase 4 は Sonnet 経由でファイル変更を自動適用します。本番ワークフローでは Phase 4 を有効にする前に **Phase 3 の出力を必ずレビュー** してください。
+> CLI ツール、Node.js、トラブルシューティングなど詳細なセットアップは [SETUP_GUIDE.md](SETUP_GUIDE.md) をご覧ください。
 
 ---
-
-### i18n (国際化)
-- **日本語 (デフォルト) + 英語** UI切替
-- 共有翻訳ファイル (`i18n/ja.json`, `i18n/en.json`) をDesktopとWebの両方で使用
 
 ## 技術スタック
 
 | コンポーネント | 技術 |
-| -------------- | ---- |
-| デスクトップGUI | PyQt6 |
+|---|---|
+| デスクトップ GUI | PyQt6 |
 | Web UI | React + Vite + Tailwind CSS |
-| Webサーバー | FastAPI + Uvicorn (WebSocket) |
-| Claude | Claude Code CLI (`claude`) |
-| ローカルLLM | Ollama API (`http://localhost:11434/api`) |
-| メモリ・ナレッジ | SQLite + ベクトル埋め込み + グラフユーティリティ |
-| i18n | 共有JSON (ja/en) Desktop + Web両対応 |
-| ビルド | PyInstaller (Desktop) / Vite (Web) |
-| デザイン | Cyberpunk Minimal |
+| Web サーバー | FastAPI + Uvicorn (WebSocket) |
+| クラウド AI | Anthropic / OpenAI / Google Gemini API |
+| CLI バックエンド | Claude Code CLI / Codex CLI |
+| ローカル LLM | Ollama |
+| メモリ | SQLite + ベクトル埋め込み + ナレッジグラフ |
+| 多言語対応 | 共有 JSON (ja/en) -- デスクトップ + Web 共通 |
 
 ---
 
-## プロジェクト構成 (概要)
+## セキュリティとプライバシー
 
-```
-Helix AI Studio/
-├── frontend/              # Web UI (React + Vite)
-│   └── src/
-│       ├── components/    # Reactコンポーネント
-│       ├── i18n/          # React i18nフック
-│       └── main.jsx
-├── i18n/                  # 共有翻訳ファイル
-│   ├── ja.json            # 日本語 (デフォルト)
-│   └── en.json            # 英語
-├── src/
-│   ├── backends/          # Claude/Ollama オーケストレーション
-│   ├── tabs/              # mixAI / soloAI / settings (PyQt6)
-│   ├── widgets/           # Neural Flow, VRAM simulator, チャット履歴パネル
-│   ├── web/               # FastAPIサーバー, WebSocket, 認証, ChatStore
-│   ├── bible/             # BIBLE discovery/parser/panel
-│   ├── memory/            # 4層メモリ, risk gate, RAPTOR/GraphRAG
-│   ├── rag/               # RAGビルダー, ベクトル検索
-│   ├── mcp/               # MCP統合 / サーバー管理
-│   ├── security/          # approvals / safety gates
-│   └── utils/             # constants, diagnostics, i18n
-├── config/                # 設定ファイル
-├── BIBLE/                 # プロジェクトドキュメント
-├── HelixAIStudio.py       # デスクトップアプリ エントリポイント
-└── requirements.txt
-```
+- **Phase 2は100%ローカル** -- 実行フェーズ中、コードやドキュメントがあなたのマシンの外に出ることはありません
+- **APIキーはローカル保存** -- `config/general_settings.json`（git管理対象外）に保存。第三者に送信されることはありません
+- **Web UIはプライベート** -- ローカル/VPNアクセス専用設計。パブリックインターネットへの公開は非推奨
+- **メモリインジェクション防御** -- 蓄積されたコンテキストを利用したプロンプトインジェクションを安全プロンプトで防止
 
----
-
-### Web UI セットアップ (任意)
-
-```bash
-# Web UIフロントエンドのビルド
-cd frontend
-npm install
-npm run build
-cd ..
-
-# デスクトップアプリ起動時にWeb UIが自動提供されます
-# Tailscale VPN経由で任意のデバイスからアクセス可能
-```
+> Anthropic、OpenAI、Ollamaの利用規約への準拠の詳細は [SECURITY.md](SECURITY.md) をご覧ください。
 
 ---
 
 ## バージョン履歴
 
-| バージョン | コードネーム | 主な変更 |
-|-----------|------------|---------|
-| v11.9.1 | Color Purge | 残存インラインカラーリテラル完全排除（9ファイル・約100箇所）、COLORS/SS統一 |
-| v11.9.0 | Unified Obsidian | per-tab stylesheet撤廃、SSセマンティックヘルパー、SplashScreen、EXEアイコン修正 |
-| v11.8.0 | Polished Dark | Refined Obsidian 4層カラー、GLOBAL_APP_STYLESHEET、薄EXEランチャー |
-| v11.7.0 | Resilient Core | 12ファイルエラーハンドリング強化、CLI→APIフォールバックチェーン |
-| v11.6.0 | Provider Aware | Phase 2動的クラウドモデル検出、Visionコンボフィルタリング |
-| v11.5.4 | Model Summary + Language Fix | 返答末尾にモデル名表示、mixAI英語応答修正 |
-| v11.5.3 | Web LocalAI + Discord | Web LocalAI (Ollama WebSocket)、Discord通知、cloudAI/localAI表示統一 |
-| v11.5.2 | Visual Parity | ログローテーション、パストラバーサル修正、ブルートフォース対策、自動クリーンアップ、RAG2ステップ |
-| v11.5.1 | Provider Pure | プロバイダールーティング整理、APIキーセキュリティUI |
-| v11.5.0 | Model Agnostic | マルチプロバイダーAPI (Anthropic/OpenAI/Google)、APIファースト |
-| v9.9.1 | Memory & Codex | HelixMemoryManager強化(private除外/段階注入/ビューアAPI)、Codex CLI soloAI対応、mixAI Opus4.6/Codexプリセット、検索選択式、設定保存修正、差分ダイアログ修正、スクロール誤操作防止、保存UIボタン統一 |
-| v9.8.0 | GitHub Ready | Sonnet 4.6追加、Adaptive thinking (effort)、Phase 4実装適用、常駐モデル一般設定移設、Phase 2スキップ、コンテキストバー修正 |
-| v9.7.1 | Desktop Chat History | SpinBox UX修正、mixAI/soloAIヘッダー整理、モデルセレクタ重複排除、タイムアウトi18n修正、RAG設定NoScrollSpinBox、Ollama設定並び順変更 |
-| v9.7.0 | Desktop Chat History | デスクトップチャット履歴サイドパネル、設定UI簡素化、Ollama設定一元化 |
-| v9.6.0 | Global Ready | Web UI + デスクトップUI 英語切替（共有i18n基盤）/ README.md |
-| v9.5.0 | Cross-Device Sync | Web実行ロック、モバイルファイル添付、デバイス間転送 |
-| v9.3.0 | Switchable Engine | P1/P3エンジン切替（Claude API / ローカルLLM） |
-| v9.2.0 | Persistent Sessions | チャット永続化、コンテキストモード |
-| v9.0.0 | Web UI | React Web UI、FastAPI、WebSocketストリーミング |
-| v8.5.0 | Autonomous RAG | RAGビルダー、情報収集タブ |
-| v8.4.0 | Contextual Intelligence | 4層メモリ、RAPTOR要約 |
+| バージョン | 主な変更 |
+|---|---|
+| **v11.9.4** | Gemini Qtスレッド安全性修正、Helix Pilot GUI自動化、モデル表示改善 |
+| v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
+| v11.9.2 | ターミナル表示トグル、Enter送信切替、240+カラーリテラル排除 |
+| v11.9.0 | Unified Obsidianテーマ、SSセマンティックヘルパー、スプラッシュスクリーン |
+| v11.8.0 | 4層カラーシステム、グローバルスタイルシート |
+| v11.5.0 | マルチプロバイダーAPI（Anthropic/OpenAI/Google）、モデル非依存アーキテクチャ |
+| v11.0.0 | Historyタブ、BIBLEクロスタブ、クラウドモデルセレクター |
+| v9.0.0 | Web UI（React + FastAPI） |
 
-詳細は [CHANGELOG.md](CHANGELOG.md) を参照してください。
+詳細は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
 
 ---
 
-## Discord通知の設定
+## 記事・リソース
 
-1. [Discord Webhook URL](https://support.discord.com/hc/ja/articles/228383668) を取得
-2. Helix AI Studio → 一般設定タブ → Web UI Server セクション
-3. Discord Webhook URL 欄に貼り付けて保存
-4. 通知イベント（チャット開始/完了/エラー）を各チェックボックスで選択
-
-## Web UIのビルド（開発者向け）
-
-`frontend/dist/` はgit管理外です。クローン後または変更後に以下を実行してください：
-
-```bash
-cd frontend
-npm install
-npm run build
-cd ..
-```
-
-デスクトップアプリ起動時に `dist/` が自動的に配信されます。
+| 記事 | 言語 | リンク |
+|------|------|--------|
+| はじめてのHelix AI Studio | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) |
+| アーキテクチャ詳解 | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
+| v11.9.2 リリースノート | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
 
 ---
 
-## コンプライアンス・データ取り扱い
+## コントリビューション
 
-### Anthropic（Claude）
+コントリビューションは歓迎です！ガイドラインは [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
 
-Helixは**公式のClaude Code CLI**（`claude`バイナリ）または**Anthropic APIを直接**呼び出します。コンシューマーサブスクリプションのOAuthトークンを第三者ツールとして流用する設計ではありません。
-
-> 2026年1月以降、Anthropicは[Claude Codeハーネスのなりすましを技術的にブロック](https://www.theregister.com/2026/02/20/anthropic_clarifies_ban_third_party_claude_access/)しています。Helixは公式ドキュメント通りのCLI呼び出しまたはAPIキー接続を使用するため**影響なし**です。
-
-重要ポイント:
-* **自動化・大量処理には** → [Anthropic APIキー](https://console.anthropic.com/settings/keys)を使用（Commercial Terms適用、学習データ対象外）
-* **個人利用・対話用途には** → Claude Code CLI でのアカウントログインで問題なし
-* **コンシューマーアカウント（Free/Pro/Max）** → 2025年9月以降、デフォルトで会話が[モデル学習に使用される可能性](https://www.anthropic.com/news/usage-policy-update)あり。プライバシー設定でオプトアウト、またはAPIキーへの切り替えを推奨
-* すべての利用は [Anthropic利用規約](https://www.anthropic.com/legal/usage-policy) に準拠してください
-
-### OpenAI（Codex CLI）
-
-* Codex CLI はアカウントログインとAPIキー認証の両方をサポート — [認証ドキュメント](https://developers.openai.com/codex/auth/)
-* 自動化ワークフローには [APIキーのベストプラクティス](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety) を適用。キーを共有しないでください
-* 利用は [OpenAI利用規約](https://openai.com/policies/row-terms-of-use/) に準拠
-
-### Ollama・ローカルモデル
-
-* Ollama本体は [MITライセンス](https://github.com/ollama/ollama/blob/main/LICENSE)
-* **モデルのライセンスは個別に異なります** — 商用利用前に [Ollamaライブラリ](https://ollama.com/library) で各モデルのライセンスを確認してください（Llama系はMetaのCommunity License等）
-
-### まとめ
-
-| アクセス方法 | 学習リスク | 推奨用途 |
-|---|---|---|
-| Anthropic APIキー (Commercial) | なし | 自動化、機密データ |
-| Claude Code CLI (Pro/Maxログイン) | オプトアウト推奨 | 対話型の個人利用 |
-| Ollama (ローカル) | なし | プライバシー重視のPhase 2 |
+セキュリティの問題は [SECURITY.md](SECURITY.md) をご覧ください。
 
 ---
 
 ## ライセンス
 
-MIT (詳細は LICENSE を参照)
+MIT -- [LICENSE](LICENSE) を参照
 
-## 変更履歴
+**作者**: tomlo ([@tsunamayo7](https://github.com/tsunamayo7))
 
-[CHANGELOG.md](CHANGELOG.md) に詳細なバージョン履歴を記載しています。
-
----
-
-## コントリビュート
-
-コントリビュートを歓迎します！ PRを提出する前に [CONTRIBUTING.md](CONTRIBUTING.md) をお読みください。
-
-## セキュリティ
-
-セキュリティ脆弱性については [SECURITY.md](SECURITY.md) を参照してください。
-
----
-
-> 🤖 **AI支援について**: このプロジェクトの開発・ドキュメント作成にはAIツール（Claude）を活用しています。最終的な設計判断・検証・品質管理は開発者が責任を持って行っています。
+Helix AI Studio が役に立ったら、ぜひスターをお願いします！フィードバック、Issue、PRはいつでも歓迎です。
