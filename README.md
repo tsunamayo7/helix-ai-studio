@@ -295,6 +295,6 @@ For security issues, see [SECURITY.md](SECURITY.md).
 
 MIT -- see [LICENSE](LICENSE)
 
-**Author**: tomlo ([@tsunamayo7](https://github.com/tsunamayo7))
+**Author**: tsunamayo7 ([@tsunamayo7](https://github.com/tsunamayo7))
 
 If Helix AI Studio is useful to you, please give it a star! Feedback, issues, and PRs are always welcome.

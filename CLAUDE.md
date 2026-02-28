@@ -13,8 +13,8 @@ PyQt6製のAIオーケストレーションデスクトップアプリ + FastAPI
 Claude CLI / Anthropic API / OpenAI API / Google Gemini API / Ollama（ローカルLLM）を
 5Phaseパイプラインで統合する。
 
-- **オーナー**: tomlo (tsunamayo7)
-- **LICENSE著作者名**: tomlo
+- **オーナー**: tsunamayo7
+- **LICENSE著作者名**: tsunamayo7
 - **言語**: 日本語/英語（i18n対応）
 - **実行環境**: Windows 11（デスクトップ）+ モバイルブラウザ（Web UI）
 
