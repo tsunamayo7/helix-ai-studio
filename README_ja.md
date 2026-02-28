@@ -295,6 +295,6 @@ python HelixAIStudio.py
 
 MIT -- [LICENSE](LICENSE) を参照
 
-**作者**: tomlo ([@tsunamayo7](https://github.com/tsunamayo7))
+**作者**: tsunamayo7 ([@tsunamayo7](https://github.com/tsunamayo7))
 
 Helix AI Studio が役に立ったら、ぜひスターをお願いします！フィードバック、Issue、PRはいつでも歓迎です。

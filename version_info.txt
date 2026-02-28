@@ -13,11 +13,11 @@ VSVersionInfo(
     StringFileInfo([
       StringTable(
         u'040904B0',
-        [StringStruct(u'CompanyName', u'tomlo'),
+        [StringStruct(u'CompanyName', u'tsunamayo7'),
          StringStruct(u'FileDescription', u'Helix AI Studio'),
          StringStruct(u'FileVersion', u'11.9.0.0'),
          StringStruct(u'InternalName', u'HelixAIStudio'),
-         StringStruct(u'LegalCopyright', u'Copyright (c) 2026 tomlo'),
+         StringStruct(u'LegalCopyright', u'Copyright (c) 2026 tsunamayo7'),
          StringStruct(u'OriginalFilename', u'HelixAIStudio.exe'),
          StringStruct(u'ProductName', u'Helix AI Studio'),
          StringStruct(u'ProductVersion', u'11.9.0.0')])
