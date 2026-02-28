@@ -17,6 +17,8 @@ Helix AI Studio is a desktop app that makes different AI models actually work *t
 
 > **日本語 README**: [README_ja.md](README_ja.md)
 
+> **⭐ If Helix AI Studio looks useful to you, a star helps more developers discover it. Thank you!**
+
 ---
 
 ## See It in Action
@@ -40,6 +42,15 @@ Helix AI Studio is a desktop app that makes different AI models actually work *t
 | ![Desktop](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main.png) |
 
 > The desktop app runs on your PC. The Web UI lets you chat from your phone, tablet, or any browser on your network.
+
+### Helix Pilot v2.0 — AI that controls the UI for you
+
+> **New in v11.9.4**: Helix Pilot is a local Vision LLM agent that reads your screen and operates the app autonomously. Claude Code can now describe a task in plain English and Helix Pilot handles every click, scroll, and keystroke — without you touching the mouse.
+
+```bash
+# Example: Let Claude automate your workflow
+python scripts/helix_pilot.py auto "Open the mixAI tab, type a prompt, and send it" --window "Helix AI Studio"
+```
 
 ---
 
@@ -72,6 +83,7 @@ Most AI tools give you a chat window with one model. Helix gives you a **pipelin
 | **Cost efficient** | Expensive model (Claude) does 20% of the work. Free local models do 80%. | Everything goes through the paid API |
 | **Privacy where it matters** | Execution phase runs entirely on your GPU. Sensitive code never leaves your machine. | Cloud-only -- everything goes to external servers |
 | **Desktop + Mobile** | Native desktop app with built-in Web UI. Chat from your phone while your GPU does the work. | Usually one or the other |
+| **Helix Pilot v2.0** | Vision LLM agent that operates the app for you. Tell it what to do in plain English. | Static UIs with no automation |
 | **No code required** | GUI app with settings panels. Point and click. | Many orchestration tools require you to write code |
 | **Free and open** | MIT licensed. No subscription, no telemetry. | Often SaaS or freemium |
 
@@ -165,6 +177,7 @@ Most AI tools give you a chat window with one model. Helix gives you a **pipelin
 | **mixAI Pipeline** | 3+1 Phase orchestration: plan, execute, validate, (optionally) apply file changes |
 | **cloudAI Chat** | Direct chat with Claude, GPT, Gemini via API or CLI |
 | **localAI Chat** | Chat with any Ollama model on your local GPU |
+| **Helix Pilot v2.0** | Vision LLM agent that reads your screen and operates the app autonomously via plain-English commands |
 | **RAG Builder** | Drop documents in, AI builds a searchable knowledge base automatically |
 | **Web UI** | React-based mobile-friendly interface, accessible from any device |
 | **4-Layer Memory** | Thread, Episodic, Semantic, Procedural -- your AI remembers context across sessions |
@@ -260,7 +273,7 @@ The app includes a built-in Web UI. Enable it in Settings, then open `http://loc
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.4** | Gemini Qt thread safety fix, Helix Pilot GUI automation, model display improvements |
+| **v11.9.4** | **Helix Pilot v2.0** (autonomous Vision LLM GUI agent), Gemini thread safety fix, model display improvements |
 | v11.9.3 | Provider-based model classification, combo width fix |
 | v11.9.2 | Terminal toggle, Enter-to-send toggle, 240+ color literals purged |
 | v11.9.0 | Unified Obsidian theme, SS semantic helpers, SplashScreen |
