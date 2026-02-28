@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.9.2"
-APP_CODENAME = "Settings & Outreach"
+APP_VERSION = "11.9.4"
+APP_CODENAME = "Helix Pilot"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.9.2 'Settings & Outreach' - "
-    "ターミナルトグル・Enter送信切替・240+カラー排除・プロモーション基盤"
+    "Helix AI Studio v11.9.4 'Helix Pilot' - "
+    "GUI自律操作・Geminiスレッド安全・デモGIF・README刷新・Helix Pilot v2.0"
 )
 
 # v8.5.0: 情報収集フォルダ

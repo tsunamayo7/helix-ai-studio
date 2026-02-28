@@ -100,7 +100,9 @@ Install Ollama separately: https://ollama.com/download
 - **Setup Guide**: https://github.com/tsunamayo7/helix-ai-studio/blob/main/SETUP_GUIDE.md
 - **Docker tracking issue**: https://github.com/tsunamayo7/helix-ai-studio/issues/8
 
-v11.9.2, MIT licensed, Windows, Python 3.12+.
+v11.9.4 "Helix Pilot", MIT licensed, Windows, Python 3.12+.
+
+**New in v11.9.4**: Helix Pilot -- autonomous GUI operation powered by local Vision LLMs. The app can now operate your desktop apps and browser with zero cloud dependency for the automation layer. Safety-first design with action whitelisting, hotkey blocking, and URL/domain restrictions.
 
 Feedback and stars appreciated. Happy to answer questions about the architecture or self-hosting setup.
 

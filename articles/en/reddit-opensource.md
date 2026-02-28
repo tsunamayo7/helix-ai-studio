@@ -24,7 +24,7 @@ I believe AI orchestration tools should be transparent. You should be able to se
 
 ## Project status
 
-- **Version**: v11.9.2 ("Settings & Outreach")
+- **Version**: v11.9.4 ("Helix Pilot")
 - **License**: MIT
 - **Releases**: 5 releases so far, actively developed
 - **Languages**: Bilingual -- full Japanese and English UI via i18n system

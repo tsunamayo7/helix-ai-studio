@@ -128,101 +128,114 @@ data/helix_pilot_screenshots/
 
 ---
 
-## Helix Pilot — GUI 自動操作ツール
+## Helix Pilot v2.0 — GUI 自動操作ツール
 
 Claude Code がデスクトップ GUI をユーザー目線で操作するための外部ツール。
-ローカル Vision LLM (Ollama mistral-small3.2) がスクリーンショットを解釈し、
+ローカル Vision LLM (Ollama) がスクリーンショットを解釈し、
 Claude Code はテキスト (JSON) のみで画面状態を把握できる。
 
 - **ファイル**: `scripts/helix_pilot.py`
-- **設定**: `config/helix_pilot.json` (Vision モデル: `mistral-small3.2:latest`)
-- **出力**: 全コマンドが JSON を stdout に出力
+- **設定**: `config/helix_pilot.json`
+- **Vision モデル**: `mistral-small3.2:latest` (画面解析)
+- **Reasoning モデル**: `gemma3:27b` (auto/browse のプラン生成)
+- **出力**: 全コマンドが JSON を stdout に出力（`--compact` で簡潔化）
 
-### コマンド一覧
+### v2.0 新機能: 自律実行コマンド（コンテキスト削減の主役）
+
+**重要**: 複数ステップのGUI操作は、個別コマンドを連続実行する代わりに
+`auto` / `browse` コマンドを使うこと。コンテキスト消費を 90% 以上削減できる。
 
 ```bash
-# 状態確認（Ollama接続、Visionモデル、ウィンドウ一覧）
+# ★ 推奨: 自律実行（ローカルLLMがプランニング＋実行を一括処理）
+# デスクトップアプリ操作
+python scripts/helix_pilot.py auto "cloudAIタブをクリックしてhelloと入力し送信" --window "Helix AI Studio" --compact
+
+# ブラウザ操作
+python scripts/helix_pilot.py browse "note.comで新規記事を作成しタイトルを入力" --window "Google Chrome" --compact
+
+# --dry-run: プランのみ表示（実行しない）。安全確認に使用
+python scripts/helix_pilot.py auto "設定タブを開いてモデルを変更" --window "Helix AI Studio" --dry-run --compact
+```
+
+### 出力モード（`--compact` / `--output-mode`）
+
+```bash
+# compact: 不要フィールド除去+説明文500文字制限（推奨）
+python scripts/helix_pilot.py describe --window "Helix AI Studio" --compact
+
+# minimal: ok/errorのみ（最小コンテキスト消費）
+python scripts/helix_pilot.py click 100 50 --window "Helix AI Studio" --output-mode minimal
+
+# normal: v1.0互換の詳細出力（デフォルト、configで変更可能）
+python scripts/helix_pilot.py find "送信ボタン" --window "Helix AI Studio" --output-mode normal
+```
+
+### 基本コマンド一覧（v1.0互換）
+
+```bash
+# 状態確認
 python scripts/helix_pilot.py status
 
 # スクリーンショット撮影
 python scripts/helix_pilot.py screenshot --window "Helix AI Studio" --name shot1
 
-# Vision LLM で画面を説明（最も便利 — 画面の全体像をテキストで取得）
+# Vision LLM で画面を説明（キャッシュ機能付き: 画面未変更時はLLM呼び出し省略）
 python scripts/helix_pilot.py describe --window "Helix AI Studio"
 
-# UI要素の座標を特定（ボタン等の位置を取得）
+# UI要素の座標を特定
 python scripts/helix_pilot.py find "送信ボタン" --window "Helix AI Studio"
 
 # 操作結果の検証
 python scripts/helix_pilot.py verify "メッセージが送信された" --window "Helix AI Studio"
 
-# クリック（ウィンドウ内の相対座標）
+# クリック / テキスト入力 / ホットキー / スクロール
 python scripts/helix_pilot.py click 100 50 --window "Helix AI Studio"
-
-# テキスト入力（日本語も対応）
 python scripts/helix_pilot.py type "テストメッセージ" --window "Helix AI Studio"
-
-# キーボードショートカット（--window でウィンドウ指定可能）
 python scripts/helix_pilot.py hotkey ctrl+c --window "Helix AI Studio"
-
-# クリック＋スクリーンショット（ポップアップ保持、QComboBox等に有効）
-python scripts/helix_pilot.py click-screenshot 100 50 --window "Helix AI Studio" --delay 0.3
-
-# スクロール（正=上、負=下）
 python scripts/helix_pilot.py scroll -3 --window "Helix AI Studio"
 
-# 画面安定待ち（AI応答完了の検出に使用）
+# クリック＋スクリーンショット（ポップアップ保持）
+python scripts/helix_pilot.py click-screenshot 100 50 --window "Helix AI Studio" --delay 0.3
+
+# 画面安定待ち / GIF録画 / シナリオ
 python scripts/helix_pilot.py wait-stable --timeout 60 --window "Helix AI Studio"
-
-# GIF録画（PR用デモ等に使用）
 python scripts/helix_pilot.py record --window "Helix AI Studio" --name demo --duration 10 --fps 5
-
-# JSON シナリオ一括実行
 python scripts/helix_pilot.py run-scenario demo_captures/scenarios/test.json
 ```
 
-### find コマンドの注意事項
-
-`find` コマンドは Vision LLM が座標を推定するため、小さな UI 要素では数十 px の誤差が生じる場合がある。
-高精度が必要な場合は `--refine` オプションを使うか、`screenshot` → 目視で座標確認 → `click` のワークフローを推奨。
-`find` の結果には `scale_factor` が含まれており、4K ディスプレイでも自動的に座標変換される。
-
-### click-screenshot コマンド（ポップアップ操作用）
-
-QComboBox やドロップダウンメニューなど、フォーカス変更で閉じてしまう UI 要素の操作に使用する。
-`click` した後、ウィンドウを再アクティベートせずにスクリーンショットを撮影するため、
-ポップアップが開いた状態を正確にキャプチャできる。
-
-### 典型的なデバッグワークフロー
+### 推奨ワークフロー（v2.0）
 
 ```bash
-# 1. 現在の画面状態を確認
-python scripts/helix_pilot.py describe --window "Helix AI Studio"
+# ★ 複数ステップ操作 → auto コマンド1回で完了
+python scripts/helix_pilot.py auto "cloudAIタブを開き、テスト入力して送信" --window "Helix AI Studio" --compact
 
-# 2. 特定の要素を探す
-python scripts/helix_pilot.py find "cloudAI タブ" --window "Helix AI Studio"
+# ★ ブラウザ操作 → browse コマンド1回で完了
+python scripts/helix_pilot.py browse "Zennにログインして新規記事を作成" --window "Google Chrome" --compact
 
-# 3. その要素をクリック
-python scripts/helix_pilot.py click <x> <y> --window "Helix AI Studio"
-
-# 4. テキスト入力して送信
-python scripts/helix_pilot.py type "テスト" --window "Helix AI Studio"
-python scripts/helix_pilot.py hotkey enter --window "Helix AI Studio"
-
-# 5. 応答を待つ
-python scripts/helix_pilot.py wait-stable --timeout 60 --window "Helix AI Studio"
-
-# 6. 結果を確認
-python scripts/helix_pilot.py describe --window "Helix AI Studio"
+# 安全確認したい場合: --dry-run でプラン確認 → 問題なければ実行
+python scripts/helix_pilot.py auto "設定を変更" --window "Helix AI Studio" --dry-run --compact
+# プラン確認後:
+python scripts/helix_pilot.py auto "設定を変更" --window "Helix AI Studio" --compact
 ```
 
 ### セキュリティ保護
 
+**既存の保護（v1.0）:**
 - **safe_mode**: `--window` 引数が必須（全画面操作禁止）
 - **denied_windows**: Task Manager, Windows Security 等は操作不可
 - **denied_input_patterns**: password, credential, token 等のテキスト入力を拒否
 - **緊急停止**: マウスを画面左上隅に移動 → 即座に中止
 - **ユーザー操作優先**: ユーザーのマウス/キーボード操作を検知すると自動一時停止
+
+**v2.0 追加: ActionValidator（LLM生成アクションの安全検証）:**
+- **アクションホワイトリスト**: 許可された種別のみ実行可能
+- **禁止ホットキー**: Alt+F4, Ctrl+Alt+Del, Win+R, Win+L, Ctrl+W 等を拒否
+- **禁止URLパターン**: file://, chrome://settings, localhost, LAN IP を拒否
+- **禁止テキスト**: `<script`, `javascript:`, `rm -rf` 等の危険パターンを拒否
+- **文字数制限**: 1ステップ5000文字まで
+- **スクロール/待機制限**: 量・時間の上限あり
+- **ドメイン制限**: `browse_config.denied_domains` で銀行サイト等をブロック
+- **プラン全体検証**: 実行前に全ステップを一括検証、不正ステップは除外
 
 ---
 
