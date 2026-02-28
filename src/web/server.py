@@ -33,7 +33,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .auth import WebAuthManager
-from .api_routes import router as api_router
+from .api_routes import router as api_router, _load_merged_settings
 from .rag_bridge import WebRAGBridge
 from .chat_store import ChatStore
 from .ws_manager import WebSocketManager
@@ -393,7 +393,7 @@ async def _handle_local_execute(client_id: str, data: dict):
 
     # チャットID管理
     if not chat_id:
-        chat = chat_store.create_chat(tab="localAI")
+        chat = chat_store.create_chat(tab="soloAI")
         chat_id = chat["id"]
         await ws_manager.send_to(client_id, {
             "type": "chat_created",
