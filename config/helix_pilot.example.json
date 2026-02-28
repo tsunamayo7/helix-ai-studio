@@ -1,7 +1,9 @@
 {
-  "_comment": "Helix Pilot 設定テンプレート。config/helix_pilot.json にコピーして編集してください。",
+  "_comment": "Helix Pilot v2.0.0 設定テンプレート。config/helix_pilot.json にコピーして編集してください。",
   "ollama_endpoint": "http://localhost:11434",
   "vision_model": "llama3.2-vision:11b",
+  "reasoning_model": "",
+
   "allowed_windows": [],
   "denied_windows": [
     "Windows Security",
@@ -26,5 +28,56 @@
   "emergency_stop_corner": "top-left",
   "emergency_stop_threshold_px": 5,
   "vision_timeout": 60,
-  "safe_mode": true
+  "safe_mode": true,
+
+  "auto_config": {
+    "_comment": "auto/browseコマンドの自律実行設定",
+    "max_steps": 20,
+    "step_timeout": 30,
+    "total_timeout": 300,
+    "verify_after_action": true,
+    "retry_on_failure": 2
+  },
+  "browse_config": {
+    "_comment": "browseコマンド固有設定",
+    "max_steps": 30,
+    "total_timeout": 600,
+    "allowed_domains": [],
+    "denied_domains": ["bank", "payment"]
+  },
+  "output_config": {
+    "_comment": "出力モード設定。default_mode: minimal|compact|normal",
+    "default_mode": "normal",
+    "compact_exclude_fields": [
+      "screenshot_path", "vision_model", "timestamp",
+      "screenshot_x", "screenshot_y", "original_size", "logical_size"
+    ],
+    "description_max_chars": 500
+  },
+  "session_config": {
+    "_comment": "画面キャッシュ設定",
+    "cache_descriptions": true,
+    "cache_ttl_seconds": 30,
+    "diff_threshold": 0.05
+  },
+  "action_safety": {
+    "_comment": "LLM生成アクションの安全検証設定",
+    "denied_hotkeys": [
+      "alt+f4", "ctrl+alt+delete", "ctrl+alt+del",
+      "win+r", "win+l", "alt+tab", "ctrl+shift+esc",
+      "ctrl+w", "ctrl+shift+delete"
+    ],
+    "denied_url_patterns": [
+      "file://", "chrome://settings", "about:config",
+      "localhost", "192.168.", "10.0.", "127.0.0."
+    ],
+    "denied_text_patterns": [
+      "<script", "javascript:", "rm\\s+-rf",
+      "format\\s+[a-z]:", "del\\s+/[sq]"
+    ],
+    "max_text_length": 5000,
+    "max_scroll_amount": 20,
+    "max_wait_seconds": 30,
+    "require_dry_run_first": false
+  }
 }

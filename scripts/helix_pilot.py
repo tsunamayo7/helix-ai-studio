@@ -1,10 +1,13 @@
 """
-helix_pilot.py - GUI Automation Pilot for Claude Code
+helix_pilot.py - GUI Automation Pilot for Claude Code  v2.0.0
 
 External tool: Claude Code sends text commands via subprocess,
 helix_pilot performs GUI operations (mouse, keyboard, screenshots),
 local Vision LLM (Ollama) interprets screenshots,
 results returned as JSON text to minimize context consumption.
+
+v2.0: Added autonomous execution (auto/browse), compact output,
+screen caching, and LLM action safety validation.
 
 Usage:
     python scripts/helix_pilot.py screenshot [--window "title"] [--name "shot1"]
@@ -19,6 +22,8 @@ Usage:
     python scripts/helix_pilot.py status
     python scripts/helix_pilot.py wait-stable [--timeout 60]
     python scripts/helix_pilot.py run-scenario <json_file>
+    python scripts/helix_pilot.py auto "instruction" --window "title" [--compact] [--dry-run]
+    python scripts/helix_pilot.py browse "instruction" --window "Chrome" [--compact]
 """
 
 import sys
@@ -64,11 +69,26 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
+# DPI Awareness (must be set before any GUI calls)
+# ---------------------------------------------------------------------------
+if sys.platform == "win32":
+    try:
+        import ctypes
+        # Per-Monitor DPI Aware v2 — ensures pyautogui and pygetwindow
+        # return consistent physical-pixel coordinates on 4K / HiDPI displays.
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "helix_pilot.json"
-VERSION = "1.0.0"
+VERSION = "2.0.0"
 
 # Disable pyautogui pause for speed; safety is handled by SafetyGuard
 pyautogui.PAUSE = 0.05
@@ -122,6 +142,7 @@ class PilotConfig:
     DEFAULTS = {
         "ollama_endpoint": "http://localhost:11434",
         "vision_model": "llama3.2-vision:11b",
+        "reasoning_model": "",  # v2: model for auto/browse planning (empty = use vision_model)
         "allowed_windows": [],
         "denied_windows": [
             "Windows Security", "Task Manager", "Administrator:",
@@ -139,6 +160,52 @@ class PilotConfig:
         "emergency_stop_threshold_px": 5,
         "vision_timeout": 60,
         "safe_mode": True,
+        # v2.0 additions
+        "auto_config": {
+            "max_steps": 20,
+            "step_timeout": 30,
+            "total_timeout": 300,
+            "verify_after_action": True,
+            "retry_on_failure": 2,
+        },
+        "browse_config": {
+            "max_steps": 30,
+            "total_timeout": 600,
+            "allowed_domains": [],
+            "denied_domains": ["bank", "payment"],
+        },
+        "output_config": {
+            "default_mode": "normal",
+            "compact_exclude_fields": [
+                "screenshot_path", "vision_model", "timestamp",
+                "screenshot_x", "screenshot_y", "original_size", "logical_size",
+            ],
+            "description_max_chars": 500,
+        },
+        "session_config": {
+            "cache_descriptions": True,
+            "cache_ttl_seconds": 30,
+            "diff_threshold": 0.05,
+        },
+        "action_safety": {
+            "denied_hotkeys": [
+                "alt+f4", "ctrl+alt+delete", "ctrl+alt+del",
+                "win+r", "win+l", "alt+tab", "ctrl+shift+esc",
+                "ctrl+w", "ctrl+shift+delete",
+            ],
+            "denied_url_patterns": [
+                "file://", "chrome://settings", "about:config",
+                "localhost", "192.168.", "10.0.", "127.0.0.",
+            ],
+            "denied_text_patterns": [
+                "<script", "javascript:", "rm\\s+-rf",
+                "format\\s+[a-z]:", "del\\s+/[sq]",
+            ],
+            "max_text_length": 5000,
+            "max_scroll_amount": 20,
+            "max_wait_seconds": 30,
+            "require_dry_run_first": False,
+        },
     }
 
     def __init__(self, config_path: Path = None):
@@ -179,6 +246,31 @@ class PilotConfig:
         p = PROJECT_ROOT / self._data["log_file"]
         p.parent.mkdir(parents=True, exist_ok=True)
         return p
+
+    @property
+    def reasoning_model_name(self) -> str:
+        rm = self._data.get("reasoning_model", "")
+        return rm if rm else self._data.get("vision_model", "")
+
+    @property
+    def auto_cfg(self) -> dict:
+        return self._data.get("auto_config", self.DEFAULTS["auto_config"])
+
+    @property
+    def browse_cfg(self) -> dict:
+        return self._data.get("browse_config", self.DEFAULTS["browse_config"])
+
+    @property
+    def output_cfg(self) -> dict:
+        return self._data.get("output_config", self.DEFAULTS["output_config"])
+
+    @property
+    def session_cfg(self) -> dict:
+        return self._data.get("session_config", self.DEFAULTS["session_config"])
+
+    @property
+    def action_safety_cfg(self) -> dict:
+        return self._data.get("action_safety", self.DEFAULTS["action_safety"])
 
 
 # ---------------------------------------------------------------------------
@@ -1021,12 +1113,597 @@ class PilotIndicator:
 
 
 # ---------------------------------------------------------------------------
+# OutputFormatter — v2.0: Compact output to reduce Claude Code context
+# ---------------------------------------------------------------------------
+class OutputFormatter:
+    """Filters and truncates JSON output based on output mode."""
+
+    def __init__(self, config: PilotConfig, mode: str = "normal"):
+        self._config = config
+        self._mode = mode
+
+    def format(self, result: dict) -> dict:
+        if self._mode == "minimal":
+            return self._minimal(result)
+        elif self._mode == "compact":
+            return self._compact(result)
+        return result  # normal / verbose
+
+    def _minimal(self, result: dict) -> dict:
+        out = {"ok": result.get("ok", False)}
+        if not out["ok"]:
+            out["error"] = result.get("error", "unknown")
+        cmd = result.get("command", "")
+        if cmd == "find" and result.get("found"):
+            out["found"] = True
+            out["x"] = result.get("x", 0)
+            out["y"] = result.get("y", 0)
+        elif cmd == "find":
+            out["found"] = False
+        elif cmd == "verify":
+            out["success"] = result.get("success", False)
+        elif cmd == "auto":
+            out["steps_succeeded"] = result.get("steps_succeeded", 0)
+            out["steps_executed"] = result.get("steps_executed", 0)
+            if result.get("final_verification"):
+                out["final_verification"] = result["final_verification"]
+            if result.get("errors"):
+                out["errors"] = result["errors"]
+        return out
+
+    def _compact(self, result: dict) -> dict:
+        out = dict(result)
+        exclude = self._config.output_cfg.get("compact_exclude_fields", [])
+        for field in exclude:
+            out.pop(field, None)
+        max_desc = self._config.output_cfg.get("description_max_chars", 500)
+        if "description" in out and isinstance(out["description"], str):
+            if len(out["description"]) > max_desc:
+                out["description"] = out["description"][:max_desc] + "..."
+        if "detail" in out and isinstance(out["detail"], str):
+            if len(out["detail"]) > 200:
+                out["detail"] = out["detail"][:200] + "..."
+        # Compact scenario results: only failures + summary
+        if out.get("command") == "run-scenario" and "results" in out:
+            failed = [r for r in out["results"] if not r.get("ok")]
+            out["failed_steps"] = failed
+            out.pop("results", None)
+        return out
+
+
+# ---------------------------------------------------------------------------
+# ScreenCache — v2.0: Cache screen descriptions to avoid redundant Vision calls
+# ---------------------------------------------------------------------------
+class ScreenCache:
+    """Caches last screenshot analysis to avoid redundant Vision LLM calls."""
+
+    def __init__(self, config: PilotConfig, ops: 'CoreOperations'):
+        self._config = config
+        self._ops = ops
+        self._last_screenshot_path: Optional[Path] = None
+        self._last_description: Optional[str] = None
+        self._last_time: float = 0
+        self._cache_ttl = config.session_cfg.get("cache_ttl_seconds", 30)
+        self._diff_threshold = config.session_cfg.get("diff_threshold", 0.05)
+
+    def get_or_describe(self, vision: 'VisionLLM',
+                        window: str = None) -> Tuple[str, bool]:
+        """Return cached description if screen hasn't changed.
+        Returns (description, was_cached)."""
+        if not self._config.session_cfg.get("cache_descriptions", True):
+            return self._fresh_describe(vision, window), False
+        if time.time() - self._last_time > self._cache_ttl:
+            return self._fresh_describe(vision, window), False
+        ss = self._ops.screenshot(window, "cache_check")
+        if not ss.get("ok"):
+            return self._last_description or "", True
+        if self._last_screenshot_path and self._similar(
+                self._last_screenshot_path, Path(ss["path"])):
+            return self._last_description or "", True
+        return self._fresh_describe(vision, window), False
+
+    def _fresh_describe(self, vision: 'VisionLLM', window: str) -> str:
+        ss = self._ops.screenshot(window, "cache_fresh")
+        if not ss.get("ok"):
+            return ""
+        desc = vision.describe(Path(ss["path"]))
+        self._last_screenshot_path = Path(ss["path"])
+        self._last_description = desc
+        self._last_time = time.time()
+        return desc
+
+    def _similar(self, path_a: Path, path_b: Path) -> bool:
+        try:
+            img_a = Image.open(path_a).convert("L")
+            img_b = Image.open(path_b).convert("L")
+            if img_a.size != img_b.size:
+                return False
+            diff = np.array(ImageChops.difference(img_a, img_b))
+            changed = np.count_nonzero(diff > 10) / diff.size
+            return changed < self._diff_threshold
+        except Exception:
+            return False
+
+    def invalidate(self):
+        self._last_time = 0
+
+
+# ---------------------------------------------------------------------------
+# ActionValidator — v2.0: Safety validation for LLM-generated action plans
+# ---------------------------------------------------------------------------
+class ActionValidator:
+    """Validates actions generated by the local LLM before execution.
+
+    Ensures the LLM cannot perform unauthorized operations such as:
+    - Executing unknown action types
+    - Pressing dangerous hotkeys (Alt+F4, Ctrl+Alt+Del, etc.)
+    - Navigating to dangerous URLs (file://, localhost, etc.)
+    - Typing dangerous text patterns (<script>, rm -rf, etc.)
+    - Exceeding scroll/wait limits
+    """
+
+    ALLOWED_ACTIONS = {
+        "click_element", "type_text", "hotkey", "scroll",
+        "wait", "wait_stable", "verify",
+        "navigate_url", "wait_page_load",
+    }
+
+    def __init__(self, config: PilotConfig):
+        self._config = config
+        self._safety_cfg = config.action_safety_cfg
+        self._denied_hotkeys = set(
+            k.lower() for k in self._safety_cfg.get("denied_hotkeys", []))
+        self._denied_url_patterns = [
+            re.compile(p, re.IGNORECASE)
+            for p in self._safety_cfg.get("denied_url_patterns", [])
+        ]
+        self._denied_text_patterns = [
+            re.compile(p, re.IGNORECASE)
+            for p in self._safety_cfg.get("denied_text_patterns", [])
+        ]
+        self._denied_input_patterns = [
+            re.compile(re.escape(p), re.IGNORECASE)
+            for p in config._data.get("denied_input_patterns", [])
+        ]
+        self._max_text_length = self._safety_cfg.get("max_text_length", 5000)
+        self._max_scroll = self._safety_cfg.get("max_scroll_amount", 20)
+        self._max_wait = self._safety_cfg.get("max_wait_seconds", 30)
+        self._denied_windows = [
+            w.lower() for w in config._data.get("denied_windows", [])
+        ]
+
+    def validate(self, step: dict) -> Tuple[bool, str]:
+        """Validate a single action step. Returns (ok, reason)."""
+        action = step.get("action", "")
+
+        # 1. Whitelist check
+        if action not in self.ALLOWED_ACTIONS:
+            return False, f"Unknown action '{action}' not in whitelist"
+
+        # 2. Action-specific checks
+        if action == "hotkey":
+            return self._check_hotkey(step)
+        elif action == "type_text":
+            return self._check_text(step)
+        elif action == "navigate_url":
+            return self._check_url(step)
+        elif action == "scroll":
+            return self._check_scroll(step)
+        elif action == "wait":
+            return self._check_wait(step)
+        elif action == "wait_stable":
+            timeout = step.get("timeout", 30)
+            if timeout > self._max_wait * 4:
+                return False, f"wait_stable timeout {timeout}s exceeds max {self._max_wait * 4}s"
+        elif action == "click_element":
+            return self._check_click_target(step)
+
+        return True, "ok"
+
+    def validate_plan(self, steps: list) -> Tuple[bool, list]:
+        """Validate an entire action plan. Returns (all_ok, list of issues)."""
+        issues = []
+        for i, step in enumerate(steps):
+            ok, reason = self.validate(step)
+            if not ok:
+                issues.append({"step": i + 1, "action": step.get("action"),
+                               "reason": reason})
+        return len(issues) == 0, issues
+
+    def _check_hotkey(self, step: dict) -> Tuple[bool, str]:
+        keys = step.get("keys", "").lower().strip()
+        if keys in self._denied_hotkeys:
+            return False, f"Hotkey '{keys}' is denied for safety"
+        # Also check without spaces
+        keys_nospace = keys.replace(" ", "")
+        if keys_nospace in self._denied_hotkeys:
+            return False, f"Hotkey '{keys}' is denied for safety"
+        return True, "ok"
+
+    def _check_text(self, step: dict) -> Tuple[bool, str]:
+        text = step.get("text", "")
+        if len(text) > self._max_text_length:
+            return False, f"Text length {len(text)} exceeds max {self._max_text_length}"
+        for pattern in self._denied_text_patterns:
+            if pattern.search(text):
+                return False, f"Text matches denied pattern: {pattern.pattern}"
+        for pattern in self._denied_input_patterns:
+            if pattern.search(text):
+                return False, f"Text matches denied input pattern: {pattern.pattern}"
+        return True, "ok"
+
+    def _check_url(self, step: dict) -> Tuple[bool, str]:
+        url = step.get("url", "")
+        for pattern in self._denied_url_patterns:
+            if pattern.search(url):
+                return False, f"URL matches denied pattern: {pattern.pattern}"
+        # Check browse_config domain restrictions
+        browse_cfg = self._config.browse_cfg
+        allowed = browse_cfg.get("allowed_domains", [])
+        denied = browse_cfg.get("denied_domains", [])
+        url_lower = url.lower()
+        if denied:
+            for d in denied:
+                if d.lower() in url_lower:
+                    return False, f"URL contains denied domain: {d}"
+        if allowed:
+            match = any(d.lower() in url_lower for d in allowed)
+            if not match:
+                return False, f"URL not in allowed domains: {allowed}"
+        return True, "ok"
+
+    def _check_scroll(self, step: dict) -> Tuple[bool, str]:
+        amount = abs(step.get("amount", 0))
+        if amount > self._max_scroll:
+            return False, f"Scroll amount {amount} exceeds max {self._max_scroll}"
+        return True, "ok"
+
+    def _check_wait(self, step: dict) -> Tuple[bool, str]:
+        seconds = step.get("seconds", 1)
+        if seconds > self._max_wait:
+            return False, f"Wait {seconds}s exceeds max {self._max_wait}s"
+        return True, "ok"
+
+    def _check_click_target(self, step: dict) -> Tuple[bool, str]:
+        target = step.get("target", "").lower()
+        for dw in self._denied_windows:
+            if dw in target:
+                return False, f"Click target contains denied window name: {dw}"
+        return True, "ok"
+
+
+# ---------------------------------------------------------------------------
+# ActionPlanner — v2.0: LLM-based multi-step action planning
+# ---------------------------------------------------------------------------
+AUTO_PLANNER_SYSTEM_PROMPT = """You are a precise GUI automation planner.
+Given a screenshot of a desktop application and a user instruction,
+output a JSON array of atomic GUI steps.
+
+Available actions:
+- {"action": "click_element", "target": "<natural language description of element>"}
+- {"action": "type_text", "text": "<text to type>"}
+- {"action": "hotkey", "keys": "<key combo like ctrl+c, enter, tab>"}
+- {"action": "scroll", "amount": <int, positive=up, negative=down>}
+- {"action": "wait", "seconds": <float>}
+- {"action": "wait_stable", "timeout": <int>}
+- {"action": "verify", "expected": "<description of expected outcome>"}
+
+Rules:
+1. For click_element, describe the target clearly (e.g. "the Send button", "cloudAI tab")
+2. Add a verify step as the LAST step to confirm the task is complete
+3. Keep plans minimal - do not add unnecessary waits or extra steps
+4. If typing into a field, click it first to focus it
+5. Output ONLY the JSON array, no explanation text"""
+
+BROWSE_PLANNER_ADDITIONS = """
+Additional browser actions:
+- {"action": "navigate_url", "url": "<full URL>"}
+- {"action": "wait_page_load", "timeout": <int>}
+
+Browser rules:
+- After navigating to a new URL, always add wait_page_load
+- Use click_element for buttons, links, and form fields
+- For URL navigation, use navigate_url (clicks address bar, clears, types URL, enters)
+"""
+
+
+class ActionPlanner:
+    """Uses a reasoning/vision model to create step plans from instructions."""
+
+    def __init__(self, config: PilotConfig, plogger: PilotLogger):
+        self._endpoint = config.ollama_endpoint
+        self._model = config.reasoning_model_name
+        self._timeout = config.vision_timeout
+        self._logger = plogger
+
+    def plan(self, instruction: str, screenshot_path: Path,
+             mode: str = "auto") -> list:
+        """Generate action plan from instruction + screenshot."""
+        system_prompt = AUTO_PLANNER_SYSTEM_PROMPT
+        if mode == "browse":
+            system_prompt += BROWSE_PLANNER_ADDITIONS
+
+        b64 = self._encode_image(screenshot_path)
+        payload = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": instruction, "images": [b64]},
+            ],
+            "stream": False,
+            "options": {"temperature": 0.1, "num_predict": 4096},
+        }
+
+        if not HAS_HTTPX:
+            raise PilotVisionError("httpx not installed")
+
+        resp = httpx.post(
+            f"{self._endpoint}/api/chat",
+            json=payload,
+            timeout=self._timeout)
+
+        if resp.status_code != 200:
+            raise PilotVisionError(f"Planner returned {resp.status_code}")
+
+        raw = resp.json().get("message", {}).get("content", "")
+        self._logger.log_info(f"PLAN raw response ({len(raw)} chars)")
+        return self._parse_plan(raw)
+
+    def replan(self, original_instruction: str,
+               failed_step: dict, error: str,
+               screenshot_path: Path, mode: str = "auto") -> list:
+        """Re-plan from current state after a failure."""
+        replan_prompt = (
+            f"Original task: {original_instruction}\n"
+            f"Failed step: {json.dumps(failed_step, ensure_ascii=False)}\n"
+            f"Error: {error}\n"
+            f"Create a NEW plan to complete the remaining task "
+            f"based on the current screenshot."
+        )
+        return self.plan(replan_prompt, screenshot_path, mode)
+
+    def _parse_plan(self, raw: str) -> list:
+        """Extract JSON array from LLM response."""
+        try:
+            result = json.loads(raw.strip())
+            if isinstance(result, list):
+                return result
+        except json.JSONDecodeError:
+            pass
+        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        if match:
+            try:
+                result = json.loads(match.group())
+                if isinstance(result, list):
+                    return result
+            except json.JSONDecodeError:
+                pass
+        raise PilotVisionError(
+            f"Could not parse plan from model response: {raw[:300]}")
+
+    @staticmethod
+    def _encode_image(image_path: Path) -> str:
+        with open(image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+
+
+# ---------------------------------------------------------------------------
+# AutoExecutor — v2.0: Autonomous multi-step GUI execution
+# ---------------------------------------------------------------------------
+class AutoExecutor:
+    """Executes a planned sequence of GUI actions autonomously."""
+
+    def __init__(self, pilot: 'HelixPilot'):
+        self._pilot = pilot
+        self._config = pilot.config
+        self._validator = ActionValidator(pilot.config)
+
+    def execute(self, instruction: str, window: str,
+                mode: str = "auto", dry_run: bool = False) -> dict:
+        """Plan and execute a multi-step GUI task. Returns compact summary."""
+        cfg = (self._config.auto_cfg if mode == "auto"
+               else self._config.browse_cfg)
+        max_steps = cfg.get("max_steps", 20)
+        total_timeout = cfg.get("total_timeout", 300)
+        retry_count = cfg.get("retry_on_failure", 2)
+        start_time = time.time()
+        errors = []
+
+        # 1. Initial screenshot
+        ss = self._pilot.ops.screenshot(window, "auto_init")
+        if not ss.get("ok"):
+            return {"ok": False, "command": mode,
+                    "error": "Failed to capture initial screenshot"}
+
+        # 2. Plan
+        planner = ActionPlanner(self._config, self._pilot.plogger)
+        try:
+            steps = planner.plan(instruction, Path(ss["path"]), mode)
+        except PilotVisionError as e:
+            return {"ok": False, "command": mode,
+                    "error": f"Planning failed: {e}"}
+
+        # 3. Validate entire plan
+        plan_ok, plan_issues = self._validator.validate_plan(steps)
+        if not plan_ok:
+            self._pilot.plogger.log_safety(
+                "plan_rejected",
+                json.dumps(plan_issues, ensure_ascii=False))
+            # Remove invalid steps
+            valid_indices = set(range(len(steps)))
+            for issue in plan_issues:
+                valid_indices.discard(issue["step"] - 1)
+                errors.append(
+                    f"Step {issue['step']} ({issue['action']}) rejected: "
+                    f"{issue['reason']}")
+            steps = [steps[i] for i in sorted(valid_indices)]
+
+        if dry_run:
+            return {
+                "ok": True, "command": mode, "dry_run": True,
+                "instruction": instruction[:200],
+                "planned_steps": steps,
+                "rejected_steps": plan_issues if not plan_ok else [],
+            }
+
+        # 4. Execute steps
+        executed = 0
+        succeeded = 0
+        final_verify = None
+
+        for i, step in enumerate(steps):
+            if i >= max_steps:
+                errors.append(f"Max steps ({max_steps}) reached")
+                break
+            if time.time() - start_time > total_timeout:
+                errors.append(f"Timeout ({total_timeout}s) exceeded")
+                break
+
+            # Safety checks
+            self._pilot.safety.check_emergency_stop()
+            action = step.get("action", "")
+
+            # Per-step validation
+            step_ok, step_reason = self._validator.validate(step)
+            if not step_ok:
+                errors.append(f"Step {i+1} ({action}): {step_reason}")
+                self._pilot.plogger.log_safety(
+                    "step_rejected", f"step={i+1} {step_reason}")
+                continue
+
+            result = self._execute_step(step, window)
+            executed += 1
+
+            self._pilot.plogger.log_info(
+                f"AUTO step {i+1}/{len(steps)}: {action} "
+                f"ok={result.get('ok')}")
+
+            if result.get("ok"):
+                succeeded += 1
+                if action == "verify":
+                    final_verify = {
+                        "success": result.get("success", False),
+                        "detail": result.get("detail", "")[:200],
+                    }
+            else:
+                err_msg = result.get("error", "failed")
+                errors.append(f"Step {i+1} ({action}): {err_msg}")
+                # Retry via replan
+                for _retry in range(retry_count):
+                    time.sleep(0.5)
+                    ss2 = self._pilot.ops.screenshot(window, f"auto_retry_{i}")
+                    if not ss2.get("ok"):
+                        break
+                    try:
+                        remaining = planner.replan(
+                            instruction, step, err_msg,
+                            Path(ss2["path"]), mode)
+                        # Validate replanned steps
+                        r_ok, r_issues = self._validator.validate_plan(remaining)
+                        if remaining and r_ok:
+                            retry_result = self._execute_step(remaining[0], window)
+                            if retry_result.get("ok"):
+                                succeeded += 1
+                                break
+                    except PilotVisionError:
+                        continue
+
+        elapsed = round(time.time() - start_time, 1)
+        return {
+            "ok": succeeded == executed and executed > 0,
+            "command": mode,
+            "instruction": instruction[:200],
+            "steps_planned": len(steps),
+            "steps_executed": executed,
+            "steps_succeeded": succeeded,
+            "final_verification": final_verify,
+            "total_elapsed": elapsed,
+            "errors": errors if errors else [],
+        }
+
+    def _execute_step(self, step: dict, window: str) -> dict:
+        """Execute a single planned step."""
+        action = step.get("action", "")
+
+        if action == "click_element":
+            target = step.get("target", "")
+            ss = self._pilot.ops.screenshot(window, "auto_find")
+            if not ss.get("ok"):
+                return {"ok": False, "error": "Screenshot failed"}
+            find_result = self._pilot.vision.find_element(
+                Path(ss["path"]), target)
+            if not find_result.get("found"):
+                return {"ok": False, "error": f"Element not found: {target}"}
+            scale = ss.get("scale_factor", 1.0)
+            x = int(find_result.get("x", 0) * scale)
+            y = int(find_result.get("y", 0) * scale)
+            return self._pilot.ops.click(x, y, window)
+
+        elif action == "type_text":
+            text = step.get("text", "")
+            ok, reason = self._pilot.safety.validate_text_input(text)
+            if not ok:
+                return {"ok": False, "error": reason}
+            return self._pilot.ops.type_text(text, window)
+
+        elif action == "hotkey":
+            keys = step.get("keys", "")
+            if window:
+                win = self._pilot.safety.find_target_window(window)
+                self._pilot.ops._activate_window(win)
+            return self._pilot.ops.hotkey(keys)
+
+        elif action == "scroll":
+            return self._pilot.ops.scroll(step.get("amount", 0), window)
+
+        elif action == "wait":
+            seconds = min(step.get("seconds", 1), 30)
+            time.sleep(seconds)
+            return {"ok": True}
+
+        elif action == "wait_stable":
+            timeout = min(step.get("timeout", 30), 120)
+            return self._pilot.ops.wait_stable(timeout, window)
+
+        elif action == "verify":
+            expected = step.get("expected", "")
+            ss = self._pilot.ops.screenshot(window, "auto_verify")
+            if not ss.get("ok"):
+                return ss
+            result = self._pilot.vision.verify_action(
+                Path(ss["path"]), expected)
+            return {"ok": True, "success": result.get("success", False),
+                    "detail": result.get("detail", "")}
+
+        elif action == "navigate_url":
+            url = step.get("url", "")
+            if window:
+                win = self._pilot.safety.find_target_window(window)
+                self._pilot.ops._activate_window(win)
+            self._pilot.ops.hotkey("ctrl+l")
+            time.sleep(0.3)
+            self._pilot.ops.hotkey("ctrl+a")
+            time.sleep(0.1)
+            self._pilot.ops.type_text(url, window)
+            time.sleep(0.2)
+            self._pilot.ops.hotkey("enter")
+            return {"ok": True}
+
+        elif action == "wait_page_load":
+            timeout = min(step.get("timeout", 15), 60)
+            return self._pilot.ops.wait_stable(
+                timeout, window, stability_checks=4, interval=2.0)
+
+        return {"ok": False, "error": f"Unknown action: {action}"}
+
+
+# ---------------------------------------------------------------------------
 # HelixPilot — Main Orchestrator
 # ---------------------------------------------------------------------------
 class HelixPilot:
     """Main helix_pilot orchestrator tying all components together."""
 
-    def __init__(self, config_path: Path = None):
+    def __init__(self, config_path: Path = None, output_mode: str = None):
         self.config = PilotConfig(config_path)
         self.plogger = PilotLogger(self.config)
         self.safety = SafetyGuard(self.config, self.plogger)
@@ -1034,6 +1711,11 @@ class HelixPilot:
         self.vision = VisionLLM(self.config, self.plogger)
         self.ops = CoreOperations(self.config, self.safety, self.plogger)
         self.indicator = PilotIndicator()
+
+        # v2.0: Output formatter and screen cache
+        mode = output_mode or self.config.output_cfg.get("default_mode", "normal")
+        self.formatter = OutputFormatter(self.config, mode)
+        self.screen_cache = ScreenCache(self.config, self.ops)
 
         # Start user activity monitoring
         self.safety.start_user_monitoring()
@@ -1081,7 +1763,7 @@ class HelixPilot:
             result["command"] = command
             result["timestamp"] = self._now()
             self.plogger.log_operation(command, kwargs, result)
-            return result
+            return self.formatter.format(result)
 
         except PilotEmergencyStop as e:
             self.plogger.log_safety("emergency_stop", str(e))
@@ -1196,16 +1878,14 @@ class HelixPilot:
 
     def cmd_describe(self, window: str = None) -> dict:
         def _do(window=None, **_kw):
-            ss = self.ops.screenshot(window, "describe_temp")
-            if not ss.get("ok"):
-                return ss
             t0 = time.time()
-            desc = self.vision.describe(Path(ss["path"]))
+            desc, was_cached = self.screen_cache.get_or_describe(
+                self.vision, window)
             elapsed = round(time.time() - t0, 1)
             return {
                 "ok": True,
-                "screenshot_path": ss["path"],
                 "description": desc,
+                "cached": was_cached,
                 "vision_model": self.config.vision_model,
                 "vision_elapsed": elapsed,
             }
@@ -1335,7 +2015,7 @@ class HelixPilot:
 
         screen_w, screen_h = pyautogui.size()
 
-        return {
+        return self.formatter.format({
             "ok": True,
             "command": "status",
             "timestamp": self._now(),
@@ -1350,12 +2030,13 @@ class HelixPilot:
                 "name": self.config.vision_model,
                 "available": ollama_ok,
             },
+            "reasoning_model": self.config.reasoning_model_name,
             "visible_windows": visible[:20],
             "screen_size": [screen_w, screen_h],
             "user_monitoring": "pynput" if HAS_PYNPUT else "polling",
             "emergency_stop_corner": self.config.emergency_stop_corner,
             "safe_mode": self.config.safe_mode,
-        }
+        })
 
     def cmd_wait_stable(self, timeout: int = 60,
                         window: str = None) -> dict:
@@ -1514,6 +2195,92 @@ class HelixPilot:
             "results": results,
         }
 
+    # --- v2.0 Autonomous Commands ---
+
+    def cmd_auto(self, instruction: str, window: str = None,
+                 dry_run: bool = False) -> dict:
+        """Autonomous multi-step GUI execution."""
+        def _do(window=None, **_kw):
+            executor = AutoExecutor(self)
+            return executor.execute(instruction, window,
+                                    mode="auto", dry_run=dry_run)
+        # Extended timeout for autonomous operations
+        orig_timeout = self.config.operation_timeout
+        result = {
+            "ok": False, "command": "auto", "timestamp": self._now()}
+        lock_timeout = self.config.auto_cfg.get("total_timeout", 300) + 30
+        if not self.lock.acquire("auto", lock_timeout):
+            result["error"] = "Another helix_pilot instance is running"
+            return self.formatter.format(result)
+        self.indicator.show("auto")
+        try:
+            ok, reason = self.safety.pre_operation_check(window)
+            if not ok:
+                result["error"] = reason
+                return self.formatter.format(result)
+            if not self.safety.wait_for_user_idle(max_wait=15.0):
+                result["error"] = "User activity detected"
+                return self.formatter.format(result)
+            result = _do(window=window)
+            result["command"] = "auto"
+            result["timestamp"] = self._now()
+            self.plogger.log_operation("auto",
+                {"instruction": instruction[:200], "window": window}, result)
+            return self.formatter.format(result)
+        except PilotEmergencyStop as e:
+            return self.formatter.format(
+                {"ok": False, "command": "auto",
+                 "timestamp": self._now(), "error": str(e)})
+        except Exception as e:
+            self.plogger.log_error("auto", str(e))
+            return self.formatter.format(
+                {"ok": False, "command": "auto",
+                 "timestamp": self._now(), "error": str(e)})
+        finally:
+            self.indicator.hide()
+            self.lock.release()
+
+    def cmd_browse(self, instruction: str, window: str = None,
+                   dry_run: bool = False) -> dict:
+        """Autonomous browser operation."""
+        def _do(window=None, **_kw):
+            executor = AutoExecutor(self)
+            return executor.execute(instruction, window,
+                                    mode="browse", dry_run=dry_run)
+        result = {
+            "ok": False, "command": "browse", "timestamp": self._now()}
+        lock_timeout = self.config.browse_cfg.get("total_timeout", 600) + 30
+        if not self.lock.acquire("browse", lock_timeout):
+            result["error"] = "Another helix_pilot instance is running"
+            return self.formatter.format(result)
+        self.indicator.show("browse")
+        try:
+            ok, reason = self.safety.pre_operation_check(window)
+            if not ok:
+                result["error"] = reason
+                return self.formatter.format(result)
+            if not self.safety.wait_for_user_idle(max_wait=15.0):
+                result["error"] = "User activity detected"
+                return self.formatter.format(result)
+            result = _do(window=window)
+            result["command"] = "browse"
+            result["timestamp"] = self._now()
+            self.plogger.log_operation("browse",
+                {"instruction": instruction[:200], "window": window}, result)
+            return self.formatter.format(result)
+        except PilotEmergencyStop as e:
+            return self.formatter.format(
+                {"ok": False, "command": "browse",
+                 "timestamp": self._now(), "error": str(e)})
+        except Exception as e:
+            self.plogger.log_error("browse", str(e))
+            return self.formatter.format(
+                {"ok": False, "command": "browse",
+                 "timestamp": self._now(), "error": str(e)})
+        finally:
+            self.indicator.hide()
+            self.lock.release()
+
     def shutdown(self):
         """Clean shutdown."""
         self.safety.stop_user_monitoring()
@@ -1530,6 +2297,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--config", type=str, default=None,
         help="Path to helix_pilot.json config file")
+    parser.add_argument(
+        "--output-mode", type=str, default=None,
+        choices=["minimal", "compact", "normal"],
+        help="Output verbosity (default: from config or 'normal')")
+    parser.add_argument(
+        "--compact", action="store_true",
+        help="Shortcut for --output-mode compact")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1620,6 +2394,26 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("run-scenario", help="Run JSON scenario file")
     p.add_argument("scenario_file", type=str)
 
+    # v2.0: auto — autonomous multi-step GUI execution
+    p = sub.add_parser("auto",
+                       help="Autonomous multi-step GUI execution via local LLM")
+    p.add_argument("instruction", type=str,
+                   help="Natural language instruction for the task")
+    p.add_argument("--window", "-w", type=str, default=None)
+    p.add_argument("--max-steps", type=int, default=None,
+                   help="Override max steps (default: from config)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show planned steps without executing")
+
+    # v2.0: browse — autonomous browser operation
+    p = sub.add_parser("browse",
+                       help="Autonomous browser operation via local LLM")
+    p.add_argument("instruction", type=str,
+                   help="Natural language instruction for browser task")
+    p.add_argument("--window", "-w", type=str, default=None)
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show planned steps without executing")
+
     return parser
 
 
@@ -1635,7 +2429,13 @@ def main():
     args = parser.parse_args()
 
     config_path = Path(args.config) if args.config else None
-    pilot = HelixPilot(config_path)
+    # v2.0: Resolve output mode
+    output_mode = None
+    if getattr(args, "compact", False):
+        output_mode = "compact"
+    elif getattr(args, "output_mode", None):
+        output_mode = args.output_mode
+    pilot = HelixPilot(config_path, output_mode=output_mode)
 
     # Register clean shutdown on SIGINT
     def _sigint_handler(sig, frame):
@@ -1698,6 +2498,14 @@ def main():
                 getattr(args, "format", "gif")),
             "run-scenario": lambda: pilot.cmd_run_scenario(
                 args.scenario_file),
+            "auto": lambda: pilot.cmd_auto(
+                args.instruction,
+                getattr(args, "window", None),
+                getattr(args, "dry_run", False)),
+            "browse": lambda: pilot.cmd_browse(
+                args.instruction,
+                getattr(args, "window", None),
+                getattr(args, "dry_run", False)),
         }
 
         result = dispatch[args.command]()
