@@ -17,19 +17,21 @@ Helix AI Studio は、異なるAIモデルを本当の意味で「協力」さ�
 
 > **English README**: [README.md](README.md)
 
+> **⭐ 役に立ちそうだと思ったら、スターをいただけると他の開発者に届きやすくなります。ありがとうございます！**
+
 ---
 
 ## 動いている様子を見てみよう
 
 ### mixAI パイプライン -- 複数のAIがあなたのタスクに協力
 
-![mixAI パイプラインデモ](docs/demo/mixai_pipeline.gif)
+![mixAI パイプラインデモ](docs/demo/mixai_pipeline_ja.gif)
 
 > Claudeが作業計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。ワンクリックで全自動。
 
 ### localAI チャット -- ローカルモデルと直接対話
 
-![localAI チャットデモ](docs/demo/localai_chat.gif)
+![localAI チャットデモ](docs/demo/localai_chat_ja.gif)
 
 > Ollamaのモデルを選んですぐチャット。会話の途中でモデルを切り替えることもできます。すべてあなたのGPUで動作します。
 
@@ -37,9 +39,18 @@ Helix AI Studio は、異なるAIモデルを本当の意味で「協力」さ�
 
 | デスクトップ (PyQt6) | Web UI (React) |
 |:---:|:---:|
-| ![デスクトップ](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main.png) |
+| ![デスクトップ](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main_ja.png) |
 
 > デスクトップアプリはあなたのPCで動作。Web UIを使えば、スマホやタブレット、ネットワーク上のどのブラウザからでもチャットできます。
+
+### Helix Pilot v2.0 — AIがUIを自動操作
+
+> **v11.9.4の新機能**: Helix Pilot は、ローカルのVision LLMがスクリーンを読み取り、アプリを自律的に操作するエージェントです。Claude Codeが日本語でタスクを指示するだけで、Helix Pilotがクリック・スクロール・入力をすべて代行します。
+
+```bash
+# 例: Claude がワークフローを自動化
+python scripts/helix_pilot.py auto "mixAIタブを開いてプロンプトを入力して送信" --window "Helix AI Studio"
+```
 
 ---
 
@@ -72,6 +83,7 @@ python HelixAIStudio.py
 | **コスト効率** | 高価なモデル（Claude）は仕事の20%。無料のローカルモデルが80%を担当 | すべて有料APIに依存 |
 | **プライバシー重視** | 実行フェーズはすべてあなたのGPU上。機密コードが外部に出ることはありません | クラウドのみ -- すべて外部サーバーに送信 |
 | **デスクトップ + モバイル** | ネイティブデスクトップアプリ + 内蔵Web UI。スマホからもチャット可能 | たいてい片方だけ |
+| **Helix Pilot v2.0** | Vision LLMエージェントが画面を読み取り、日本語指示でアプリを自動操作 | 静的UIのみ、自動化なし |
 | **コード不要** | 設定画面のあるGUIアプリ。クリックするだけ | オーケストレーションツールの多くはコードが必要 |
 | **無料・オープン** | MITライセンス。サブスクなし、テレメトリなし | SaaSやフリーミアムが多い |
 
@@ -165,6 +177,7 @@ python HelixAIStudio.py
 | **mixAI パイプライン** | 3+1フェーズのオーケストレーション: 計画 → 実行 → 検証 → (任意) ファイル変更適用 |
 | **cloudAI チャット** | Claude、GPT、Gemini と API や CLI で直接チャット |
 | **localAI チャット** | Ollama のローカルモデルとGPU上でチャット |
+| **Helix Pilot v2.0** | Vision LLMエージェントが画面を認識し、日本語の指示でアプリを自律操作 |
 | **RAG ビルダー** | ドキュメントを入れるだけで、AIが検索可能なナレッジベースを自動構築 |
 | **Web UI** | React ベースのモバイルフレンドリーなインターフェース。どのデバイスからもアクセス可能 |
 | **4層メモリ** | Thread / Episodic / Semantic / Procedural -- セッションを超えてコンテキストを記憶 |
@@ -260,7 +273,7 @@ python HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |---|---|
-| **v11.9.4** | Gemini Qtスレッド安全性修正、Helix Pilot GUI自動化、モデル表示改善 |
+| **v11.9.4** | **Helix Pilot v2.0**（Vision LLM自律GUIエージェント）、Geminiスレッド安全性修正、モデル表示改善 |
 | v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
 | v11.9.2 | ターミナル表示トグル、Enter送信切替、240+カラーリテラル排除 |
 | v11.9.0 | Unified Obsidianテーマ、SSセマンティックヘルパー、スプラッシュスクリーン |
