@@ -1,1 +1,0 @@
-I built a desktop app that orchestrates Claude + your local Ollama models in a multi-phase pipeline (open source)

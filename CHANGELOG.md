@@ -5,6 +5,43 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.9.4] - 2026-02-28 "Helix Pilot"
+
+### Added
+- `scripts/helix_pilot.py` v2.0.0: GUI automation tool with DPI awareness, GIF recording (`record`), `click-screenshot`, `scroll`, `wait-stable`, `run-scenario`, and `browse` commands
+- `config/helix_pilot.example.json`: Helix Pilot configuration template
+- `install_all.bat`: One-click setup script (Python, Node.js, Ollama, dependencies)
+- `articles/ja/`: Japanese user documentation (beginner guide, setup guide, tab manual)
+- `SETUP_GUIDE.md`: Comprehensive bilingual setup guide
+
+### Changed
+- `src/utils/constants.py`: `APP_VERSION` → "11.9.4", `APP_CODENAME` → "Helix Pilot"
+- `icon.ico`: Regenerated as multi-resolution (16/32/48/256px) from icon.png
+- `version_info.txt`: Updated to 11.9.4.0
+- `CLAUDE.md`: Added Helix Pilot documentation and command reference
+- `README.md` / `README_ja.md`: v11.9.4 badge, demo GIF embeds, architecture section
+
+### Removed
+- `docs/promo/`: Internal marketing templates (not user-facing)
+- `books/`: Empty directory
+
+## [11.9.3] - 2026-02-27 "Model Classification"
+
+### Changed
+- Provider-based model classification replacing hardcoded name matching
+- QComboBox minimum width increased for long model names
+- `icon.ico` added to PyInstaller spec `datas`
+- Splash screen resource path fix for frozen executables
+
+## [11.9.2] - 2026-02-27 "Settings & Outreach"
+
+### Added
+- `docs/promo/`: Reddit, Hacker News, X/Twitter post templates
+- `articles/en/`: Dev.to and Medium cross-posting articles
+
+### Changed
+- `src/utils/constants.py`: `APP_VERSION` → "11.9.2", `APP_CODENAME` → "Settings & Outreach"
+
 ## [11.9.1] - 2026-02-26 "Color Purge"
 
 ### Changed

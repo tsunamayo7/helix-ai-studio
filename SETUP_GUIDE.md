@@ -1,6 +1,6 @@
 # Helix AI Studio - Setup Guide / セットアップガイド
 
-> **Version**: v11.5.4
+> **Version**: v11.9.4
 > **対象 OS**: Windows 10 / 11
 > This guide covers first-time installation from scratch.
 > このガイドでは、ゼロからの環境構築手順を網羅します。
