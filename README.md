@@ -87,6 +87,23 @@ Most AI tools give you a chat window with one model. Helix gives you a **pipelin
 | **No code required** | GUI app with settings panels. Point and click. | Many orchestration tools require you to write code |
 | **Free and open** | MIT licensed. No subscription, no telemetry. | Often SaaS or freemium |
 
+### Helix vs. Popular Alternatives
+
+| | Open WebUI | AnythingLLM | Dify | LangChain | Helix AI Studio |
+|---|---|---|---|---|---|
+| **GitHub Stars** | 60k+ ⭐ | 30k+ ⭐ | 129k+ ⭐ | 80k+ ⭐ | — |
+| **Auto pipeline (cloud+local)** | ❌ Manual | ❌ Manual | ⚠️ Visual builder | ⚠️ Code required | ✅ 1-click |
+| **Desktop app** | ❌ | ✅ | ❌ | ❌ | ✅ |
+| **LAN Web UI** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Docker required** | ✅ Required | Optional | ✅ Required | N/A | ❌ Not needed |
+| **Setup** | `docker run` | Installer | `docker compose` | `pip` + code | `pip` + run |
+| **Claude/GPT/Gemini native** | ⚠️ Via proxy | ✅ | ✅ | ✅ | ✅ |
+| **Ollama** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Cost optimization** | ❌ | ❌ | ❌ | Manual | ✅ Built-in |
+| **MIT License** | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**The gap Helix fills**: A GUI desktop app that automatically orchestrates cloud + local models in a cost-optimized pipeline, with zero Docker and LAN access built in.
+
 ---
 
 ## How the Pipeline Works

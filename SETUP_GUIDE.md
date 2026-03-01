@@ -372,10 +372,10 @@ python HelixAIStudio.py
 
 | Display Name | Model ID | Provider |
 |-------------|----------|----------|
-| Claude Sonnet 4 | claude-sonnet-4-20250514 | anthropic |
-| Claude Opus 4 | claude-opus-4-20250514 | anthropic |
-| GPT-4o | gpt-4o | openai |
-| Gemini 2.5 Pro | gemini-2.5-pro | google |
+| Claude (Sonnet) | claude-sonnet-4-20250514 | anthropic |
+| Claude (Opus) | claude-opus-4-20250514 | anthropic |
+| GPT | gpt-4o | openai |
+| Gemini | gemini-2.5-pro | google |
 
 ---
 

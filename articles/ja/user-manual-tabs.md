@@ -111,10 +111,10 @@ cloudAI タブでは、Claude / ChatGPT / Gemini などのクラウドAIと直�
 
 タブ上部のドロップダウンリストから使用するモデルを選択します。`config/cloud_models.json` に登録したすべてのモデルが表示されます。プロバイダー（Anthropic / OpenAI / Google / Claude CLI）は自動的に判定されます。
 
-例:
-- `claude-sonnet-4-20250514` → Anthropic API で実行
-- `gpt-4o` → OpenAI API で実行
-- `gemini-2.0-flash` → Google Gemini API で実行
+対応モデル例（各プロバイダーの最新モデルIDはドキュメントをご確認ください）:
+- **Claude** (Anthropic API)
+- **GPT** (OpenAI API)
+- **Gemini** (Google API)
 
 ### 入力エリアと送信ボタン
 
@@ -132,9 +132,9 @@ AIの回答はストリーミング形式で、生成されるたびにリアル
 
 モデルを切り替えるだけで、使用するAPIプロバイダーが自動的に切り替わります。特別な操作は不要です。
 
-- **Anthropic API**: Claude系モデル（claude-sonnet, claude-opus 等）
-- **OpenAI API**: GPT系モデル（gpt-4o, o3 等）
-- **Google API**: Gemini系モデル（gemini-2.0-flash 等）
+- **Anthropic API**: Claude
+- **OpenAI API**: GPT
+- **Google API**: Gemini
 - **Claude CLI**: Claude Code CLIを直接呼び出し（Max/Proプラン向け）
 
 ![Gemini チャット画面](https://raw.githubusercontent.com/tsunamayo7/helix-ai-studio/main/docs/demo/gemini_chat.png)
@@ -299,8 +299,8 @@ RAG設定画面で **「ビルド」ボタン** をクリックすると、配�
 
 | 用途 | 推奨構成 |
 |------|---------|
-| コードレビュー | cloudAI で `claude-sonnet-4` を使用 |
-| 長文の日本語文章作成 | cloudAI で `claude-sonnet-4` または mixAI パイプライン |
+| コードレビュー | cloudAI で Claude を使用 |
+| 長文の日本語文章作成 | cloudAI で Claude または mixAI パイプライン |
 | 高速な質問応答 | localAI で `llama3` または `gemma2` |
 | 機密データの分析 | localAI のみ使用（データ外部送信なし） |
 | 複合タスク（調査+コード+文書化） | mixAI パイプライン（全カテゴリ有効） |
@@ -311,7 +311,7 @@ RAG設定画面で **「ビルド」ボタン** をクリックすると、配�
 - **ローカルLLMを積極活用**: Ollamaで動くモデルは完全無料です。簡単な質問はlocalAIで処理しましょう
 - **mixAI の Phase 2 でローカルLLMを使う**: Phase 1/3 のみクラウドAPI呼び出しのため、APIコストを大幅に削減できます
 - **不要なカテゴリはオフに**: mixAI設定で使わないカテゴリのチェックを外すと、処理時間とリソースを節約できます
-- **軽量モデルから始める**: まず `gemini-2.0-flash` や小型のローカルモデルで試し、品質が不足する場合のみ大型モデルに切り替えましょう
+- **軽量モデルから始める**: まず Gemini の軽量モデルや小型のローカルモデルで試し、品質が不足する場合のみ大型モデルに切り替えましょう
 
 ### データの安全性
 
