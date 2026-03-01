@@ -94,8 +94,8 @@ The dual-interface design means you can run the desktop app on your GPU workstat
 ```bash
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
-install.bat          # interactive installer
-# or: pip install -r requirements.txt
+pip install -r requirements.txt
+# Windows: install.bat also available as an interactive installer
 ```
 
 **Step 2: Set up your AI backends**
@@ -107,14 +107,15 @@ install.bat          # interactive installer
 **Step 3: Run**
 
 ```bash
-python HelixAIStudio.py
+python HelixAIStudio.py   # Windows
+python3 HelixAIStudio.py  # macOS
 ```
 
 The mixAI tab is where the pipeline lives. Select your Phase 2 models, type a prompt, and watch the Neural Flow Visualizer show each phase in real time.
 
 ## Current Status
 
-Helix AI Studio is at **v11.9.1** ("Color Purge"). It is free, open-source (MIT), and actively developed. The app runs on Windows with Python 3.12+.
+Helix AI Studio is at **v11.9.4** and actively developed. It is free and open-source (MIT). The app runs on **Windows 10/11 and macOS 12+** (Apple Silicon and Intel) with Python 3.10+.
 
 I have been writing about the development process on [note.com](https://note.com/) (Japanese) and [Zenn](https://zenn.dev/) (Japanese technical articles). The GitHub repo has full English documentation.
 

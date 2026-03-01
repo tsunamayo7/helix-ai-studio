@@ -42,19 +42,26 @@ def find_claude_command() -> str:
     if claude_path:
         return claude_path
 
-    # Windowsの一般的なnpmグローバルインストールパスを確認
-    if sys.platform == 'win32':
-        possible_paths = [
-            os.path.join(os.environ.get('APPDATA', ''), 'npm', 'claude.cmd'),
-            os.path.join(os.environ.get('APPDATA', ''), 'npm', 'claude'),
-            os.path.join(os.environ.get('LOCALAPPDATA', ''), 'npm', 'claude.cmd'),
-            os.path.join(os.environ.get('LOCALAPPDATA', ''), 'npm', 'claude'),
-            os.path.join(os.environ.get('USERPROFILE', ''), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-            os.path.join(os.environ.get('USERPROFILE', ''), 'AppData', 'Roaming', 'npm', 'claude'),
-        ]
-        for path in possible_paths:
+    # プラットフォーム別のnpmグローバルインストールパスを確認
+    try:
+        from ..utils.platform_utils import find_npm_global_command
+        for path in find_npm_global_command('claude'):
             if path and os.path.exists(path):
                 return path
+    except Exception:
+        # フォールバック: Windowsのみ直接検索
+        if sys.platform == 'win32':
+            possible_paths = [
+                os.path.join(os.environ.get('APPDATA', ''), 'npm', 'claude.cmd'),
+                os.path.join(os.environ.get('APPDATA', ''), 'npm', 'claude'),
+                os.path.join(os.environ.get('LOCALAPPDATA', ''), 'npm', 'claude.cmd'),
+                os.path.join(os.environ.get('LOCALAPPDATA', ''), 'npm', 'claude'),
+                os.path.join(os.environ.get('USERPROFILE', ''), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+                os.path.join(os.environ.get('USERPROFILE', ''), 'AppData', 'Roaming', 'npm', 'claude'),
+            ]
+            for path in possible_paths:
+                if path and os.path.exists(path):
+                    return path
 
     # 見つからない場合はデフォルト
     return 'claude'

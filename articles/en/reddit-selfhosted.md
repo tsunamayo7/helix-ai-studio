@@ -34,10 +34,13 @@ Helix AI Studio lets you run multiple AI models in a coordinated pipeline:
 ```
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 pip install -r requirements.txt
-python HelixAIStudio.py
+python HelixAIStudio.py        # Windows
+python3 HelixAIStudio.py       # macOS
 ```
 
 The web server starts automatically when you launch the desktop app. No Docker, no separate server process to manage.
+
+**Platform:** Windows 10/11 and macOS 12+ (Apple Silicon and Intel). No NVIDIA GPU required on macOS — Ollama uses Metal/CPU inference.
 
 **GitHub:** https://github.com/tsunamayo7/helix-ai-studio
 
