@@ -32,11 +32,13 @@ This means ~60% of the work is handled locally at no API cost, while the cloud A
 - SQLite (conversation history)
 - MIT License
 
+**Platform:** Windows 10/11 and macOS 12+ (Apple Silicon and Intel). No Docker required on either platform.
+
 **Links:**
 - GitHub: https://github.com/tsunamayo7/helix-ai-studio
 - Current version: v11.9.4
 
-The project is actively maintained — v11.9.4 was just released. Contributions and feedback welcome.
+The project is actively maintained — v11.9.4 was just released, and macOS support was added in the latest update. Contributions and feedback welcome.
 
 ## Posting Notes
 - Keep it high-level and welcoming for OSS community

@@ -41,6 +41,8 @@ Works with any Ollama model. Tested with:
 - Ollama via async httpx streaming
 - MIT License
 
+**Platform:** Windows 10/11 and macOS 12+ (Apple Silicon and Intel). On macOS, Ollama uses Metal/CPU inference — no NVIDIA GPU required.
+
 **Also has:**
 - Built-in Web UI at `localhost:8500` — access from phone/tablet on LAN, no Docker
 - RAG builder (PDF, Markdown, CSV)
