@@ -79,3 +79,19 @@ screenshots/
 BIBLE/
 GitHub/
 snippets/
+
+# Demo captures (work-in-progress screenshots/GIFs)
+demo_captures/
+exec_check*.png
+screenshot_*.png
+webui_cloudai_jp_done.png
+webui_current_state.png
+webui_localai_*.png
+webui_state*.png
+
+# Playwright MCP
+.playwright-mcp/
+
+# Demo video logs and test recordings
+docs/demo/**/*.log
+docs/demo/**/_test_*.mp4
