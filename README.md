@@ -12,7 +12,7 @@ Helix AI Studio is a desktop app that makes different AI models actually work *t
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
 [![Version](https://img.shields.io/badge/version-v11.9.4-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
 > **日本語 README**: [README_ja.md](README_ja.md)
@@ -209,9 +209,10 @@ Most AI tools give you a chat window with one model. Helix gives you a **pipelin
 
 ### What you need
 
-- **Windows 10/11**
+- **Windows 10/11** or **macOS 12 Monterey+** (Apple Silicon and Intel)
 - **Python 3.10+** (3.11 recommended)
-- **NVIDIA GPU** with CUDA support (for local LLMs -- optional)
+- **NVIDIA GPU** with CUDA support (for local LLMs on Windows -- optional)
+  - macOS: Ollama uses Metal/CPU inference. NVIDIA GPU is not required.
 - **16GB+ RAM** (32GB+ recommended for large models)
 
 ### Step by step
@@ -249,7 +250,11 @@ Then edit `config/general_settings.json` with your keys:
 
 **4. Launch**
 ```bash
+# Windows
 python HelixAIStudio.py
+
+# macOS
+python3 HelixAIStudio.py
 ```
 
 **5. (Optional) Access from your phone**

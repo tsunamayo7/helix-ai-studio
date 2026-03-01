@@ -12,6 +12,7 @@ Features:
 import json
 import logging
 import subprocess
+import sys
 import threading
 import time
 from typing import Optional, Dict, Any, Callable, List
@@ -172,6 +173,10 @@ class ThermalMonitor:
 
     def _check_nvidia_smi(self) -> bool:
         """nvidia-smiが利用可能か確認"""
+        # macOS は nvidia-smi 非対応（NVIDIA GPU を搭載しない）
+        if sys.platform == 'darwin':
+            logger.debug("[ThermalMonitor] macOS: nvidia-smi は非対応。GPU監視をスキップ。")
+            return False
         try:
             result = run_hidden(
                 ["nvidia-smi", "--version"],
