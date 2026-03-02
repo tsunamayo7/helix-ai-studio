@@ -7,7 +7,7 @@
 
 **One prompt. Multiple AI models. One integrated answer.**
 
-*A desktop app that makes Claude, GPT, Gemini, and local LLMs actually work **together** — no copy-pasting, no coding required.*
+*A desktop app that makes Claude, GPT, Gemini, and local LLMs actually work **together** — sharing one RAG knowledge base, no copy-pasting, no coding required.*
 
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -96,6 +96,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | | Helix AI Studio | Single-model apps |
 |---|---|---|
 | 🤖 **Multi-AI pipeline** | Claude plans, local LLMs execute, Claude validates | One model does everything |
+| 📚 **Unified RAG** | One knowledge base shared across **Claude, GPT, Gemini, and Ollama** — build once, all models benefit | Each model has its own isolated context |
 | 💰 **Cost efficient** | Claude handles 20% (planning + validation). Free local models handle 80%. | Everything goes through the paid API |
 | 🔒 **Privacy where it matters** | Execution runs entirely on your GPU. Sensitive code never leaves your machine. | Cloud-only |
 | 📱 **Desktop + Mobile** | Native desktop app with built-in Web UI. Chat from your phone. | Usually one or the other |
@@ -109,6 +110,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 |---|:---:|:---:|:---:|:---:|:---:|
 | **GitHub Stars** | 60k+ ⭐ | 30k+ ⭐ | 129k+ ⭐ | 80k+ ⭐ | — |
 | **Auto pipeline (cloud+local)** | ❌ Manual | ❌ Manual | ⚠️ Visual builder | ⚠️ Code required | ✅ 1-click |
+| **Unified RAG (cloud+local)** | ❌ | ⚠️ Partial | ⚠️ Cloud only | ⚠️ Manual | ✅ All models |
 | **Desktop app** | ❌ | ✅ | ❌ | ❌ | ✅ |
 | **LAN Web UI** | ✅ | ❌ | ❌ | ❌ | ✅ |
 | **Docker required** | ✅ Required | Optional | ✅ Required | N/A | ❌ Not needed |
@@ -117,7 +119,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | **Cost optimization** | ❌ | ❌ | ❌ | Manual | ✅ Built-in |
 | **MIT License** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-> **The gap Helix fills**: A GUI desktop app that automatically orchestrates cloud + local models in a cost-optimized pipeline — zero Docker, LAN access built in.
+> **The gap Helix fills**: A GUI desktop app that automatically orchestrates cloud + local models in a cost-optimized pipeline — with a **unified RAG knowledge base shared across all AI providers**, zero Docker, LAN access built in.
 
 ---
 
@@ -171,7 +173,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | ☁️ **cloudAI Chat** | Direct chat with Claude, GPT, Gemini via API or CLI |
 | 💻 **localAI Chat** | Chat with any Ollama model on your local GPU |
 | 🤖 **Helix Pilot v2.0** | Vision LLM agent that reads your screen and operates the app via plain-English commands |
-| 📚 **RAG Builder** | Drop documents in — AI builds a searchable knowledge base automatically |
+| 📚 **Unified RAG** | One knowledge base shared across **Claude, GPT, Gemini, and Ollama** — build once with local embeddings, all models benefit |
 | 🌐 **Web UI** | React-based mobile-friendly interface, accessible from any device on your network |
 | 🧠 **4-Layer Memory** | Thread, Episodic, Semantic, Procedural — your AI remembers context across sessions |
 | 🌍 **i18n** | Full Japanese and English UI, switchable at any time |
@@ -314,7 +316,7 @@ Enable Web UI in Settings, then open `http://localhost:8500` from any device on 
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.5** | 🎬 **Demo videos** (Desktop + Web UI, 14 recordings), cloudAI WebSocket DB schema fix |
+| **v11.9.5** | 🎬 **Demo videos** (14 recordings), 📚 **Unified RAG** — Claude/GPT/Gemini/Ollama now share one knowledge base, cloudAI WebSocket DB schema fix |
 | v11.9.4 | 🆕 **Helix Pilot v2.0** — autonomous Vision LLM GUI agent; Gemini thread safety fix |
 | v11.9.3 | Provider-based model classification, combo width fix |
 | v11.9.2 | Terminal toggle, Enter-to-send toggle, 240+ color literals purged |

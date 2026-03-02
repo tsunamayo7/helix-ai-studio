@@ -6,7 +6,7 @@
 **ひとつのプロンプト。複数のAI。ひとつの統合された回答。**
 
 Claude・GPT・Gemini・ローカルLLMを**本当の意味で「協力」させる**デスクトップアプリです。
-プロンプトを入力するだけで、Claudeが計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。ツール間のコピペも、コーディングも不要。
+ひとつのRAGナレッジベースを全AIで共有。プロンプトを入力するだけで、Claudeが計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。コピペも、コーディングも不要。
 
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -95,6 +95,7 @@ python HelixAIStudio.py
 | | Helix AI Studio | 単一モデルのチャットアプリ |
 |---|---|---|
 | **マルチAIパイプライン** | Claudeが計画、ローカルLLMが実行、Claudeが検証 | 1つのモデルが全部やる |
+| 📚 **統合RAG** | ひとつのナレッジベースを**Claude・GPT・Gemini・Ollama**で共有 — 一度構築すれば全モデルが活用 | 各モデルが個別のコンテキストを持つ |
 | **コスト効率** | 高価なモデル（Claude）は仕事の20%。無料のローカルモデルが80%を担当 | すべて有料APIに依存 |
 | **プライバシー重視** | 実行フェーズはすべてあなたのGPU上。機密コードが外部に出ることはありません | クラウドのみ — すべて外部サーバーに送信 |
 | **デスクトップ + モバイル** | ネイティブデスクトップアプリ + 内蔵Web UI。スマホからもチャット可能 | たいてい片方だけ |
@@ -108,6 +109,7 @@ python HelixAIStudio.py
 |---|---|---|---|---|---|
 | GitHub Stars | 60k+ ⭐ | 30k+ ⭐ | 129k+ ⭐ | 80k+ ⭐ | — |
 | 自動パイプライン (クラウド+ローカル) | ❌ 手動 | ❌ 手動 | ⚠️ ビジュアルビルダー | ⚠️ コード必要 | ✅ ワンクリック |
+| 統合RAG (クラウド+ローカル) | ❌ | ⚠️ 部分的 | ⚠️ クラウドのみ | ⚠️ 手動 | ✅ 全モデル対応 |
 | デスクトップアプリ | ❌ | ✅ | ❌ | ❌ | ✅ |
 | LAN Web UI | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Docker不要 | ✅ 必要 | オプション | ✅ 必要 | N/A | ❌ **不要** |
@@ -116,7 +118,7 @@ python HelixAIStudio.py
 | コスト最適化 | ❌ | ❌ | ❌ | 手動 | **✅ 自動** |
 | MITライセンス | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-**Helixが埋めるギャップ**: クラウド + ローカルモデルを自動でコスト最適化するGUIデスクトップアプリ — Docker不要、LAN対応内蔵。
+**Helixが埋めるギャップ**: クラウド + ローカルモデルを自動でコスト最適化するGUIデスクトップアプリ — **全AIプロバイダーで共有される統合RAGナレッジベース**付き、Docker不要、LAN対応内蔵。
 
 ---
 
@@ -168,7 +170,7 @@ v       v             v       v
 | ☁️ **cloudAI チャット** | Claude・GPT・Gemini と API や CLI で直接チャット |
 | 💻 **localAI チャット** | Ollama のローカルモデルとGPU上でチャット |
 | 🤖 **Helix Pilot v2.0** | Vision LLMエージェントが画面を認識し、日本語の指示でアプリを自律操作 |
-| 📚 **RAG ビルダー** | ドキュメントを入れるだけで、AIが検索可能なナレッジベースを自動構築 |
+| 📚 **統合RAG** | ひとつのナレッジベースを**Claude・GPT・Gemini・Ollama**で共有 — ローカル埋め込みで一度構築すれば全モデルが活用 |
 | 🌐 **Web UI** | React ベースのモバイルフレンドリーなインターフェース。どのデバイスからもアクセス可能 |
 | 🧠 **4層メモリ** | Thread / Episodic / Semantic / Procedural — セッションを超えてコンテキストを記憶 |
 | 🌍 **多言語対応** | 日本語と英語の完全対応。いつでも切り替え可能 |
@@ -314,7 +316,7 @@ python3 HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |---|---|
-| **v11.9.5** | 🎬 **デモビデオ追加**（デスクトップ + Web UI、14本）、cloudAI WebSocket DBスキーマ修正 |
+| **v11.9.5** | 🎬 **デモビデオ追加**（14本）、📚 **統合RAG** — Claude/GPT/Gemini/Ollamaがひとつのナレッジベースを共有、cloudAI WebSocket DBスキーマ修正 |
 | v11.9.4 | 🆕 Helix Pilot v2.0（Vision LLM自律GUIエージェント）、タブ切り替えUI改善、多言語強化 |
 | v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
 | v11.9.2 | ターミナル表示トグル、Enter送信切替、240+カラーリテラル排除 |
