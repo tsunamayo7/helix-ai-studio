@@ -29,7 +29,51 @@
     "timeoutTip": "AI応答待ちタイムアウト（分）\n10分単位で設定、直接入力で細かい値も可",
     "saveSection": "保存",
     "saveSectionDone": "保存完了",
-    "saveSectionFailed": "保存失敗"
+    "saveSectionFailed": "保存失敗",
+    "errors": {
+      "detail": "詳細",
+      "connectionRefused": "接続に失敗しました。サービスが起動しているか確認してください。",
+      "timeout": "タイムアウト: 応答が時間内に返りませんでした。接続状況またはサーバー負荷を確認してください。",
+      "dnsError": "DNS解決に失敗しました。ネットワーク接続を確認してください。",
+      "sslError": "SSL/TLS証明書エラーが発生しました。ネットワーク環境を確認してください。",
+      "rateLimited": "リクエスト数が多すぎます。しばらく待ってから再度お試しください。",
+      "unauthorized": "認証に失敗しました。APIキーまたは認証情報を確認してください。",
+      "forbidden": "アクセス権限がありません。APIキーの権限を確認してください。",
+      "notFound": "要求されたリソースが見つかりません。",
+      "serverError": "サーバーエラーが発生しました。しばらく待ってから再度お試しください。",
+      "invalidJson": "応答形式が不正です。再度お試しください。",
+      "outOfMemory": "メモリ不足です。より軽量なモデルを使用するか、他のアプリケーションを閉じてください。",
+      "promptEmpty": "プロンプトが空です。メッセージを入力してください。",
+      "noModelSpecified": "モデルが指定されていません。モデルを選択してください。",
+      "unknownAction": "不明なアクション: {action}",
+      "executionError": "実行エラー: {error}",
+      "claude": {
+        "actionRequired": "Claude CLIがユーザー入力を待機しています。ターミナルで 'claude' を実行して利用規約を確認してください。",
+        "notFound": "Claude CLIが見つかりません。Claude Codeをインストールしてください。",
+        "timeout": "Claude CLIがタイムアウトしました ({seconds}秒)。タイムアウト設定を延長してください。",
+        "exitCode": "Claude CLIがエラーで終了しました (コード: {code})",
+        "quotaExceeded": "Claude APIの利用上限に達しました。プランを確認してください。"
+      },
+      "ollama": {
+        "modelNotFound": "Ollamaモデル '{model}' が見つかりません。'ollama pull {model}' を実行してください。",
+        "connectionFailed": "Ollamaに接続できません。Ollamaが起動しているか確認してください。",
+        "timeout": "Ollamaがタイムアウトしました。より軽量なモデルを使用するか、タイムアウト設定を延長してください。",
+        "pullFailed": "モデルのダウンロードに失敗しました。ネットワーク接続を確認してください。"
+      },
+      "gemini": {
+        "notFound": "Gemini CLIが見つかりません。Google AI CLIをインストールしてください。",
+        "safetyBlock": "安全性フィルターによりブロックされました。プロンプトの内容を変更してください。",
+        "quotaExceeded": "Gemini APIの利用上限に達しました。しばらく待ってから再度お試しください。",
+        "apiKeyMissing": "Google APIキーが設定されていません。設定タブでAPIキーを入力してください。",
+        "timeout": "Gemini APIがタイムアウトしました。タイムアウト設定を延長してください。"
+      },
+      "openai": {
+        "apiKeyMissing": "OpenAI APIキーが設定されていません。設定タブでAPIキーを入力してください。",
+        "quotaExceeded": "OpenAI APIの利用上限に達しました。課金状況を確認してください。",
+        "contextTooLong": "入力が長すぎます。メッセージを短くするか、コンテキストをクリアしてください。",
+        "contentFiltered": "コンテンツポリシーによりブロックされました。プロンプトの内容を変更してください。"
+      }
+    }
   },
   "tabs": {
     "soloAI": "soloAI",
@@ -1047,8 +1091,15 @@
       "browserUseGroup": "URL取得設定",
       "browserUseLabel": "自動URL取得を有効化",
       "browserUseTip": "httpx経由でURLのコンテンツを取得します（ブラウザ不要）",
+      "bibleGroup": "BIBLE コンテキスト注入",
+      "bibleDesc": "BIBLEファイル（プロジェクト仕様書）の内容をAIへのプロンプトに自動注入します。有効にすると全タブ（cloudAI / localAI / mixAI）で常時適用されます。",
+      "bibleEnabled": "BIBLE コンテキスト注入を有効化",
+      "bibleEnabledTooltip": "ONにすると、BIBLEフォルダ内のプロジェクト仕様書がAIへの全プロンプトに自動付与されます。AIがプロジェクトの設計方針やルールを理解した上で回答できるようになります。",
+      "bibleSaved": "BIBLE設定を保存しました",
       "pilotGroup": "Helix Pilot (GUI自動操作)",
       "pilotDesc": "Vision LLM を使用してデスクトップGUIを自動操作するツールです。Ollama + Visionモデルが必要です。",
+      "pilotEnabled": "Helix Pilot (GUI自動操作) を有効化",
+      "pilotEnabledTooltip": "ONにすると、全タブのAI応答でGUI自動操作コマンド（<<PILOT:...>>）が利用可能になります。AIが画面の状態を認識し、クリック・入力・スクロール等の操作を自律実行できます。Ollama + Vision モデルが必要です。",
       "pilotVisionModel": "Vision モデル:",
       "pilotReasoningModel": "Reasoning モデル (auto/browse用):",
       "pilotMaxSteps": "最大ステップ数 (auto/browse):",

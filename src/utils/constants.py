@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "11.9.5"
-APP_CODENAME = "Helix Pilot"
+APP_VERSION = "11.9.7"
+APP_CODENAME = "Settings-Based Features"
 APP_DESCRIPTION = (
-    "Helix AI Studio v11.9.5 'Helix Pilot' - "
-    "Pilot アプリ内統合・モデル非依存性強化・ドキュメント修正"
+    "Helix AI Studio v11.9.7 'Settings-Based Features' - "
+    "BIBLE/Pilot を設定タブ制御に移行・エラー翻訳システム・Feature Flags"
 )
 
 # v8.5.0: 情報収集フォルダ

@@ -25,6 +25,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 from PyQt6.QtGui import QFont, QTextCursor
 
 from ..utils.i18n import t
+from ..utils.error_translator import translate_error
 from ..utils.constants import APP_VERSION
 from ..utils.styles import (
     COLORS, SCROLLBAR_STYLE, PRIMARY_BTN, SECONDARY_BTN, DANGER_BTN,
@@ -363,38 +364,7 @@ class LocalAITab(QWidget):
         self.local_snippet_btn.clicked.connect(self._on_snippet_menu)
         btn_row.addWidget(self.local_snippet_btn)
 
-        # BIBLE toggle button (高さ統一)
-        self.bible_btn = QPushButton("📖 BIBLE")
-        self.bible_btn.setCheckable(True)
-        self.bible_btn.setChecked(False)
-        self.bible_btn.setFixedHeight(32)
-        self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['warning']};
-                border: 1px solid {COLORS['warning']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
-                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
-        """)
-        btn_row.addWidget(self.bible_btn)
-
-        # v11.9.6: Helix Pilot toggle button
-        self.pilot_btn = QPushButton("Pilot")
-        self.pilot_btn.setCheckable(True)
-        self.pilot_btn.setChecked(False)
-        self.pilot_btn.setFixedHeight(32)
-        self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
-        self.pilot_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['info']};
-                border: 1px solid {COLORS['info']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(129, 140, 248, 0.2);
-                border: 2px solid {COLORS['info']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(129, 140, 248, 0.1); }}
-        """)
-        self.pilot_btn.toggled.connect(self._on_pilot_toggled)
-        btn_row.addWidget(self.pilot_btn)
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（チャットタブから削除）
 
         btn_row.addStretch()
 
@@ -713,35 +683,13 @@ class LocalAITab(QWidget):
         except Exception as e:
             logger.error(f"[LocalAI._on_snippet_menu] Error: {e}")
 
-    def _on_pilot_toggled(self, checked: bool):
-        """Pilot トグル時の利用可能性チェック"""
-        if not checked:
-            return
-        try:
-            from ..tools.helix_pilot_tool import HelixPilotTool
-            pilot = HelixPilotTool.get_instance()
-            pilot.reset_availability()
-            if not pilot.is_available:
-                self.pilot_btn.setChecked(False)
-                error = pilot.last_error
-                if "not_connected" in error:
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.ollamaRequired'))
-                elif "not_set" in error:
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.visionModelRequired'))
-                elif "not_found" in error:
-                    model = error.split(":")[-1] if ":" in error else ""
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot",
-                                        t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
-        except Exception as e:
-            self.pilot_btn.setChecked(False)
-            logger.warning(f"[Pilot] Toggle check failed: {e}")
-
     def _process_pilot_response(self, response: str) -> str:
         """応答テキスト中の <<PILOT:...>> マーカーを処理"""
-        if not hasattr(self, 'pilot_btn') or not self.pilot_btn.isChecked():
+        try:
+            from ..utils.feature_flags import is_pilot_enabled
+            if not is_pilot_enabled():
+                return response
+        except Exception:
             return response
         try:
             from ..tools.pilot_response_processor import parse_pilot_calls, execute_and_replace
@@ -780,27 +728,33 @@ class LocalAITab(QWidget):
         except Exception:
             pass
 
-        # v11.0.0: BIBLE context injection (Phase 4)
-        if hasattr(self, 'bible_btn') and self.bible_btn.isChecked():
-            from ..mixins.bible_context_mixin import BibleContextMixin
-            mixin = BibleContextMixin()
-            message = mixin._inject_bible_to_prompt(message)
+        # v11.9.7: BIBLE context injection (設定タブで有効化時に常時注入)
+        try:
+            from ..utils.feature_flags import is_bible_enabled
+            if is_bible_enabled():
+                from ..mixins.bible_context_mixin import BibleContextMixin
+                mixin = BibleContextMixin()
+                message = mixin._inject_bible_to_prompt(message)
+        except Exception:
+            pass
 
-        # v11.9.6: Helix Pilot context injection
-        if hasattr(self, 'pilot_btn') and self.pilot_btn.isChecked():
-            try:
+        # v11.9.7: Helix Pilot context injection (設定タブで有効化時に常時注入)
+        try:
+            from ..utils.feature_flags import is_pilot_enabled
+            if is_pilot_enabled():
                 from ..tools.pilot_response_processor import get_system_prompt_addition
                 from ..tools.helix_pilot_tool import HelixPilotTool
                 pilot = HelixPilotTool.get_instance()
-                config = pilot._load_config()
-                window = config.get("default_window", "")
-                screen_ctx = pilot.get_screen_context(window) if pilot.is_available else ""
-                lang = "ja" if t('desktop.localAI.sendBtn') != "Send" else "en"
-                pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
-                message = pilot_prompt + "\n\n" + message
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+                if pilot.is_available:
+                    config = pilot._load_config()
+                    window = config.get("default_window", "")
+                    screen_ctx = pilot.get_screen_context(window)
+                    lang = "ja" if t('desktop.localAI.sendBtn') != "Send" else "en"
+                    pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
+                    message = pilot_prompt + "\n\n" + message
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
 
         # v11.9.5: RAGコンテキスト注入（cloudAIと同じ共有RAGを使用）
         if self._memory_manager:
@@ -923,14 +877,15 @@ class LocalAITab(QWidget):
             cursor.insertHtml("</div>")
             self._streaming_div_open = False
 
+        translated = translate_error(error, source="ollama")
         self.chat_display.append(
             f"<div style='background:{COLORS['error_bg']}; border-left:3px solid {COLORS['error']}; "
             f"padding:8px; margin:4px; border-radius:4px;'>"
-            f"<b style='color:{COLORS['error']};'>Error:</b> {error}"
+            f"<b style='color:{COLORS['error']};'>{t('common.error')}:</b> {translated}"
             f"</div>"
         )
         self.send_btn.setEnabled(True)
-        self.statusChanged.emit(t('desktop.localAI.error', error=error[:50]))
+        self.statusChanged.emit(t('desktop.localAI.error', error=translated[:50]))
 
         model = self.model_combo.currentText()
         if hasattr(self, 'monitor_widget'):
@@ -1049,11 +1004,11 @@ class LocalAITab(QWidget):
             import httpx
             resp = httpx.get(f"{host}/api/tags", timeout=5)
             resp.raise_for_status()
-            QMessageBox.information(self, "OK", t('desktop.localAI.ollamaTestSuccess'))
+            QMessageBox.information(self, t('common.confirm'), t('desktop.localAI.ollamaTestSuccess'))
             self._refresh_models()
         except Exception as e:
-            QMessageBox.warning(self, "Error",
-                                t('desktop.localAI.ollamaTestFailed', error=str(e)))
+            QMessageBox.warning(self, t('common.error'),
+                                t('desktop.localAI.ollamaTestFailed', error=translate_error(str(e), source="ollama")))
 
     def _get_model_capabilities(self, model_name: str) -> dict:
         """v11.0.0: Ollama API /api/show でモデルのcapabilityを取得"""
@@ -1106,10 +1061,10 @@ class LocalAITab(QWidget):
         from ..utils.subprocess_utils import run_hidden
         try:
             run_hidden(["ollama", "pull", model_name], timeout=600)
-            QMessageBox.information(self, "OK", f"Model '{model_name}' pulled successfully.")
+            QMessageBox.information(self, t('common.confirm'), f"Model '{model_name}' pulled successfully.")
             self._refresh_models()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to pull model: {e}")
+            QMessageBox.warning(self, t('common.error'), translate_error(str(e), source="ollama"))
         finally:
             self.pull_btn.setEnabled(True)
             self.pull_btn.setText(t('desktop.localAI.ollamaPullBtn'))
@@ -1129,7 +1084,7 @@ class LocalAITab(QWidget):
         model_name = self.models_table.item(row, 0).text()
 
         reply = QMessageBox.question(
-            self, "Confirm",
+            self, t('common.confirm'),
             f"Remove model '{model_name}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
@@ -1141,7 +1096,7 @@ class LocalAITab(QWidget):
             run_hidden(["ollama", "rm", model_name], timeout=30)
             self._refresh_models()
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to remove model: {e}")
+            QMessageBox.warning(self, t('common.error'), translate_error(str(e), source="ollama"))
 
     def _open_ollama_install(self):
         """Ollamaインストールページを開く"""
@@ -1173,11 +1128,7 @@ class LocalAITab(QWidget):
         self.send_btn.setText(t('desktop.localAI.sendBtn'))
         self.send_btn.setToolTip(t('desktop.localAI.sendTip'))
         # v11.0.0: BIBLE toggle button
-        if hasattr(self, 'bible_btn'):
-            self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        # v11.9.6: Pilot toggle button
-        if hasattr(self, 'pilot_btn'):
-            self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（retranslate不要）
         # チャットタブ: 添付・スニペットボタン
         if hasattr(self, 'local_attach_btn'):
             self.local_attach_btn.setText(t('desktop.localAI.attachBtn'))
@@ -1241,7 +1192,7 @@ class LocalAITab(QWidget):
         """v10.1.0: GitHub API 接続テスト"""
         pat = self.github_pat_input.text().strip()
         if not pat:
-            QMessageBox.warning(self, "Error", "Please enter a GitHub Personal Access Token.")
+            QMessageBox.warning(self, t('common.error'), t('common.errors.unauthorized'))
             return
         try:
             import httpx
@@ -1250,11 +1201,11 @@ class LocalAITab(QWidget):
                              timeout=10)
             if resp.status_code == 200:
                 user = resp.json().get("login", "")
-                QMessageBox.information(self, "OK", f"GitHub connected: {user}")
+                QMessageBox.information(self, t('common.confirm'), f"GitHub connected: {user}")
             else:
-                QMessageBox.warning(self, "Error", f"GitHub API error: HTTP {resp.status_code}")
+                QMessageBox.warning(self, t('common.error'), translate_error(f"HTTP {resp.status_code}"))
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"GitHub connection failed: {e}")
+            QMessageBox.warning(self, t('common.error'), translate_error(str(e)))
 
     def _save_github_pat(self):
         """v10.1.0: GitHub PAT を general_settings.json に保存"""

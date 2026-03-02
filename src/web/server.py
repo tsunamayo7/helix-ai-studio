@@ -44,6 +44,14 @@ try:
 except ImportError:
     def _notify_discord(*args, **kwargs): return False
 
+# v11.9.5: エラーメッセージ自動翻訳
+try:
+    from ..utils.error_translator import translate_error as _translate_error
+    from ..utils.i18n import t as _t
+except ImportError:
+    def _translate_error(msg, **kw): return msg
+    def _t(key, **kw): return key
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -206,7 +214,7 @@ async def _websocket_cloud_handler(websocket: WebSocket, token: str):
                 await ws_manager.send_status(client_id, "cancelled", "キャンセルは現在未対応です")
 
             else:
-                await ws_manager.send_error(client_id, f"Unknown action: {action}")
+                await ws_manager.send_error(client_id, _t('common.errors.unknownAction', action=action))
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket client disconnected: {client_id}")
@@ -282,7 +290,7 @@ async def websocket_mix(websocket: WebSocket, token: str = Query(...)):
             elif action == "cancel":
                 await ws_manager.send_status(client_id, "cancelled", "キャンセルは現在未対応です")
             else:
-                await ws_manager.send_error(client_id, f"Unknown action: {action}")
+                await ws_manager.send_error(client_id, _t('common.errors.unknownAction', action=action))
 
     except WebSocketDisconnect:
         logger.info(f"mixAI WebSocket disconnected: {client_id}")
@@ -347,7 +355,7 @@ async def websocket_local(websocket: WebSocket, token: str = Query(...)):
                 await ws_manager.send_status(client_id, "cancelled", "キャンセルは現在未対応です")
 
             else:
-                await ws_manager.send_error(client_id, f"Unknown action: {action}")
+                await ws_manager.send_error(client_id, _t('common.errors.unknownAction', action=action))
 
     except WebSocketDisconnect:
         logger.info(f"localAI WebSocket disconnected: {client_id}")
@@ -369,7 +377,7 @@ async def _handle_local_execute(client_id: str, data: dict):
     client_info = data.get("client_info", "Web Client")
 
     if not prompt:
-        await ws_manager.send_error(client_id, "Prompt is empty")
+        await ws_manager.send_error(client_id, _t('common.errors.promptEmpty'))
         return
 
     # 設定読み込み（ollama_host等に必要）
@@ -383,7 +391,7 @@ async def _handle_local_execute(client_id: str, data: dict):
         except Exception:
             pass
     if not model:
-        await ws_manager.send_error(client_id, "No model specified. Please select a model.")
+        await ws_manager.send_error(client_id, _t('common.errors.noModelSpecified'))
         return
 
     ollama_host = settings.get("ollama_host", "http://localhost:11434")
@@ -475,11 +483,8 @@ async def _handle_local_execute(client_id: str, data: dict):
         elapsed = _time.time() - start_time
         error_msg = str(e)
 
-        # Ollama接続エラーの場合、わかりやすいメッセージに変換
-        if "ConnectError" in error_msg or "Connection refused" in error_msg:
-            error_msg = f"Ollama に接続できません ({ollama_host})。Ollama が起動しているか確認してください。"
-        elif "404" in error_msg:
-            error_msg = f"モデル '{model}' が見つかりません。Ollama でモデルをプルしてください。"
+        # v11.9.5: エラーメッセージ自動翻訳（Ollama固有パターン→共通パターン→元メッセージ）
+        error_msg = _translate_error(error_msg, source="ollama")
 
         await ws_manager.send_error(client_id, error_msg)
 
@@ -541,7 +546,7 @@ async def _handle_solo_execute(client_id: str, data: dict):
     client_info = data.get("client_info", "Web Client")  # v9.5.0
 
     if not prompt:
-        await ws_manager.send_error(client_id, "Prompt is empty")
+        await ws_manager.send_error(client_id, _t('common.errors.promptEmpty'))
         return
 
     # v9.5.0: Web実行ロック設定
@@ -668,18 +673,21 @@ async def _handle_solo_execute(client_id: str, data: dict):
                 tab="cloudAI",
             ))
         else:
-            error_msg = f"Claude CLI error (code {result.returncode}): {stderr[:500]}"
+            error_msg = _translate_error(stderr[:500] or f"Exit code: {result.returncode}", source="claude")
             chat_store.add_message(chat_id, "error", error_msg)
             await ws_manager.send_error(client_id, error_msg)
 
     except subprocess.TimeoutExpired:
-        await ws_manager.send_error(client_id, f"Claude CLI timed out ({timeout}s)")
+        error_msg = _t('common.errors.claude.timeout', seconds=timeout)
+        await ws_manager.send_error(client_id, error_msg)
         _notify_discord("cloudAI", "timeout", prompt[:200], error=f"Timeout {timeout}s")
     except FileNotFoundError:
-        await ws_manager.send_error(client_id, "Claude CLI not found")
+        error_msg = _t('common.errors.claude.notFound')
+        await ws_manager.send_error(client_id, error_msg)
         _notify_discord("cloudAI", "error", prompt[:200], error="Claude CLI not found")
     except Exception as e:
-        await ws_manager.send_error(client_id, f"Execution error: {str(e)}")
+        error_msg = _translate_error(str(e), source="claude")
+        await ws_manager.send_error(client_id, error_msg)
         _notify_discord("cloudAI", "error", prompt[:200], error=str(e))
     finally:
         _release_execution_lock()  # v9.5.0
@@ -715,7 +723,7 @@ async def _handle_mix_execute(client_id: str, data: dict):
     client_info = data.get("client_info", "Web Client")  # v9.5.0
 
     if not prompt:
-        await ws_manager.send_error(client_id, "Prompt is empty")
+        await ws_manager.send_error(client_id, _t('common.errors.promptEmpty'))
         return
 
     # v9.5.0: Web実行ロック設定
@@ -961,7 +969,7 @@ async def _handle_mix_execute(client_id: str, data: dict):
         ))
 
     except Exception as e:
-        await ws_manager.send_error(client_id, f"mixAI execution error: {str(e)}")
+        await ws_manager.send_error(client_id, _t('common.errors.executionError', error=_translate_error(str(e))))
         _notify_discord("mixAI", "error", prompt[:200], error=str(e))
     finally:
         _release_execution_lock()  # v9.5.0
