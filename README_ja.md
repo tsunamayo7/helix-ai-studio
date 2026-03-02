@@ -251,6 +251,17 @@ python3 HelixAIStudio.py
 
 > CLI ツール、Node.js、トラブルシューティングなど詳細なセットアップは [SETUP_GUIDE.md](SETUP_GUIDE.md) をご覧ください。
 
+### 最新版へのアップデート
+
+```bash
+cd helix-ai-studio
+git pull
+pip install -r requirements.txt
+python HelixAIStudio.py
+```
+
+> 設定ファイル（`config/`）やデータ（`data/`）は git 管理対象外のため、アップデートで上書きされることはありません。
+
 ---
 
 ## 🛠️ 技術スタック

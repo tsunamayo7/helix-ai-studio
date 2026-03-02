@@ -248,6 +248,17 @@ Enable Web UI in Settings, then open `http://localhost:8500` from any device on 
 
 > For detailed setup including CLI tools, Node.js, and troubleshooting, see [SETUP_GUIDE.md](SETUP_GUIDE.md).
 
+### Updating to the Latest Version
+
+```bash
+cd helix-ai-studio
+git pull
+pip install -r requirements.txt
+python HelixAIStudio.py
+```
+
+> Your settings (`config/`) and data (`data/`) are git-ignored and will not be overwritten.
+
 ---
 
 ## 🛠️ Tech Stack
