@@ -417,6 +417,21 @@ async def _handle_local_execute(client_id: str, data: dict):
     if attached_files:
         full_prompt += "\n\n[添付ファイル]\n" + "\n".join(f"- {f}" for f in attached_files)
 
+    # v11.9.5: RAGコンテキスト注入
+    enable_rag = data.get("enable_rag", True)
+    if enable_rag:
+        try:
+            rag_context = await rag_bridge.build_context(prompt, tab="localAI")
+            if rag_context:
+                full_prompt = f"{rag_context}\n\n{full_prompt}"
+                await ws_manager.send_to(client_id, {
+                    "type": "status",
+                    "status": "rag_injected",
+                    "message": f"RAGコンテキスト注入: {len(rag_context)}文字",
+                })
+        except Exception as e:
+            logger.warning(f"RAG context build failed (localAI): {e}")
+
     ws_manager.set_active_task(client_id, "localAI")
     await ws_manager.send_status(client_id, "executing", f"{model} 実行中...")
 
@@ -813,6 +828,19 @@ async def _handle_mix_execute(client_id: str, data: dict):
                 "category": task["category"],
                 "model": task["model"],
             })
+
+            # v11.9.5: RAG注入（Claude/GPT/Gemini/Ollama 全プロバイダ共通）
+            if enable_rag:
+                try:
+                    task_rag = await rag_bridge.build_context(
+                        task["prompt"], tab="mixAI", max_chars=3000
+                    )
+                    if task_rag:
+                        task["prompt"] = f"{task_rag}\n\n{task['prompt']}"
+                except Exception as e:
+                    logger.warning(
+                        f"RAG injection failed (Phase 2 '{task['category']}'): {e}"
+                    )
 
             # v11.6.0: クラウド/ローカル分岐
             start = _time.time()
