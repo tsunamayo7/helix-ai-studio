@@ -35,3 +35,9 @@ def is_pilot_enabled() -> bool:
     """Helix Pilot (GUI自動操作) が有効かどうか"""
     data = _load_app_settings()
     return bool(data.get("pilot", {}).get("enabled", False))
+
+
+def is_sandbox_enabled() -> bool:
+    """Docker Sandbox (Virtual Desktop) が有効かどうか"""
+    data = _load_app_settings()
+    return bool(data.get("sandbox", {}).get("enabled", True))
