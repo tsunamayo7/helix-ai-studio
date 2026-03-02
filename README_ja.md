@@ -14,7 +14,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.5-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v11.9.7-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -64,10 +64,10 @@
 
 ### 🆕 Helix Pilot v2.0 — AIがUIを自動操作
 
-> **v11.9.5の新機能**: Helix Pilot が**全チャットタブ（cloudAI・localAI・mixAI）に直接統合**されました。チャット画面の **🤖 Pilot** ボタンをONにすると、LLMが画面を認識しGUIコマンドを自動実行します。CLIツールとしても引き続き利用可能です。
+> **v11.9.7**: Helix Pilot は**設定タブ（一般設定）でグローバルに有効化**する方式に移行しました。ONにすると全タブ（cloudAI・localAI・mixAI）で自動的にPilotコマンドが利用可能になります。CLIツールとしても引き続き利用可能です。
 
 ```bash
-# アプリ内: チャットタブの 🤖 Pilot ボタンを ON にするだけ
+# アプリ内: 一般設定タブ → Helix Pilot セクション → 有効化チェックボックスをON
 
 # CLI での利用:
 python scripts/helix_pilot.py auto "mixAIタブを開いてプロンプトを入力して送信" --window "Helix AI Studio"
@@ -332,7 +332,8 @@ python HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |----------|---------|
-| **v11.9.5** | 🤖 **Helix Pilotアプリ内統合**（全3チャットタブ + 設定）、🔧 **モデル非依存性強化**（7箇所以上のハードコード排除）、🎬 デモビデオ追加（14本）、📚 統合RAG、ドキュメント修正 |
+| **v11.9.7** | ⚙️ **BIBLE/Pilot設定タブ移行**（チャットタブのボタン削除→設定タブでグローバル制御）、🏳️ **Feature Flags**（`feature_flags.py`）、🌐 **エラー翻訳システム**、📁 プロジェクトファイル整理 |
+| v11.9.5 | 🤖 **Helix Pilotアプリ内統合**（全3チャットタブ + 設定）、🔧 **モデル非依存性強化**（7箇所以上のハードコード排除）、🎬 デモビデオ追加（14本）、📚 統合RAG、ドキュメント修正 |
 | v11.9.4 | 🆕 **Helix Pilot v2.0**（Vision LLM自律GUIエージェント）、Geminiスレッド安全性修正 |
 | v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
 | v11.9.2 | ターミナル表示トグル、Enter送信切替、240+カラーリテラル排除 |

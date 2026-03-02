@@ -29,7 +29,51 @@
     "timeoutTip": "AI response timeout (minutes)\nSet in 10-min increments, or type a custom value",
     "saveSection": "Save",
     "saveSectionDone": "Saved",
-    "saveSectionFailed": "Save Failed"
+    "saveSectionFailed": "Save Failed",
+    "errors": {
+      "detail": "Detail",
+      "connectionRefused": "Connection failed. Please check that the service is running.",
+      "timeout": "Timeout: No response within the time limit. Check your connection or server load.",
+      "dnsError": "DNS resolution failed. Please check your network connection.",
+      "sslError": "SSL/TLS certificate error. Please check your network environment.",
+      "rateLimited": "Too many requests. Please wait a moment and try again.",
+      "unauthorized": "Authentication failed. Please check your API key or credentials.",
+      "forbidden": "Access denied. Please check your API key permissions.",
+      "notFound": "The requested resource was not found.",
+      "serverError": "Server error occurred. Please wait a moment and try again.",
+      "invalidJson": "Invalid response format. Please try again.",
+      "outOfMemory": "Out of memory. Try a lighter model or close other applications.",
+      "promptEmpty": "Prompt is empty. Please enter a message.",
+      "noModelSpecified": "No model specified. Please select a model.",
+      "unknownAction": "Unknown action: {action}",
+      "executionError": "Execution error: {error}",
+      "claude": {
+        "actionRequired": "Claude CLI is waiting for user input. Run 'claude' in a terminal to review the terms of service.",
+        "notFound": "Claude CLI not found. Please install Claude Code.",
+        "timeout": "Claude CLI timed out ({seconds}s). Please increase the timeout setting.",
+        "exitCode": "Claude CLI exited with error (code: {code})",
+        "quotaExceeded": "Claude API usage limit reached. Please check your plan."
+      },
+      "ollama": {
+        "modelNotFound": "Ollama model '{model}' not found. Run 'ollama pull {model}'.",
+        "connectionFailed": "Cannot connect to Ollama. Please check that Ollama is running.",
+        "timeout": "Ollama timed out. Try a lighter model or increase the timeout setting.",
+        "pullFailed": "Failed to download model. Please check your network connection."
+      },
+      "gemini": {
+        "notFound": "Gemini CLI not found. Please install Google AI CLI.",
+        "safetyBlock": "Blocked by safety filter. Please modify your prompt.",
+        "quotaExceeded": "Gemini API usage limit reached. Please wait and try again.",
+        "apiKeyMissing": "Google API key not set. Please enter it in the Settings tab.",
+        "timeout": "Gemini API timed out. Please increase the timeout setting."
+      },
+      "openai": {
+        "apiKeyMissing": "OpenAI API key not set. Please enter it in the Settings tab.",
+        "quotaExceeded": "OpenAI API usage limit reached. Please check your billing status.",
+        "contextTooLong": "Input is too long. Please shorten your message or clear the context.",
+        "contentFiltered": "Blocked by content policy. Please modify your prompt."
+      }
+    }
   },
   "tabs": {
     "soloAI": "soloAI",
@@ -1047,8 +1091,15 @@
       "effortOpusOnly": "Only effective with Opus 4.6",
       "effortFallbackWarn": "Error in effort setting. Retrying in normal mode",
       "effortTip": "Adaptive thinking settings for Opus 4.6\nNot set = CLI default / low / medium / high",
+      "bibleGroup": "BIBLE Context Injection",
+      "bibleDesc": "Automatically injects BIBLE file (project specification) content into AI prompts. When enabled, it applies across all tabs (cloudAI / localAI / mixAI).",
+      "bibleEnabled": "Enable BIBLE context injection",
+      "bibleEnabledTooltip": "When ON, project specifications from the BIBLE folder are automatically attached to all AI prompts. This allows the AI to understand your project's design principles and rules before responding.",
+      "bibleSaved": "BIBLE settings saved",
       "pilotGroup": "Helix Pilot (GUI Automation)",
       "pilotDesc": "Automates desktop GUI using Vision LLM. Requires Ollama with a Vision-capable model.",
+      "pilotEnabled": "Enable Helix Pilot (GUI Automation)",
+      "pilotEnabledTooltip": "When ON, GUI automation commands (<<PILOT:...>>) become available in all tab AI responses. The AI can recognize screen state and autonomously execute click, type, scroll, and other GUI operations. Requires Ollama + Vision model.",
       "pilotVisionModel": "Vision Model:",
       "pilotReasoningModel": "Reasoning Model (for auto/browse):",
       "pilotMaxSteps": "Max Steps (auto/browse):",

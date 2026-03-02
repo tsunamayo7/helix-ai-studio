@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.5-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v11.9.7-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -63,10 +63,10 @@
 
 ### Helix Pilot v2.0 — AI that controls the UI for you
 
-> 🆕 **New in v11.9.5**: Helix Pilot is now **integrated directly into all chat tabs** (cloudAI, localAI, mixAI). Toggle the **Pilot** button to let the LLM see your screen and execute GUI commands automatically. Also available as a standalone CLI tool.
+> 🆕 **v11.9.7**: Helix Pilot is now **enabled globally from the Settings tab**. Once activated, Pilot commands become available across all chat tabs (cloudAI, localAI, mixAI) automatically. Also available as a standalone CLI tool.
 
 ```bash
-# In-app: just toggle the 🤖 Pilot button in any chat tab
+# In-app: Settings tab → Helix Pilot section → enable the checkbox
 
 # CLI usage:
 python scripts/helix_pilot.py auto "Open the mixAI tab, type a prompt, and send it" --window "Helix AI Studio"
@@ -330,7 +330,8 @@ python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.5** | 🤖 **Helix Pilot in-app integration** (all 3 chat tabs + Settings), 🔧 **Model-agnostic hardening** (removed 7+ hardcoded model deps), 🎬 Demo videos (14 recordings), 📚 Unified RAG, doc fixes |
+| **v11.9.7** | ⚙️ **BIBLE/Pilot settings-tab migration** (removed per-tab toggle buttons → global Settings control), 🏳️ **Feature Flags** (`feature_flags.py`), 🌐 **Error translation system**, 📁 Project file reorganization |
+| v11.9.5 | 🤖 **Helix Pilot in-app integration** (all 3 chat tabs + Settings), 🔧 **Model-agnostic hardening** (removed 7+ hardcoded model deps), 🎬 Demo videos (14 recordings), 📚 Unified RAG, doc fixes |
 | v11.9.4 | 🆕 **Helix Pilot v2.0** — autonomous Vision LLM GUI agent; Gemini thread safety fix |
 | v11.9.3 | Provider-based model classification, combo width fix |
 | v11.9.2 | Terminal toggle, Enter-to-send toggle, 240+ color literals purged |

@@ -128,6 +128,10 @@ class SettingsCortexTab(QWidget):
         self.auto_group = self._create_auto_group()
         content_layout.addWidget(self.auto_group)
 
+        # 6.5. BIBLE コンテキスト注入
+        self.bible_group = self._create_bible_settings_group()
+        content_layout.addWidget(self.bible_group)
+
         # 7. Web UIサーバー
         self.webui_group = self._create_web_ui_section()
         content_layout.addWidget(self.webui_group)
@@ -1114,6 +1118,68 @@ class SettingsCortexTab(QWidget):
         return group
 
     # ========================================
+    # 6.5. BIBLE コンテキスト注入 (v11.9.7)
+    # ========================================
+
+    def _create_bible_settings_group(self) -> QGroupBox:
+        """BIBLE コンテキスト注入 設定グループ"""
+        group = QGroupBox(t('desktop.settings.bibleGroup'))
+        layout = QVBoxLayout(group)
+
+        # 説明
+        desc = QLabel(t('desktop.settings.bibleDesc'))
+        desc.setWordWrap(True)
+        desc.setStyleSheet(f"color: {COLORS.get('text_secondary', '#94a3b8')}; font-size: 11px;")
+        layout.addWidget(desc)
+
+        # 有効化チェックボックス
+        self.bible_enabled_cb = QCheckBox(t('desktop.settings.bibleEnabled'))
+        self.bible_enabled_cb.setChecked(False)
+        self.bible_enabled_cb.setToolTip(t('desktop.settings.bibleEnabledTooltip'))
+        layout.addWidget(self.bible_enabled_cb)
+
+        # 保存ボタン
+        save_btn = create_section_save_button(self._save_bible_settings)
+        layout.addWidget(save_btn)
+
+        # 設定を読み込む
+        self._load_bible_settings()
+
+        return group
+
+    def _load_bible_settings(self):
+        """app_settings.json から BIBLE 設定を読み込み"""
+        try:
+            config_path = Path("config/app_settings.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                bible = data.get("bible", {})
+                self.bible_enabled_cb.setChecked(bible.get("enabled", False))
+        except Exception as e:
+            logger.warning(f"[Settings] BIBLE settings load failed: {e}")
+
+    def _save_bible_settings(self):
+        """app_settings.json に BIBLE 設定を保存"""
+        try:
+            config_path = Path("config/app_settings.json")
+            data = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+            data.setdefault("bible", {})["enabled"] = self.bible_enabled_cb.isChecked()
+
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+
+            self.bible_status_label_msg = t('desktop.settings.bibleSaved')
+            logger.info(f"[Settings] BIBLE enabled={self.bible_enabled_cb.isChecked()}")
+        except Exception as e:
+            logger.error(f"[Settings] BIBLE settings save failed: {e}")
+
+    # ========================================
     # 7. Web UIサーバー
     # ========================================
 
@@ -1131,6 +1197,13 @@ class SettingsCortexTab(QWidget):
         desc.setWordWrap(True)
         desc.setStyleSheet(f"color: {COLORS.get('text_secondary', '#94a3b8')}; font-size: 11px;")
         layout.addWidget(desc)
+
+        # 有効化チェックボックス
+        self.pilot_enabled_cb = QCheckBox(t('desktop.settings.pilotEnabled'))
+        self.pilot_enabled_cb.setChecked(False)
+        self.pilot_enabled_cb.setToolTip(t('desktop.settings.pilotEnabledTooltip'))
+        self.pilot_enabled_cb.toggled.connect(self._on_pilot_enabled_toggled)
+        layout.addWidget(self.pilot_enabled_cb)
 
         # Ollama 接続状態
         self.pilot_status_label = QLabel("")
@@ -1212,7 +1285,7 @@ class SettingsCortexTab(QWidget):
         return group
 
     def _load_pilot_settings(self):
-        """config/helix_pilot.json から Pilot 設定を読み込み"""
+        """config/helix_pilot.json + app_settings.json から Pilot 設定を読み込み"""
         try:
             config_path = Path("config/helix_pilot.json")
             if config_path.exists():
@@ -1227,6 +1300,17 @@ class SettingsCortexTab(QWidget):
                 self.pilot_window_edit.setText(config.get("default_window", ""))
         except Exception as e:
             logger.warning(f"[Settings] Pilot settings load failed: {e}")
+
+        # app_settings.json から有効化フラグを読み込み
+        try:
+            app_path = Path("config/app_settings.json")
+            if app_path.exists():
+                with open(app_path, 'r', encoding='utf-8') as f:
+                    app_data = json.load(f)
+                enabled = app_data.get("pilot", {}).get("enabled", False)
+                self.pilot_enabled_cb.setChecked(enabled)
+        except Exception as e:
+            logger.warning(f"[Settings] Pilot enabled flag load failed: {e}")
 
     def _save_pilot_settings(self):
         """config/helix_pilot.json に Pilot 設定を保存"""
@@ -1257,11 +1341,29 @@ class SettingsCortexTab(QWidget):
 
             self._update_pilot_status()
 
-            from PyQt6.QtWidgets import QToolTip
-            from PyQt6.QtCore import QPoint
+            # app_settings.json に有効化フラグも保存
+            try:
+                app_path = Path("config/app_settings.json")
+                app_data = {}
+                if app_path.exists():
+                    with open(app_path, 'r', encoding='utf-8') as f:
+                        app_data = json.load(f)
+                app_data.setdefault("pilot", {})["enabled"] = self.pilot_enabled_cb.isChecked()
+                with open(app_path, 'w', encoding='utf-8') as f:
+                    json.dump(app_data, f, indent=2, ensure_ascii=False)
+            except Exception:
+                pass
+
             self.pilot_status_label.setText(t('desktop.settings.pilotSaved'))
         except Exception as e:
             logger.error(f"[Settings] Pilot settings save failed: {e}")
+
+    def _on_pilot_enabled_toggled(self, checked: bool):
+        """Pilot 有効化トグル時に子ウィジェットの有効/無効を切り替え"""
+        for w in [self.pilot_vision_edit, self.pilot_reasoning_edit,
+                  self.pilot_max_steps_spin, self.pilot_timeout_spin,
+                  self.pilot_safe_mode_cb, self.pilot_window_edit]:
+            w.setEnabled(checked)
 
     def _update_pilot_status(self):
         """Pilot の接続状態を表示更新"""
@@ -2028,8 +2130,19 @@ class SettingsCortexTab(QWidget):
         self.display_group.setTitle(t('desktop.settings.display'))
         self.auto_group.setTitle(t('desktop.settings.automation'))
         self.webui_group.setTitle(t('desktop.settings.webUI'))
+        # BIBLE group
+        if hasattr(self, 'bible_group'):
+            self.bible_group.setTitle(t('desktop.settings.bibleGroup'))
+        if hasattr(self, 'bible_enabled_cb'):
+            self.bible_enabled_cb.setText(t('desktop.settings.bibleEnabled'))
+            self.bible_enabled_cb.setToolTip(t('desktop.settings.bibleEnabledTooltip'))
+
+        # Pilot group
         if hasattr(self, 'pilot_group'):
             self.pilot_group.setTitle(t('desktop.settings.pilotGroup'))
+        if hasattr(self, 'pilot_enabled_cb'):
+            self.pilot_enabled_cb.setText(t('desktop.settings.pilotEnabled'))
+            self.pilot_enabled_cb.setToolTip(t('desktop.settings.pilotEnabledTooltip'))
         if hasattr(self, 'pilot_vision_label'):
             self.pilot_vision_label.setText(t('desktop.settings.pilotVisionModel'))
             self.pilot_reasoning_label.setText(t('desktop.settings.pilotReasoningModel'))

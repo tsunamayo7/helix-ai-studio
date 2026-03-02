@@ -61,6 +61,7 @@ from ..widgets.chat_widgets import ExecutionIndicator, InterruptionBanner
 from ..bible.bible_discovery import BibleDiscovery
 from ..bible.bible_injector import BibleInjector
 from ..utils.i18n import t
+from ..utils.error_translator import translate_error
 from ..widgets.section_save_button import create_section_save_button
 from ..widgets.no_scroll_widgets import NoScrollComboBox, NoScrollSpinBox
 
@@ -556,7 +557,7 @@ class MixAIWorker(QThread):
                 return {
                     "success": False,
                     "output": "",
-                    "error": "Claude CLIが見つかりません。Claude Codeをインストールしてください。",
+                    "error": t('common.errors.claude.notFound'),
                 }
 
             # プロンプトをファイル経由で渡す（長いプロンプト対応）
@@ -583,10 +584,11 @@ class MixAIWorker(QThread):
                         "error": "",
                     }
                 else:
+                    raw_error = result.stderr.strip() or f"Exit code: {result.returncode}"
                     return {
                         "success": False,
                         "output": result.stdout.strip(),
-                        "error": result.stderr.strip() or f"Exit code: {result.returncode}",
+                        "error": translate_error(raw_error, source="claude"),
                     }
             finally:
                 # 一時ファイルを削除
@@ -599,13 +601,13 @@ class MixAIWorker(QThread):
             return {
                 "success": False,
                 "output": "",
-                "error": f"Claude CLIがタイムアウトしました（{timeout_seconds}秒）",
+                "error": t('common.errors.claude.timeout', seconds=timeout_seconds),
             }
         except Exception as e:
             return {
                 "success": False,
                 "output": "",
-                "error": f"Claude CLI実行エラー: {str(e)}",
+                "error": translate_error(str(e), source="claude"),
             }
 
     def _execute_phase_1_task_analysis(self):
@@ -1307,10 +1309,7 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_attach_btn.setToolTip(t('desktop.mixAI.attachTip'))
         self.mixai_snippet_btn.setText(t('desktop.mixAI.snippetBtn'))
         self.mixai_snippet_btn.setToolTip(t('desktop.mixAI.snippetTip'))
-        if hasattr(self, 'bible_btn'):
-            self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        if hasattr(self, 'pilot_btn'):
-            self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（retranslate不要）
 
         # Tool log group (state-dependent title)
         if self.tool_log_group.isChecked():
@@ -1588,38 +1587,7 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_snippet_btn.clicked.connect(self._on_snippet_menu)
         btn_layout.addWidget(self.mixai_snippet_btn)
 
-        # BIBLE toggle button
-        self.bible_btn = QPushButton("📖 BIBLE")
-        self.bible_btn.setCheckable(True)
-        self.bible_btn.setChecked(False)
-        self.bible_btn.setFixedHeight(32)
-        self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['warning']};
-                border: 1px solid {COLORS['warning']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
-                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
-        """)
-        btn_layout.addWidget(self.bible_btn)
-
-        # v11.9.6: Helix Pilot toggle button
-        self.pilot_btn = QPushButton("Pilot")
-        self.pilot_btn.setCheckable(True)
-        self.pilot_btn.setChecked(False)
-        self.pilot_btn.setFixedHeight(32)
-        self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
-        self.pilot_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['info']};
-                border: 1px solid {COLORS['info']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(129, 140, 248, 0.2);
-                border: 2px solid {COLORS['info']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(129, 140, 248, 0.1); }}
-        """)
-        self.pilot_btn.toggled.connect(self._on_pilot_toggled)
-        btn_layout.addWidget(self.pilot_btn)
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（チャットタブから削除）
 
         btn_layout.addStretch()
 
@@ -2093,33 +2061,6 @@ class HelixOrchestratorTab(QWidget):
         else:
             self.tool_log_group.setTitle(t('desktop.mixAI.toolLogExpand'))
 
-    def _on_pilot_toggled(self, checked: bool):
-        """Pilot トグル時の利用可能性チェック"""
-        if not checked:
-            return
-        try:
-            from ..tools.helix_pilot_tool import HelixPilotTool
-            pilot = HelixPilotTool.get_instance()
-            pilot.reset_availability()
-            if not pilot.is_available:
-                self.pilot_btn.setChecked(False)
-                error = pilot.last_error
-                if "not_connected" in error:
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.ollamaRequired'))
-                elif "not_set" in error:
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.visionModelRequired'))
-                elif "not_found" in error:
-                    model = error.split(":")[-1] if ":" in error else ""
-                    from PyQt6.QtWidgets import QMessageBox
-                    QMessageBox.warning(self, "Helix Pilot",
-                                        t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
-        except Exception as e:
-            self.pilot_btn.setChecked(False)
-            import logging
-            logging.getLogger(__name__).warning(f"[Pilot] Toggle check failed: {e}")
-
     def _on_execute(self):
         """実行開始"""
         # v8.5.0: RAG構築中ロック判定
@@ -2200,27 +2141,33 @@ class HelixOrchestratorTab(QWidget):
         except Exception as e:
             logger.debug(f"[BIBLE] Prompt discovery error: {e}")
 
-        # v11.0.0: BIBLE context injection (Phase 4)
-        if hasattr(self, 'bible_btn') and self.bible_btn.isChecked():
-            from ..mixins.bible_context_mixin import BibleContextMixin
-            mixin = BibleContextMixin()
-            prompt = mixin._inject_bible_to_prompt(prompt)
+        # v11.9.7: BIBLE context injection (設定タブで有効化時に常時注入)
+        try:
+            from ..utils.feature_flags import is_bible_enabled
+            if is_bible_enabled():
+                from ..mixins.bible_context_mixin import BibleContextMixin
+                mixin = BibleContextMixin()
+                prompt = mixin._inject_bible_to_prompt(prompt)
+        except Exception:
+            pass
 
-        # v11.9.6: Helix Pilot context injection
-        if hasattr(self, 'pilot_btn') and self.pilot_btn.isChecked():
-            try:
+        # v11.9.7: Helix Pilot context injection (設定タブで有効化時に常時注入)
+        try:
+            from ..utils.feature_flags import is_pilot_enabled
+            if is_pilot_enabled():
                 from ..tools.pilot_response_processor import get_system_prompt_addition
                 from ..tools.helix_pilot_tool import HelixPilotTool
                 pilot = HelixPilotTool.get_instance()
-                config = pilot._load_config()
-                window = config.get("default_window", "")
-                screen_ctx = pilot.get_screen_context(window) if pilot.is_available else ""
-                lang = "ja" if t('desktop.mixAI.executeBtn') != "Execute" else "en"
-                pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
-                prompt = pilot_prompt + "\n\n" + prompt
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+                if pilot.is_available:
+                    config = pilot._load_config()
+                    window = config.get("default_window", "")
+                    screen_ctx = pilot.get_screen_context(window)
+                    lang = "ja" if t('desktop.mixAI.executeBtn') != "Execute" else "en"
+                    pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
+                    prompt = pilot_prompt + "\n\n" + prompt
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
 
         self.worker = MixAIOrchestrator(
             user_prompt=prompt,
@@ -3021,14 +2968,15 @@ class HelixOrchestratorTab(QWidget):
         self.progress_bar.setVisible(False)
 
         # v10.1.0: エラーバブルをchat_displayに追加
+        translated = translate_error(error)
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
                 f"<div style='background:{COLORS['error_bg']}; border-left:3px solid {COLORS['error']}; "
                 f"padding:8px; margin:4px; border-radius:4px;'>"
-                f"<b style='color:{COLORS['error']};'>Error:</b> {error}"
+                f"<b style='color:{COLORS['error']};'>{t('common.error')}:</b> {translated}"
                 f"</div>"
             )
-        self.statusChanged.emit(t('desktop.mixAI.errorStatus', error=error[:50]))
+        self.statusChanged.emit(t('desktop.mixAI.errorStatus', error=translated[:50]))
         self.worker = None
 
     # =========================================================================

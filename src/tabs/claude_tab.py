@@ -21,6 +21,7 @@ from PyQt6.QtGui import QFont, QAction, QTextCursor, QKeyEvent
 from ..utils.i18n import t
 from ..utils.styles import COLORS
 from ..utils.style_helpers import SS
+from ..utils.error_translator import translate_error
 
 
 
@@ -2087,7 +2088,7 @@ class ClaudeTab(QWidget):
             self._load_cloud_models_to_combo(self.cloud_model_combo)
             self.statusChanged.emit(f"Model added: {name} ({provider})")
         except Exception as e:
-            QMessageBox.warning(self, "Error", str(e))
+            QMessageBox.warning(self, t('common.error'), str(e))
 
     def _on_delete_cloud_model(self):
         """v11.0.0: 選択モデルを削除"""
@@ -2116,7 +2117,7 @@ class ClaudeTab(QWidget):
                     self._load_cloud_models_to_combo(self.cloud_model_combo)
                     self.statusChanged.emit(f"Model removed: {removed.get('name', '')}")
         except Exception as e:
-            QMessageBox.warning(self, "Error", str(e))
+            QMessageBox.warning(self, t('common.error'), str(e))
 
     def _on_edit_cloud_models_json(self):
         """v11.0.0: cloud_models.json をテキスト編集ダイアログで開く"""
@@ -2155,7 +2156,7 @@ class ClaudeTab(QWidget):
             except json.JSONDecodeError as e:
                 QMessageBox.warning(self, "JSON Error", f"Invalid JSON: {e}")
             except Exception as e:
-                QMessageBox.warning(self, "Error", str(e))
+                QMessageBox.warning(self, t('common.error'), str(e))
 
     def _on_reload_cloud_models(self):
         """v11.0.0: モデルリストとコンボを再読み込み"""
@@ -2327,38 +2328,7 @@ class ClaudeTab(QWidget):
         self.snippet_add_btn = QPushButton()
         self.snippet_add_btn.setVisible(False)
 
-        # v11.0.0: BIBLE toggle button (Phase 4) - 高さ統一
-        self.bible_btn = QPushButton("📖 BIBLE")
-        self.bible_btn.setCheckable(True)
-        self.bible_btn.setChecked(False)
-        self.bible_btn.setFixedHeight(32)
-        self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        self.bible_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['warning']};
-                border: 1px solid {COLORS['warning']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(255, 165, 0, 0.2);
-                border: 2px solid {COLORS['warning']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(255, 165, 0, 0.1); }}
-        """)
-        btn_layout.addWidget(self.bible_btn)
-
-        # v11.9.6: Helix Pilot toggle button
-        self.pilot_btn = QPushButton("Pilot")
-        self.pilot_btn.setCheckable(True)
-        self.pilot_btn.setChecked(False)
-        self.pilot_btn.setFixedHeight(32)
-        self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
-        self.pilot_btn.setStyleSheet(f"""
-            QPushButton {{ background: transparent; color: {COLORS['info']};
-                border: 1px solid {COLORS['info']}; border-radius: 4px;
-                padding: 4px 12px; font-size: 11px; }}
-            QPushButton:checked {{ background: rgba(129, 140, 248, 0.2);
-                border: 2px solid {COLORS['info']}; font-weight: bold; }}
-            QPushButton:hover {{ background: rgba(129, 140, 248, 0.1); }}
-        """)
-        self.pilot_btn.toggled.connect(self._on_pilot_toggled)
-        btn_layout.addWidget(self.pilot_btn)
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（チャットタブから削除）
 
         btn_layout.addStretch()
 
@@ -2692,11 +2662,7 @@ class ClaudeTab(QWidget):
         self.send_btn.setText(t('desktop.cloudAI.sendBtnMain'))
         self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
         # v11.0.0: BIBLE toggle button
-        if hasattr(self, 'bible_btn'):
-            self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
-        # v11.9.6: Pilot toggle button
-        if hasattr(self, 'pilot_btn'):
-            self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
+        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（retranslate不要）
         # v11.0.0: Header title + model label
         if hasattr(self, 'cloud_header_title'):
             self.cloud_header_title.setText(t('desktop.cloudAI.headerTitle'))
@@ -3261,32 +3227,13 @@ class ClaudeTab(QWidget):
             logger.error(f"[ClaudeTab._delete_snippet] Error: {e}", exc_info=True)
             QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetDeleteGenericError', error=str(e)))
 
-    def _on_pilot_toggled(self, checked: bool):
-        """Pilot トグル時の利用可能性チェック"""
-        if not checked:
-            return
-        try:
-            from ..tools.helix_pilot_tool import HelixPilotTool
-            pilot = HelixPilotTool.get_instance()
-            pilot.reset_availability()
-            if not pilot.is_available:
-                self.pilot_btn.setChecked(False)
-                error = pilot.last_error
-                if "not_connected" in error:
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.ollamaRequired'))
-                elif "not_set" in error:
-                    QMessageBox.warning(self, "Helix Pilot", t('pilot.visionModelRequired'))
-                elif "not_found" in error:
-                    model = error.split(":")[-1] if ":" in error else ""
-                    QMessageBox.warning(self, "Helix Pilot",
-                                        t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
-        except Exception as e:
-            self.pilot_btn.setChecked(False)
-            logger.warning(f"[Pilot] Toggle check failed: {e}")
-
     def _process_pilot_response(self, response: str) -> str:
         """応答テキスト中の <<PILOT:...>> マーカーを処理"""
-        if not hasattr(self, 'pilot_btn') or not self.pilot_btn.isChecked():
+        try:
+            from ..utils.feature_flags import is_pilot_enabled
+            if not is_pilot_enabled():
+                return response
+        except Exception:
             return response
         try:
             from ..tools.pilot_response_processor import parse_pilot_calls, execute_and_replace
@@ -3452,27 +3399,33 @@ class ClaudeTab(QWidget):
             if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
                 processed_message = self._prepend_browser_use_results(processed_message)
 
-            # v11.0.0: BIBLE context injection
-            if hasattr(self, 'bible_btn') and self.bible_btn.isChecked():
-                from ..mixins.bible_context_mixin import BibleContextMixin
-                mixin = BibleContextMixin()
-                processed_message = mixin._inject_bible_to_prompt(processed_message)
+            # v11.9.7: BIBLE context injection (設定タブで有効化時に常時注入)
+            try:
+                from ..utils.feature_flags import is_bible_enabled
+                if is_bible_enabled():
+                    from ..mixins.bible_context_mixin import BibleContextMixin
+                    mixin = BibleContextMixin()
+                    processed_message = mixin._inject_bible_to_prompt(processed_message)
+            except Exception:
+                pass
 
-            # v11.9.6: Helix Pilot context injection
-            if hasattr(self, 'pilot_btn') and self.pilot_btn.isChecked():
-                try:
+            # v11.9.7: Helix Pilot context injection (設定タブで有効化時に常時注入)
+            try:
+                from ..utils.feature_flags import is_pilot_enabled
+                if is_pilot_enabled():
                     from ..tools.pilot_response_processor import get_system_prompt_addition
                     from ..tools.helix_pilot_tool import HelixPilotTool
                     pilot = HelixPilotTool.get_instance()
-                    config = pilot._load_config()
-                    window = config.get("default_window", "")
-                    screen_ctx = pilot.get_screen_context(window) if pilot.is_available else ""
-                    lang = "ja" if t('desktop.cloudAI.sendBtnMain') != "Send" else "en"
-                    pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
-                    processed_message = pilot_prompt + "\n\n" + processed_message
-                except Exception as e:
-                    import logging
-                    logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+                    if pilot.is_available:
+                        config = pilot._load_config()
+                        window = config.get("default_window", "")
+                        screen_ctx = pilot.get_screen_context(window)
+                        lang = "ja" if t('desktop.cloudAI.sendBtnMain') != "Send" else "en"
+                        pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
+                        processed_message = pilot_prompt + "\n\n" + processed_message
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
 
             # Ollama モード（auth_mode=3）
             if auth_mode == 3 and hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
@@ -3648,8 +3601,9 @@ class ClaudeTab(QWidget):
         """v11.9.4: Gemini API エラー（メインスレッドで実行される）"""
         if hasattr(self, 'solo_status_bar'):
             self.solo_status_bar.set_status("idle")
+        translated = translate_error(error_msg, source="gemini")
         self.chat_display.append(
-            f"<div style='color: {COLORS['error']};'><b>Gemini API Error:</b> {error_msg}</div>"
+            f"<div style='color: {COLORS['error']};'><b>Gemini API Error:</b> {translated}</div>"
         )
         logger.error(f"[ClaudeTab._on_gemini_error] {error_msg}")
 
@@ -3661,7 +3615,7 @@ class ClaudeTab(QWidget):
         if not shutil.which("gemini"):
             self.chat_display.append(
                 f"<div style='color: {COLORS['error']};'>"
-                f"Gemini CLI not found.<br>"
+                f"{t('common.errors.gemini.notFound')}<br>"
                 f"Install: <code>npm install -g @google/gemini-cli</code>"
                 f"</div>"
             )
@@ -4240,10 +4194,11 @@ class ClaudeTab(QWidget):
 
         logger.error(f"[ClaudeTab._on_cli_error] {error_msg}")
 
+        translated = translate_error(error_msg, source="claude")
         self.chat_display.append(
             f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
             f"<b>{t('desktop.cloudAI.cliExecErrorHtml')}</b><br>"
-            f"{error_msg}"
+            f"{translated}"
             f"</div>"
         )
 
@@ -4402,10 +4357,11 @@ class ClaudeTab(QWidget):
         self._pending_user_message = None
         logger.error(f"[ClaudeTab._on_ollama_error] {error_msg}")
 
+        translated = translate_error(error_msg, source="ollama")
         self.chat_display.append(
             f"<div style='color: {COLORS['error']}; margin-top: 10px;'>"
             f"<b>{t('desktop.cloudAI.ollamaErrorHtml')}</b><br>"
-            f"{error_msg}"
+            f"{translated}"
             f"</div>"
         )
 
