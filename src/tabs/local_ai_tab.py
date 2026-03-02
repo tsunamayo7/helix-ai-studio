@@ -216,6 +216,15 @@ class LocalAITab(QWidget):
         self._worker = None
         self._streaming_div_open = False
 
+        # v11.9.5: メモリマネージャー（RAG共有）
+        self._memory_manager = None
+        try:
+            from ..memory.memory_manager import HelixMemoryManager
+            self._memory_manager = HelixMemoryManager()
+            logger.info("HelixMemoryManager initialized for localAI")
+        except Exception as e:
+            logger.warning(f"Memory manager init failed (localAI): {e}")
+
         self._setup_ui()
         # v11.0.0: capability取得完了シグナル接続
         self._caps_ready.connect(self._apply_capabilities)
@@ -716,6 +725,16 @@ class LocalAITab(QWidget):
             from ..mixins.bible_context_mixin import BibleContextMixin
             mixin = BibleContextMixin()
             message = mixin._inject_bible_to_prompt(message)
+
+        # v11.9.5: RAGコンテキスト注入（cloudAIと同じ共有RAGを使用）
+        if self._memory_manager:
+            try:
+                memory_ctx = self._memory_manager.build_context_for_solo(message)
+                if memory_ctx:
+                    message = f"<memory_context>\n{memory_ctx}\n</memory_context>\n\n{message}"
+                    logger.info("[LocalAITab._send_message] Memory context injected for localAI")
+            except Exception as mem_err:
+                logger.warning(f"[LocalAITab._send_message] Memory context injection failed: {mem_err}")
 
         # 履歴に追加
         self._messages.append({"role": "user", "content": message})
