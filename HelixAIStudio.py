@@ -31,9 +31,28 @@ if os.name == 'nt':
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(_APP_USER_MODEL_ID)
+        # v12.0.1: アイコンキャッシュをリフレッシュ（git pull後もアイコンが反映されるように）
+        ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
     except Exception as _e:
         import logging as _logging
         _logging.getLogger(__name__).warning(f"[Startup] AppUserModelID failed: {_e}")
+
+
+def _refresh_icon_cache_win32():
+    """v12.0.1: Windowsアイコンキャッシュをリフレッシュ（更新後も反映されるように）"""
+    if os.name != 'nt':
+        return
+    try:
+        import ctypes
+        # SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, 0, 0)
+        # ファイルの関連付け変更を通知 → Windowsがアイコンキャッシュを再読み込み
+        SHCNE_ASSOCCHANGED = 0x08000000
+        SHCNF_IDLIST = 0x0000
+        ctypes.windll.shell32.SHChangeNotify(
+            SHCNE_ASSOCCHANGED, SHCNF_IDLIST, None, None
+        )
+    except Exception:
+        pass
 
 
 def _set_taskbar_icon_win32(hwnd: int, ico_path: str):
@@ -49,7 +68,6 @@ def _set_taskbar_icon_win32(hwnd: int, ico_path: str):
         ICON_BIG = 1
         IMAGE_ICON = 1
         LR_LOADFROMFILE = 0x0010
-        LR_DEFAULTSIZE = 0x0040
 
         # 大きいアイコン（タスクバー・Alt+Tab用: 通常 32x32 or 高DPI 48x48）
         sm_cxicon = user32.GetSystemMetrics(11)  # SM_CXICON

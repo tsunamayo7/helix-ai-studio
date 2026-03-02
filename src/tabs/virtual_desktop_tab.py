@@ -90,6 +90,8 @@ class VirtualDesktopTab(QWidget):
             manager.errorOccurred.connect(self._on_sandbox_error)
             from ..sandbox.promotion_engine import PromotionEngine
             self._promotion_engine = PromotionEngine()
+            # v12.0.1: SandboxManager設定後にDocker状態を再チェック
+            self._update_docker_status()
 
     # ─── UI 構築 ───
 
