@@ -18,7 +18,7 @@ v11.9.0: セマンティックスタイルヘルパー
     widget.setStyleSheet(SS.accent("12px", bold=True))
 """
 
-from .styles import COLORS, FONT_SCALE
+from .styles import COLORS, FONT_FAMILY_MONO, FONT_SCALE
 
 
 class _SS:
@@ -65,7 +65,6 @@ class _SS:
 
     def code(self) -> str:
         """インラインコード・モノスペース表示"""
-        from .styles import FONT_FAMILY_MONO, FONT_SCALE
         return (
             f"font-family: {FONT_FAMILY_MONO}; "
             f"color: {COLORS['success']}; "
@@ -105,7 +104,6 @@ class _SS:
 
     def json_editor(self) -> str:
         """JSONエディタ"""
-        from .styles import FONT_FAMILY_MONO, FONT_SCALE
         return (
             f"QTextEdit {{ "
             f"background: {COLORS['bg_base']}; "

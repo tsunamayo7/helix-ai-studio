@@ -1,7 +1,7 @@
 @echo off
 REM ============================================================================
 REM  Helix AI Studio - One-Click Installer for Windows
-REM  Version: 11.9.4
+REM  Version: 11.9.7
 REM  Author: tsunamayo7
 REM  This script handles the COMPLETE environment setup.
 REM ============================================================================
@@ -56,7 +56,7 @@ echo %C_CYAN%%C_BOLD%    ^|  _  ^|  __/ ^| ^|^>  ^<  ^| ^| ^|  _  ^|  ^| ^|  ___
 echo %C_CYAN%%C_BOLD%    ^|_^| ^|_^|\___)_^|_/_/\_\ ^|_^| ^|_^| ^|_^| ^|___^|^|____/ \__,_^|\__,_^|_^|\___/  %C_RESET%
 echo %C_CYAN%%C_BOLD%============================================================================%C_RESET%
 echo.
-echo %C_MAGENTA%    v11.9.4 - Complete Environment Installer%C_RESET%
+echo %C_MAGENTA%    v11.9.7 - Complete Environment Installer%C_RESET%
 echo %C_DIM%    by tsunamayo7%C_RESET%
 echo.
 echo %C_CYAN%============================================================================%C_RESET%

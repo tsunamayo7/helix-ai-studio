@@ -5,6 +5,26 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.9.7] - 2026-03-03 "Settings-Based Features"
+
+### Added
+- `src/utils/feature_flags.py`: Feature Flags helper — `is_bible_enabled()` / `is_pilot_enabled()` read global settings from `app_settings.json`
+- `src/utils/error_translator.py`: Error translation system — converts raw API errors (Claude/Ollama/Gemini/OpenAI) into human-readable messages with i18n support
+- Settings tab: BIBLE enabled checkbox (`bible_enabled_cb`) and Pilot enabled checkbox (`pilot_enabled_cb`) for global feature control
+- `config/app_settings.json`: `bible.enabled` and `pilot.enabled` boolean keys
+- `i18n/ja.json`, `i18n/en.json`: 4 new keys (`bibleEnabled`, `bibleEnabledTooltip`, `pilotEnabled`, `pilotEnabledTooltip`)
+
+### Changed
+- `src/tabs/claude_tab.py`: BIBLE/Pilot toggle buttons removed; injection now uses `feature_flags.is_bible_enabled()` / `is_pilot_enabled()`
+- `src/tabs/local_ai_tab.py`: Same migration as cloudAI — buttons removed, settings-based injection
+- `src/tabs/helix_orchestrator_tab.py`: Same migration as cloudAI — buttons removed, settings-based injection
+- `src/tabs/settings_cortex_tab.py`: Added BIBLE and Pilot settings groups with save/load/retranslate
+- `src/web/server.py`: Integrated error translation for Ollama error responses
+- `src/utils/constants.py`: `APP_VERSION` → "11.9.7", `APP_CODENAME` → "Settings-Based Features"
+
+### Removed
+- BIBLE button (`bible_btn`) and Pilot button (`pilot_btn`) from all 3 chat tabs — replaced by global Settings tab checkboxes
+
 ## [11.9.5] - 2026-03-02 "Helix Pilot"
 
 ### Added

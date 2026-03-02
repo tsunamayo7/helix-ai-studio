@@ -99,7 +99,7 @@ docs/demo/**/_test_*.mp4
 # GitHub README check screenshots
 github_readme_*.png
 
-# Utility scripts (note/reddit/chrome automation)
+# Utility scripts (note/reddit/chrome/demo automation — not part of the app)
 scripts/note_*.py
 scripts/reddit_*.py
 scripts/reddit_*.txt
@@ -108,3 +108,11 @@ scripts/check_*.ps1
 scripts/copy_chrome_profile.ps1
 scripts/launch_chrome_cdp.ps1
 scripts/record_demo_gif.py
+scripts/record_demo_videos.py
+scripts/record_webui_videos.py
+scripts/capture_frames.py
+scripts/demo_recorder.py
+scripts/generate_demo_gif.py
+scripts/take_screenshots.py
+scripts/post_to_note.py
+

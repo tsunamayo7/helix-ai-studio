@@ -4,7 +4,7 @@
 
 Helix AI Studio is a PyQt6-based desktop application that orchestrates multiple AI models (Claude, GPT, Gemini, local LLMs via Ollama) through a unified interface. It is designed as a **model-agnostic** platform where users register their own models and API keys.
 
-- **Version**: 11.9.4 "Helix Pilot"
+- **Version**: 11.9.7 "Settings-Based Features"
 - **Framework**: PyQt6 (desktop GUI) + FastAPI (web API) + WebSocket
 - **Language**: Python 3.11+
 - **i18n**: Japanese / English bilingual
