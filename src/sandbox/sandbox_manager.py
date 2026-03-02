@@ -192,6 +192,18 @@ class SandboxManager(QObject):
             if container.status != "running":
                 raise RuntimeError(f"Container failed to start: {container.status}")
 
+            # v12.0.1: NoVNC サービスの起動完了を待機（最大15秒）
+            import socket
+            for i in range(30):
+                try:
+                    with socket.create_connection(("localhost", novnc_port), timeout=1):
+                        logger.info(f"[SandboxManager] NoVNC ready after {(i+1)*0.5:.1f}s")
+                        break
+                except (ConnectionRefusedError, OSError):
+                    time.sleep(0.5)
+            else:
+                logger.warning("[SandboxManager] NoVNC port not ready after 15s, proceeding anyway")
+
             vnc_url = f"http://localhost:{novnc_port}/vnc.html"
             if config.vnc_password:
                 vnc_url += f"?autoconnect=true&resize=scale&password={config.vnc_password}"
