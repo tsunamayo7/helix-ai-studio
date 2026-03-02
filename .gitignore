@@ -95,3 +95,16 @@ webui_state*.png
 # Demo video logs and test recordings
 docs/demo/**/*.log
 docs/demo/**/_test_*.mp4
+
+# GitHub README check screenshots
+github_readme_*.png
+
+# Utility scripts (note/reddit/chrome automation)
+scripts/note_*.py
+scripts/reddit_*.py
+scripts/reddit_*.txt
+scripts/chrome_*.ps1
+scripts/check_*.ps1
+scripts/copy_chrome_profile.ps1
+scripts/launch_chrome_cdp.ps1
+scripts/record_demo_gif.py
