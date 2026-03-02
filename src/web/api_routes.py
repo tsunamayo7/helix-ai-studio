@@ -41,6 +41,7 @@ from pydantic import BaseModel
 
 from .auth import WebAuthManager
 from .file_transfer import UPLOAD_MAX_SIZE_BYTES, UPLOAD_MAX_SIZE_MB, UPLOAD_ALLOWED_EXTENSIONS, validate_upload
+from ..utils.constants import APP_VERSION, APP_CODENAME
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +120,7 @@ router = APIRouter()
 @router.get("/api/health")
 async def health_check():
     """ヘルスチェック（認証不要）"""
-    return {"status": "ok", "service": "helix-ai-studio", "version": "9.6.0"}
+    return {"status": "ok", "service": "helix-ai-studio", "version": APP_VERSION, "codename": APP_CODENAME}
 
 
 # =============================================================================
@@ -198,7 +199,7 @@ async def get_status(payload: dict = Depends(verify_jwt)):
 
     return StatusResponse(
         status="running",
-        version="9.6.0",
+        version=APP_VERSION,
         pyqt_running=state.get("pyqt_running", False),
         active_websockets=state.get("active_websockets", 0),
         rag_locked=state.get("rag_locked", False),

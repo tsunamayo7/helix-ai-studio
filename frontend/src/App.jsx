@@ -12,14 +12,16 @@ import { useAuth } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useI18n } from './i18n';
 
-// v11.0.0: Pre-login chat viewing
+// v11.9.5: Pre-login chat viewing (version from /api/health)
 function PreLoginView({ onLogin }) {
   const { t, lang } = useI18n();
   const [recentChats, setRecentChats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [versionInfo, setVersionInfo] = useState({ version: '', codename: '' });
 
   useEffect(() => {
     fetchPublicChats();
+    fetchVersion();
   }, []);
 
   async function fetchPublicChats() {
@@ -33,6 +35,16 @@ function PreLoginView({ onLogin }) {
       console.error('Failed to fetch public chats:', e);
     }
     setLoading(false);
+  }
+
+  async function fetchVersion() {
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        const data = await res.json();
+        setVersionInfo({ version: data.version || '', codename: data.codename || '' });
+      }
+    } catch (e) { /* ignore */ }
   }
 
   function formatDate(dateStr) {
@@ -59,7 +71,9 @@ function PreLoginView({ onLogin }) {
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-bold text-emerald-400">Helix AI Studio</h1>
-          <p className="text-[10px] text-gray-600">v11.0.0 Smart History</p>
+          <p className="text-[10px] text-gray-600">
+            {versionInfo.version ? `v${versionInfo.version} ${versionInfo.codename}` : ''}
+          </p>
         </div>
         <button
           onClick={onLogin}
