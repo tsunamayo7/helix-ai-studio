@@ -5,6 +5,27 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.9.5] - 2026-03-02 "Helix Pilot"
+
+### Added
+- Helix Pilot in-app integration: `src/tools/` package with `helix_pilot_tool.py`, `pilot_response_processor.py`, `pilot_worker.py`
+- Pilot toggle button (🤖) added to all 3 chat tabs (cloudAI, localAI, mixAI) with `<<PILOT:command:param=value>>` marker pattern
+- Pilot settings section in Settings tab (Vision model, Reasoning model, max steps, timeout, safe mode)
+- 30 i18n keys for Pilot UI in `ja.json` / `en.json`
+
+### Changed
+- `HelixAIStudio.py`: Removed forced `claude-opus-4-6` default model assignment on startup (model-agnostic)
+- `src/routing/hybrid_router.py`: Domain-based model selection now reads from `cloud_models.json` dynamically instead of hardcoded model names
+- `src/routing/fallback.py`: Fallback chains changed from specific model names to provider-based routing (prevents unintended API billing)
+- `src/web/rag_bridge.py`: Embedding model and summary model now read from `model_config` instead of hardcoded `qwen3-embedding:4b` / `ministral-3:8b`
+- `src/utils/constants.py`: Added `gemini-` and `google/` to known model ID prefixes in `resolve_claude_model_id()`
+- `requirements.txt`: Version updated to 11.9.5
+- `INSTALL.md`: Fixed placeholder URL (`your-repo` → `tsunamayo7`), corrected Ollama URL (`ollama.ai` → `ollama.com`)
+- `SETUP_GUIDE.md`: Version numbers unified to v11.9.5
+- `install.bat`: Version updated to v11.9.5
+- `SECURITY.md`: Fixed supported version (`11.5.x` → `11.9.x`), fixed mojibake in MCP warning
+- `README.md` / `README_ja.md`: Updated Pilot section, version history, feature descriptions
+
 ## [11.9.4] - 2026-02-28 "Helix Pilot"
 
 ### Added

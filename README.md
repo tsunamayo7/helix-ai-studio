@@ -348,9 +348,11 @@ See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
 | Article | Language | Link |
 |---------|----------|------|
+| 🆕 v11.9.4 Release — Helix Pilot v2.0, tab-switching UI, i18n hardening | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n7268ff58d0b0) |
+| v11.9.1 Release — inline color purge, pipeline automation | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
+| Architecture Deep Dive — multi-AI orchestration | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
 | Introduction & Setup Guide | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) |
-| Architecture Deep Dive | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
-| v11.9.2 Release Notes | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
+| Beginner's Guide — use multiple AIs for free | 🇯🇵 JP | [note.com](https://note.com/ai_tsunamayo_7/n/nb23a3ece82f8) |
 
 ---
 
