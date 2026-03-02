@@ -366,7 +366,8 @@
       "apiKeySecurityNote": "API keys are secret. Do not commit to Git or use in shared environments. Setting via environment variables is recommended."
     },
     "common": {
-      "bibleToggleTooltip": "Toggle BIBLE context injection (Build Information Base for Lifecycle Engineering)"
+      "bibleToggleTooltip": "Toggle BIBLE context injection (Build Information Base for Lifecycle Engineering)",
+      "pilotToggleTooltip": "Enable Helix Pilot (GUI automation). When ON, the LLM can see the screen and execute GUI commands"
     },
     "chatHistory": {
       "title": "Chat History",
@@ -1045,7 +1046,21 @@
       "effortDefault": "Not set (normal)",
       "effortOpusOnly": "Only effective with Opus 4.6",
       "effortFallbackWarn": "Error in effort setting. Retrying in normal mode",
-      "effortTip": "Adaptive thinking settings for Opus 4.6\nNot set = CLI default / low / medium / high"
+      "effortTip": "Adaptive thinking settings for Opus 4.6\nNot set = CLI default / low / medium / high",
+      "pilotGroup": "Helix Pilot (GUI Automation)",
+      "pilotDesc": "Automates desktop GUI using Vision LLM. Requires Ollama with a Vision-capable model.",
+      "pilotVisionModel": "Vision Model:",
+      "pilotReasoningModel": "Reasoning Model (for auto/browse):",
+      "pilotMaxSteps": "Max Steps (auto/browse):",
+      "pilotTimeout": "Timeout:",
+      "pilotSafeMode": "Safe Mode (--window required)",
+      "pilotDefaultWindow": "Default Target Window:",
+      "pilotSaved": "Pilot settings saved",
+      "pilotOllamaOk": "Ollama connected — Vision model available",
+      "pilotOllamaNg": "Ollama not connected — required for Pilot features",
+      "pilotVisionNotSet": "Vision model not set. Please specify a Vision model in the Settings tab",
+      "pilotVisionNotFound": "Vision model '{model}' not found in Ollama. Run 'ollama pull {model}'",
+      "pilotVisionNotCapable": "Model '{model}' does not support vision. Use a Vision-capable model (e.g., mistral-small3.2:latest)"
     },
     "soloAI": {
       "title": "🚀 soloAI - Claude Code",
@@ -1882,6 +1897,17 @@
       "openaiApiKeyLabel": "OpenAI API Key:",
       "openaiApiKeyPlaceholder": "sk-... (leave empty to use CLI)"
     }
+  },
+  "pilot": {
+    "executing": "Pilot: executing {command}...",
+    "completed": "Pilot: {command} completed",
+    "error": "Pilot: {command} error — {error}",
+    "notAvailable": "Helix Pilot unavailable. Check Ollama connection and Vision model in Settings.",
+    "contextInjected": "Screen context injected ({window})",
+    "emergencyStop": "Emergency stop triggered",
+    "enableFailed": "Cannot enable Pilot: {reason}",
+    "ollamaRequired": "Ollama is not installed or not running.\n\n1. Install Ollama from https://ollama.com\n2. ollama pull mistral-small3.2:latest\n3. Set Vision model in Settings tab",
+    "visionModelRequired": "Vision model not configured.\n\nGo to Settings > Helix Pilot > Vision Model\nand enter a Vision-capable model name.\n\nRecommended models:\n- mistral-small3.2:latest\n- llama3.2-vision:11b"
   },
   "widget": {
     "monitor": {

@@ -6,7 +6,7 @@ We actively support the latest major and minor versions with security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 11.5.x  | :white_check_mark: |
+| 11.9.x  | :white_check_mark: |
 | 11.x    | :white_check_mark: |
 | < 11.0  | :x:                |
 
@@ -47,7 +47,7 @@ Please include the following information in your report:
 
 ### MCP (Model Context Protocol) Servers
 
-⚠�E�E**Third-party MCP servers can introduce security risks, including:**
+⚠️ **Third-party MCP servers can introduce security risks, including:**
 
 - Prompt injection attacks via MCP server responses
 - Filesystem access beyond intended scope

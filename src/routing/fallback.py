@@ -20,20 +20,15 @@ class FallbackManager:
 
     def __init__(self):
         """初期化"""
-        # フォールバックチェーン（Phase 2.4 初期実装 + v11.7.0: 新プロバイダー対応）
+        # v11.9.5: プロバイダーベースのフォールバック（特定モデル名への依存を排除）
+        # CLI系 → 同プロバイダーのAPI系 へフォールバック
+        # API系はフォールバックなし（APIキー未設定なら即失敗で明確に）
+        # ローカル / クラウドモデル名は動的解決に委ねる
         self.fallback_chains = {
-            # 旧エントリ（後方互換）
-            "local": ["claude-sonnet-4-5", "claude-opus-4-5"],
-            "gemini-3-pro": ["claude-sonnet-4-5", "claude-opus-4-5"],
-            "gemini-3-flash": ["claude-sonnet-4-5", "claude-opus-4-5"],
-            "claude-sonnet-4-5": ["claude-opus-4-5"],
-            "claude-haiku-4-5": ["claude-sonnet-4-5", "claude-opus-4-5"],
-            "claude-opus-4-5": None,  # Opus はフォールバック先なし
-            # v11.7.0: 新プロバイダー対応 — CLI系はAPI系にフォールバック
+            "local": None,  # ローカルからクラウドへの自動切替はしない（意図しない課金防止）
             "anthropic_cli": ["anthropic_api"],
             "openai_cli": ["openai_api"],
             "google_cli": ["google_api"],
-            # API系はフォールバックなし（APIキー未設定なら即失敗で明確に）
             "anthropic_api": None,
             "openai_api": None,
             "google_api": None,

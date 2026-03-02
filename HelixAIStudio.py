@@ -36,6 +36,46 @@ if os.name == 'nt':
         _logging.getLogger(__name__).warning(f"[Startup] AppUserModelID failed: {_e}")
 
 
+def _set_taskbar_icon_win32(hwnd: int, ico_path: str):
+    """Win32 API で直接タスクバーアイコンを設定（高DPI対応）"""
+    if os.name != 'nt':
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        WM_SETICON = 0x0080
+        ICON_SMALL = 0
+        ICON_BIG = 1
+        IMAGE_ICON = 1
+        LR_LOADFROMFILE = 0x0010
+        LR_DEFAULTSIZE = 0x0040
+
+        # 大きいアイコン（タスクバー・Alt+Tab用: 通常 32x32 or 高DPI 48x48）
+        sm_cxicon = user32.GetSystemMetrics(11)  # SM_CXICON
+        sm_cyicon = user32.GetSystemMetrics(12)  # SM_CYICON
+        hicon_big = user32.LoadImageW(
+            None, ico_path, IMAGE_ICON,
+            sm_cxicon, sm_cyicon,
+            LR_LOADFROMFILE,
+        )
+        if hicon_big:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+
+        # 小さいアイコン（タイトルバー用: 通常 16x16 or 高DPI 24x24）
+        sm_cxsmicon = user32.GetSystemMetrics(49)  # SM_CXSMICON
+        sm_cysmicon = user32.GetSystemMetrics(50)  # SM_CYSMICON
+        hicon_small = user32.LoadImageW(
+            None, ico_path, IMAGE_ICON,
+            sm_cxsmicon, sm_cysmicon,
+            LR_LOADFROMFILE,
+        )
+        if hicon_small:
+            user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+    except Exception:
+        pass
+
+
 def get_application_path() -> Path:
     """
     アプリケーションの実行パスを取得（PyInstaller対応）
@@ -65,23 +105,6 @@ sys.path.insert(0, str(APP_PATH))
 for _d in ['data', 'logs', 'config']:
     os.makedirs(str(APP_PATH / _d), exist_ok=True)
 
-# v8.3.1: app_settings.json claude.default_model 整合性チェック
-try:
-    import json as _json
-    _settings_path = APP_PATH / 'config' / 'app_settings.json'
-    if _settings_path.exists():
-        with open(_settings_path, 'r', encoding='utf-8') as _f:
-            _settings = _json.load(_f)
-        _expected_model = "claude-opus-4-6"
-        if _settings.get('claude', {}).get('default_model') != _expected_model:
-            _settings.setdefault('claude', {})['default_model'] = _expected_model
-            with open(_settings_path, 'w', encoding='utf-8') as _f:
-                _json.dump(_settings, _f, ensure_ascii=False, indent=2)
-except Exception as _e:
-    import logging as _logging
-    _logging.getLogger(__name__).warning(
-        f"[Startup] Settings migration failed (non-fatal): {_e}"
-    )
 
 # srcディレクトリをパスに追加
 src_path = APP_PATH / 'src'
@@ -176,6 +199,13 @@ def cleanup_on_exit():
     """
     logger = logging.getLogger(__name__)
     logger.info("[Cleanup] Starting application cleanup...")
+
+    # v11.9.6: Helix Pilot shutdown
+    try:
+        from src.tools.helix_pilot_tool import HelixPilotTool
+        HelixPilotTool.get_instance().shutdown()
+    except Exception:
+        pass
 
     # ガベージコレクションを実行
     gc.collect()
@@ -296,6 +326,16 @@ def main():
         from src.main_window import MainWindow
         window = MainWindow()
         window.show()
+
+        # v11.9.5: Win32 API でタスクバーアイコンを直接設定（高DPI対応）
+        if os.name == 'nt':
+            try:
+                _ico_path = Path(__file__).parent / "icon.ico"
+                if _ico_path.exists():
+                    _hwnd = int(window.winId())
+                    _set_taskbar_icon_win32(_hwnd, str(_ico_path))
+            except Exception as _e:
+                logging.getLogger(__name__).debug(f"[Startup] Win32 icon: {_e}")
 
         if splash:
             splash.finish(window)

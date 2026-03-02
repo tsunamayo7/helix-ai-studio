@@ -63,9 +63,12 @@
 
 ### Helix Pilot v2.0 — AI that controls the UI for you
 
-> 🆕 **New in v11.9.4**: Helix Pilot is a local Vision LLM agent that reads your screen and operates the app autonomously. Claude Code describes a task in plain English — Helix Pilot handles every click, scroll, and keystroke.
+> 🆕 **New in v11.9.5**: Helix Pilot is now **integrated directly into all chat tabs** (cloudAI, localAI, mixAI). Toggle the **Pilot** button to let the LLM see your screen and execute GUI commands automatically. Also available as a standalone CLI tool.
 
 ```bash
+# In-app: just toggle the 🤖 Pilot button in any chat tab
+
+# CLI usage:
 python scripts/helix_pilot.py auto "Open the mixAI tab, type a prompt, and send it" --window "Helix AI Studio"
 ```
 
@@ -100,7 +103,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | 💰 **Cost efficient** | Claude handles 20% (planning + validation). Free local models handle 80%. | Everything goes through the paid API |
 | 🔒 **Privacy where it matters** | Execution runs entirely on your GPU. Sensitive code never leaves your machine. | Cloud-only |
 | 📱 **Desktop + Mobile** | Native desktop app with built-in Web UI. Chat from your phone. | Usually one or the other |
-| 🤖 **Helix Pilot v2.0** | Vision LLM agent that operates the app via plain English. | Static UI, no automation |
+| 🤖 **Helix Pilot v2.0** | Vision LLM agent **built into every chat tab** — reads your screen and executes GUI commands. Also works as CLI. | Static UI, no automation |
 | 🖱️ **No code required** | GUI app with settings panels. Point and click. | Many orchestration tools require code |
 | 🆓 **Free and open** | MIT licensed. No subscription, no telemetry. | Often SaaS or freemium |
 
@@ -172,7 +175,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | 🔀 **mixAI Pipeline** | 3+1 Phase orchestration: plan → execute → validate → (optionally) apply file changes |
 | ☁️ **cloudAI Chat** | Direct chat with Claude, GPT, Gemini via API or CLI |
 | 💻 **localAI Chat** | Chat with any Ollama model on your local GPU |
-| 🤖 **Helix Pilot v2.0** | Vision LLM agent that reads your screen and operates the app via plain-English commands |
+| 🤖 **Helix Pilot v2.0** | Vision LLM agent **integrated into all chat tabs** — reads your screen, executes GUI commands. Also works as CLI. |
 | 📚 **Unified RAG** | One knowledge base shared across **Claude, GPT, Gemini, and Ollama** — build once with local embeddings, all models benefit |
 | 🌐 **Web UI** | React-based mobile-friendly interface, accessible from any device on your network |
 | 🧠 **4-Layer Memory** | Thread, Episodic, Semantic, Procedural — your AI remembers context across sessions |
@@ -327,7 +330,7 @@ python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.5** | 🎬 **Demo videos** (14 recordings), 📚 **Unified RAG** — Claude/GPT/Gemini/Ollama now share one knowledge base, cloudAI WebSocket DB schema fix |
+| **v11.9.5** | 🤖 **Helix Pilot in-app integration** (all 3 chat tabs + Settings), 🔧 **Model-agnostic hardening** (removed 7+ hardcoded model deps), 🎬 Demo videos (14 recordings), 📚 Unified RAG, doc fixes |
 | v11.9.4 | 🆕 **Helix Pilot v2.0** — autonomous Vision LLM GUI agent; Gemini thread safety fix |
 | v11.9.3 | Provider-based model classification, combo width fix |
 | v11.9.2 | Terminal toggle, Enter-to-send toggle, 240+ color literals purged |

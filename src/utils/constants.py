@@ -11,7 +11,7 @@ APP_VERSION = "11.9.5"
 APP_CODENAME = "Helix Pilot"
 APP_DESCRIPTION = (
     "Helix AI Studio v11.9.5 'Helix Pilot' - "
-    "WebUI デモビデオ追加・cloudAI DBスキーマ修正"
+    "Pilot アプリ内統合・モデル非依存性強化・ドキュメント修正"
 )
 
 # v8.5.0: 情報収集フォルダ
@@ -84,7 +84,10 @@ def resolve_claude_model_id(text: str) -> str:
     """
     if not text:
         return get_default_claude_model()
-    if text.startswith("claude-") or text.startswith("gpt") or text.startswith("o3") or text.startswith("o4"):
+    # プレフィックスマッチ: 既知のモデルIDパターンならそのまま返す（最適化）
+    # cloud_models.json に無くても API 側で解決されるため安全
+    known_prefixes = ("claude-", "gpt", "o3", "o4", "gemini-", "google/")
+    if any(text.startswith(p) for p in known_prefixes):
         return text
     try:
         from pathlib import Path

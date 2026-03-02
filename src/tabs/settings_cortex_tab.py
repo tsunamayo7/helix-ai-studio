@@ -132,6 +132,10 @@ class SettingsCortexTab(QWidget):
         self.webui_group = self._create_web_ui_section()
         content_layout.addWidget(self.webui_group)
 
+        # 8. v11.9.6: Helix Pilot (GUI自動操作)
+        self.pilot_group = self._create_pilot_settings_group()
+        content_layout.addWidget(self.pilot_group)
+
         # v11.0.0 C-4: 画面下部の単一保存ボタンを廃止（各セクション内に移設済み）
 
         content_layout.addStretch()
@@ -1113,6 +1117,181 @@ class SettingsCortexTab(QWidget):
     # 7. Web UIサーバー
     # ========================================
 
+    # ========================================
+    # v11.9.6: Helix Pilot Settings
+    # ========================================
+
+    def _create_pilot_settings_group(self) -> QGroupBox:
+        """Helix Pilot 設定グループを作成"""
+        group = QGroupBox(t('desktop.settings.pilotGroup'))
+        layout = QVBoxLayout(group)
+
+        # 説明
+        desc = QLabel(t('desktop.settings.pilotDesc'))
+        desc.setWordWrap(True)
+        desc.setStyleSheet(f"color: {COLORS.get('text_secondary', '#94a3b8')}; font-size: 11px;")
+        layout.addWidget(desc)
+
+        # Ollama 接続状態
+        self.pilot_status_label = QLabel("")
+        self.pilot_status_label.setStyleSheet("font-size: 11px;")
+        layout.addWidget(self.pilot_status_label)
+
+        # Vision モデル
+        vision_layout = QHBoxLayout()
+        self.pilot_vision_label = QLabel(t('desktop.settings.pilotVisionModel'))
+        self.pilot_vision_label.setFixedWidth(180)
+        vision_layout.addWidget(self.pilot_vision_label)
+        self.pilot_vision_edit = QLineEdit()
+        self.pilot_vision_edit.setPlaceholderText("mistral-small3.2:latest")
+        vision_layout.addWidget(self.pilot_vision_edit)
+        layout.addLayout(vision_layout)
+
+        # Reasoning モデル
+        reason_layout = QHBoxLayout()
+        self.pilot_reasoning_label = QLabel(t('desktop.settings.pilotReasoningModel'))
+        self.pilot_reasoning_label.setFixedWidth(180)
+        reason_layout.addWidget(self.pilot_reasoning_label)
+        self.pilot_reasoning_edit = QLineEdit()
+        self.pilot_reasoning_edit.setPlaceholderText("gemma3:27b")
+        reason_layout.addWidget(self.pilot_reasoning_edit)
+        layout.addLayout(reason_layout)
+
+        # 最大ステップ数
+        steps_layout = QHBoxLayout()
+        self.pilot_steps_label = QLabel(t('desktop.settings.pilotMaxSteps'))
+        self.pilot_steps_label.setFixedWidth(180)
+        steps_layout.addWidget(self.pilot_steps_label)
+        self.pilot_max_steps_spin = NoScrollSpinBox()
+        self.pilot_max_steps_spin.setRange(5, 50)
+        self.pilot_max_steps_spin.setValue(20)
+        self.pilot_max_steps_spin.setFixedWidth(130)
+        self.pilot_max_steps_spin.setStyleSheet(SPINBOX_STYLE)
+        steps_layout.addWidget(self.pilot_max_steps_spin)
+        steps_layout.addStretch()
+        layout.addLayout(steps_layout)
+
+        # タイムアウト
+        timeout_layout = QHBoxLayout()
+        self.pilot_timeout_label = QLabel(t('desktop.settings.pilotTimeout'))
+        self.pilot_timeout_label.setFixedWidth(180)
+        timeout_layout.addWidget(self.pilot_timeout_label)
+        self.pilot_timeout_spin = NoScrollSpinBox()
+        self.pilot_timeout_spin.setRange(60, 600)
+        self.pilot_timeout_spin.setValue(300)
+        self.pilot_timeout_spin.setFixedWidth(130)
+        self.pilot_timeout_spin.setStyleSheet(SPINBOX_STYLE)
+        self.pilot_timeout_spin.setSuffix(" s")
+        timeout_layout.addWidget(self.pilot_timeout_spin)
+        timeout_layout.addStretch()
+        layout.addLayout(timeout_layout)
+
+        # セーフモード
+        self.pilot_safe_mode_cb = QCheckBox(t('desktop.settings.pilotSafeMode'))
+        self.pilot_safe_mode_cb.setChecked(True)
+        layout.addWidget(self.pilot_safe_mode_cb)
+
+        # デフォルトウィンドウ
+        win_layout = QHBoxLayout()
+        self.pilot_window_label = QLabel(t('desktop.settings.pilotDefaultWindow'))
+        self.pilot_window_label.setFixedWidth(180)
+        win_layout.addWidget(self.pilot_window_label)
+        self.pilot_window_edit = QLineEdit()
+        self.pilot_window_edit.setPlaceholderText("Helix AI Studio")
+        win_layout.addWidget(self.pilot_window_edit)
+        layout.addLayout(win_layout)
+
+        # 保存ボタン
+        save_btn = create_section_save_button(self._save_pilot_settings)
+        layout.addWidget(save_btn)
+
+        # 設定を読み込む
+        self._load_pilot_settings()
+        self._update_pilot_status()
+
+        return group
+
+    def _load_pilot_settings(self):
+        """config/helix_pilot.json から Pilot 設定を読み込み"""
+        try:
+            config_path = Path("config/helix_pilot.json")
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                self.pilot_vision_edit.setText(config.get("vision_model", ""))
+                self.pilot_reasoning_edit.setText(config.get("reasoning_model", ""))
+                auto_cfg = config.get("auto_config", {})
+                self.pilot_max_steps_spin.setValue(auto_cfg.get("max_steps", 20))
+                self.pilot_timeout_spin.setValue(auto_cfg.get("timeout", 300))
+                self.pilot_safe_mode_cb.setChecked(config.get("safe_mode", True))
+                self.pilot_window_edit.setText(config.get("default_window", ""))
+        except Exception as e:
+            logger.warning(f"[Settings] Pilot settings load failed: {e}")
+
+    def _save_pilot_settings(self):
+        """config/helix_pilot.json に Pilot 設定を保存"""
+        try:
+            config_path = Path("config/helix_pilot.json")
+            config = {}
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+
+            config["vision_model"] = self.pilot_vision_edit.text().strip()
+            config["reasoning_model"] = self.pilot_reasoning_edit.text().strip()
+            config["safe_mode"] = self.pilot_safe_mode_cb.isChecked()
+            config["default_window"] = self.pilot_window_edit.text().strip()
+            config.setdefault("auto_config", {})["max_steps"] = self.pilot_max_steps_spin.value()
+            config.setdefault("auto_config", {})["timeout"] = self.pilot_timeout_spin.value()
+
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=2, ensure_ascii=False)
+
+            # HelixPilotTool のキャッシュをリセット
+            try:
+                from ..tools.helix_pilot_tool import HelixPilotTool
+                HelixPilotTool.get_instance().reset_availability()
+            except Exception:
+                pass
+
+            self._update_pilot_status()
+
+            from PyQt6.QtWidgets import QToolTip
+            from PyQt6.QtCore import QPoint
+            self.pilot_status_label.setText(t('desktop.settings.pilotSaved'))
+        except Exception as e:
+            logger.error(f"[Settings] Pilot settings save failed: {e}")
+
+    def _update_pilot_status(self):
+        """Pilot の接続状態を表示更新"""
+        try:
+            from ..tools.helix_pilot_tool import HelixPilotTool
+            pilot = HelixPilotTool.get_instance()
+            pilot.reset_availability()
+            if pilot.is_available:
+                self.pilot_status_label.setText(t('desktop.settings.pilotOllamaOk'))
+                self.pilot_status_label.setStyleSheet(
+                    f"color: {COLORS.get('success', '#10b981')}; font-size: 11px;")
+            else:
+                error = pilot.last_error
+                if "not_connected" in error:
+                    self.pilot_status_label.setText(t('desktop.settings.pilotOllamaNg'))
+                elif "not_set" in error:
+                    self.pilot_status_label.setText(t('desktop.settings.pilotVisionNotSet'))
+                elif "not_found" in error:
+                    model = error.split(":")[-1] if ":" in error else ""
+                    self.pilot_status_label.setText(
+                        t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
+                else:
+                    self.pilot_status_label.setText(t('desktop.settings.pilotOllamaNg'))
+                self.pilot_status_label.setStyleSheet(
+                    f"color: {COLORS.get('warning', '#f59e0b')}; font-size: 11px;")
+        except Exception as e:
+            self.pilot_status_label.setText(t('desktop.settings.pilotOllamaNg'))
+            self.pilot_status_label.setStyleSheet(
+                f"color: {COLORS.get('text_secondary', '#94a3b8')}; font-size: 11px;")
+
     def _create_web_ui_section(self) -> QGroupBox:
         """Web UIサーバー設定セクション（v9.3.0拡張）"""
         group = QGroupBox(t('desktop.settings.webUI'))
@@ -1849,6 +2028,15 @@ class SettingsCortexTab(QWidget):
         self.display_group.setTitle(t('desktop.settings.display'))
         self.auto_group.setTitle(t('desktop.settings.automation'))
         self.webui_group.setTitle(t('desktop.settings.webUI'))
+        if hasattr(self, 'pilot_group'):
+            self.pilot_group.setTitle(t('desktop.settings.pilotGroup'))
+        if hasattr(self, 'pilot_vision_label'):
+            self.pilot_vision_label.setText(t('desktop.settings.pilotVisionModel'))
+            self.pilot_reasoning_label.setText(t('desktop.settings.pilotReasoningModel'))
+            self.pilot_steps_label.setText(t('desktop.settings.pilotMaxSteps'))
+            self.pilot_timeout_label.setText(t('desktop.settings.pilotTimeout'))
+            self.pilot_safe_mode_cb.setText(t('desktop.settings.pilotSafeMode'))
+            self.pilot_window_label.setText(t('desktop.settings.pilotDefaultWindow'))
         if hasattr(self, 'api_keys_group'):
             self.api_keys_group.setTitle(t('desktop.settings.apiKeysGroup'))
 

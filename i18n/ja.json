@@ -366,7 +366,8 @@
       "googleApiKeyPlaceholder": "AIza... （空欄の場合 Gemini API は使用不可）"
     },
     "common": {
-      "bibleToggleTooltip": "BIBLEコンテキスト注入の切替（Build Information Base for Lifecycle Engineering）"
+      "bibleToggleTooltip": "BIBLEコンテキスト注入の切替（Build Information Base for Lifecycle Engineering）",
+      "pilotToggleTooltip": "Helix Pilot (GUI自動操作) を有効化。ONにするとLLMが画面を認識し操作コマンドを実行できます"
     },
     "chatHistory": {
       "title": "チャット履歴",
@@ -1045,7 +1046,21 @@
       "refreshPhaseModelsTip": "cloudAI/localAIで変更したモデル一覧を全Phaseに反映します",
       "browserUseGroup": "URL取得設定",
       "browserUseLabel": "自動URL取得を有効化",
-      "browserUseTip": "httpx経由でURLのコンテンツを取得します（ブラウザ不要）"
+      "browserUseTip": "httpx経由でURLのコンテンツを取得します（ブラウザ不要）",
+      "pilotGroup": "Helix Pilot (GUI自動操作)",
+      "pilotDesc": "Vision LLM を使用してデスクトップGUIを自動操作するツールです。Ollama + Visionモデルが必要です。",
+      "pilotVisionModel": "Vision モデル:",
+      "pilotReasoningModel": "Reasoning モデル (auto/browse用):",
+      "pilotMaxSteps": "最大ステップ数 (auto/browse):",
+      "pilotTimeout": "タイムアウト:",
+      "pilotSafeMode": "セーフモード (--window 必須)",
+      "pilotDefaultWindow": "デフォルト対象ウィンドウ:",
+      "pilotSaved": "Pilot設定を保存しました",
+      "pilotOllamaOk": "Ollama接続OK — Vision モデル利用可能",
+      "pilotOllamaNg": "Ollama未接続 — Pilot機能を使用するにはOllamaが必要です",
+      "pilotVisionNotSet": "Visionモデルが未設定です。設定タブで Vision モデルを指定してください",
+      "pilotVisionNotFound": "Visionモデル '{model}' がOllamaに見つかりません。'ollama pull {model}' を実行してください",
+      "pilotVisionNotCapable": "モデル '{model}' はVision機能を持っていません。Vision対応モデル（例: mistral-small3.2:latest）を指定してください"
     },
     "soloAI": {
       "title": "🚀 soloAI - Claude Code",
@@ -1882,6 +1897,17 @@
       "browserUseNotInstalled": "browser_useがインストールされていません（httpxフォールバック使用中）",
       "browserUseHttpxMode": "有効化するとプロンプト中のURLを取得してコンテキストに注入します（現在: 静的ページのみ・httpxベース）\nbrowser-use をインストールするとJSレンダリングページにも対応します\npip install browser-use && python -m playwright install chromium"
     }
+  },
+  "pilot": {
+    "executing": "Pilot: {command} 実行中...",
+    "completed": "Pilot: {command} 完了",
+    "error": "Pilot: {command} エラー — {error}",
+    "notAvailable": "Helix Pilot が利用できません。設定タブ → Helix Pilot セクションで Ollama接続と Vision モデルを確認してください。",
+    "contextInjected": "画面コンテキストを注入しました ({window})",
+    "emergencyStop": "緊急停止が発動しました",
+    "enableFailed": "Pilot を有効化できません: {reason}",
+    "ollamaRequired": "OllamaがインストールされていないかOllamaが起動していません。\n\n1. https://ollama.com からOllamaをインストール\n2. ollama pull mistral-small3.2:latest\n3. 設定タブでVisionモデルを設定",
+    "visionModelRequired": "Visionモデルが設定されていません。\n\n設定タブ → Helix Pilot → Vision モデル に\nVision対応モデル名を入力してください。\n\n推奨モデル:\n- mistral-small3.2:latest\n- llama3.2-vision:11b"
   },
   "widget": {
     "monitor": {

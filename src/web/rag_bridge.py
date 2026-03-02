@@ -19,7 +19,18 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = "data/helix_memory.db"
 DOCUMENT_DB_PATH = "data/rag/document_memory.db"
-EMBEDDING_MODEL = "qwen3-embedding:4b"
+def _get_embedding_model() -> str:
+    """model_config から Embedding モデルを動的取得"""
+    try:
+        from src.memory.model_config import get_embedding_model
+        m = get_embedding_model()
+        if m:
+            return m
+    except Exception:
+        pass
+    return ""
+
+EMBEDDING_MODEL = _get_embedding_model()
 OLLAMA_HOST = "http://localhost:11434"
 
 
@@ -188,8 +199,23 @@ class WebRAGBridge:
             logger.warning(f"Embedding failed: {e}")
         return None
 
+    def _get_quality_model(self) -> str:
+        """model_config から品質チェック/要約用モデルを動的取得"""
+        try:
+            from src.memory.model_config import get_quality_llm
+            m = get_quality_llm()
+            if m:
+                return m
+        except Exception:
+            pass
+        return ""
+
     async def _generate_summary(self, messages: list) -> str:
-        """ministral-3:8b で会話要約を生成"""
+        """Ollama で会話要約を生成（モデルは model_config から動的取得）"""
+        summary_model = self._get_quality_model()
+        if not summary_model:
+            logger.debug("No quality LLM configured, skipping summary generation")
+            return ""
         msg_text = "\n".join(
             f"[{m.get('role', '?')}] {m.get('content', '')[:300]}"
             for m in messages[:20]
@@ -203,7 +229,7 @@ class WebRAGBridge:
             async with httpx.AsyncClient(timeout=60) as client:
                 resp = await client.post(
                     f"{self.ollama_host}/api/generate",
-                    json={"model": "ministral-3:8b", "prompt": prompt, "stream": False},
+                    json={"model": summary_model, "prompt": prompt, "stream": False},
                 )
                 resp.raise_for_status()
                 return resp.json().get("response", "").strip()

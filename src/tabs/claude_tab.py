@@ -2343,6 +2343,23 @@ class ClaudeTab(QWidget):
         """)
         btn_layout.addWidget(self.bible_btn)
 
+        # v11.9.6: Helix Pilot toggle button
+        self.pilot_btn = QPushButton("Pilot")
+        self.pilot_btn.setCheckable(True)
+        self.pilot_btn.setChecked(False)
+        self.pilot_btn.setFixedHeight(32)
+        self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
+        self.pilot_btn.setStyleSheet(f"""
+            QPushButton {{ background: transparent; color: {COLORS['info']};
+                border: 1px solid {COLORS['info']}; border-radius: 4px;
+                padding: 4px 12px; font-size: 11px; }}
+            QPushButton:checked {{ background: rgba(129, 140, 248, 0.2);
+                border: 2px solid {COLORS['info']}; font-weight: bold; }}
+            QPushButton:hover {{ background: rgba(129, 140, 248, 0.1); }}
+        """)
+        self.pilot_btn.toggled.connect(self._on_pilot_toggled)
+        btn_layout.addWidget(self.pilot_btn)
+
         btn_layout.addStretch()
 
         # v11.0.0: Continue Send button (session retention)
@@ -2677,6 +2694,9 @@ class ClaudeTab(QWidget):
         # v11.0.0: BIBLE toggle button
         if hasattr(self, 'bible_btn'):
             self.bible_btn.setToolTip(t('desktop.common.bibleToggleTooltip'))
+        # v11.9.6: Pilot toggle button
+        if hasattr(self, 'pilot_btn'):
+            self.pilot_btn.setToolTip(t('desktop.common.pilotToggleTooltip'))
         # v11.0.0: Header title + model label
         if hasattr(self, 'cloud_header_title'):
             self.cloud_header_title.setText(t('desktop.cloudAI.headerTitle'))
@@ -3241,6 +3261,46 @@ class ClaudeTab(QWidget):
             logger.error(f"[ClaudeTab._delete_snippet] Error: {e}", exc_info=True)
             QMessageBox.warning(self, t('common.error'), t('desktop.cloudAI.snippetDeleteGenericError', error=str(e)))
 
+    def _on_pilot_toggled(self, checked: bool):
+        """Pilot トグル時の利用可能性チェック"""
+        if not checked:
+            return
+        try:
+            from ..tools.helix_pilot_tool import HelixPilotTool
+            pilot = HelixPilotTool.get_instance()
+            pilot.reset_availability()
+            if not pilot.is_available:
+                self.pilot_btn.setChecked(False)
+                error = pilot.last_error
+                if "not_connected" in error:
+                    QMessageBox.warning(self, "Helix Pilot", t('pilot.ollamaRequired'))
+                elif "not_set" in error:
+                    QMessageBox.warning(self, "Helix Pilot", t('pilot.visionModelRequired'))
+                elif "not_found" in error:
+                    model = error.split(":")[-1] if ":" in error else ""
+                    QMessageBox.warning(self, "Helix Pilot",
+                                        t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
+        except Exception as e:
+            self.pilot_btn.setChecked(False)
+            logger.warning(f"[Pilot] Toggle check failed: {e}")
+
+    def _process_pilot_response(self, response: str) -> str:
+        """応答テキスト中の <<PILOT:...>> マーカーを処理"""
+        if not hasattr(self, 'pilot_btn') or not self.pilot_btn.isChecked():
+            return response
+        try:
+            from ..tools.pilot_response_processor import parse_pilot_calls, execute_and_replace
+            from ..tools.helix_pilot_tool import HelixPilotTool
+            calls = parse_pilot_calls(response)
+            if not calls:
+                return response
+            pilot = HelixPilotTool.get_instance()
+            processed, executed = execute_and_replace(response, pilot)
+            return processed
+        except Exception as e:
+            logger.warning(f"[Pilot] Response processing failed: {e}")
+            return response
+
     def _send_message(self, message: str):
         """メッセージを送信 (Phase 2.0: Backend経由)"""
         import logging
@@ -3398,6 +3458,22 @@ class ClaudeTab(QWidget):
                 mixin = BibleContextMixin()
                 processed_message = mixin._inject_bible_to_prompt(processed_message)
 
+            # v11.9.6: Helix Pilot context injection
+            if hasattr(self, 'pilot_btn') and self.pilot_btn.isChecked():
+                try:
+                    from ..tools.pilot_response_processor import get_system_prompt_addition
+                    from ..tools.helix_pilot_tool import HelixPilotTool
+                    pilot = HelixPilotTool.get_instance()
+                    config = pilot._load_config()
+                    window = config.get("default_window", "")
+                    screen_ctx = pilot.get_screen_context(window) if pilot.is_available else ""
+                    lang = "ja" if t('desktop.cloudAI.sendBtnMain') != "Send" else "en"
+                    pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
+                    processed_message = pilot_prompt + "\n\n" + processed_message
+                except Exception as e:
+                    import logging
+                    logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+
             # Ollama モード（auth_mode=3）
             if auth_mode == 3 and hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
                 ollama_model = getattr(self, '_ollama_model', '') or self._auto_select_ollama_model()
@@ -3538,6 +3614,9 @@ class ClaudeTab(QWidget):
 
     def _on_gemini_completed(self, full_text: str, duration_ms: float, model_id: str):
         """v11.9.4: Gemini API 応答完了（メインスレッドで実行される）"""
+        # v11.9.6: Pilot response processing
+        full_text = self._process_pilot_response(full_text)
+
         if hasattr(self, 'solo_status_bar'):
             self.solo_status_bar.set_status("idle")
 
@@ -3985,6 +4064,8 @@ class ClaudeTab(QWidget):
         logger = logging.getLogger(__name__)
 
         if response.success:
+            # v11.9.6: Pilot response processing
+            response.response_text = self._process_pilot_response(response.response_text)
             # 成功時: 応答を表示（Markdown→HTMLレンダリング）
             rendered = markdown_to_html(response.response_text)
             self.chat_display.append(
@@ -4272,6 +4353,9 @@ class ClaudeTab(QWidget):
         """Ollama応答受信時 (v3.9.2)"""
         import logging
         logger = logging.getLogger(__name__)
+
+        # v11.9.6: Pilot response processing
+        response_text = self._process_pilot_response(response_text)
 
         ollama_model = getattr(self, '_ollama_model', 'ollama')
 

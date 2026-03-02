@@ -285,25 +285,49 @@ class HybridRouter:
 
         return self._route_cloud_first(context)
 
+    def _get_first_cloud_model(self, provider_prefix: str = "") -> str:
+        """cloud_models.json から先頭モデルの model_id を動的取得"""
+        try:
+            config_path = Path("config/cloud_models.json")
+            if config_path.exists():
+                data = json.loads(config_path.read_text(encoding="utf-8"))
+                models = data.get("models", []) if isinstance(data, dict) else data
+                if provider_prefix:
+                    for m in models:
+                        pid = m.get("provider", "") or ""
+                        mid = m.get("model_id", "") or ""
+                        if provider_prefix in pid or provider_prefix in mid:
+                            return mid
+                if models:
+                    return models[0].get("model_id", "")
+        except Exception:
+            pass
+        return ""
+
     def _route_cloud_first(self, context: RoutingContext) -> RoutingDecision:
         """クラウド優先ルーティング"""
         domain = self.task_domain_map.get(context.task_type, "general")
 
-        # ドメインに応じたモデル選択
-        if domain == "coding":
-            model_id = "claude-sonnet-4.5"
-        elif domain == "vision":
-            model_id = "gemini-3-pro"
-        elif domain == "analysis":
-            model_id = "claude-opus-4.5"
-        else:
-            model_id = "claude-sonnet-4.5"
+        # cloud_models.json から動的にモデルを取得（ハードコード依存なし）
+        model_id = self._get_first_cloud_model()
+        if not model_id:
+            model_id = "local-default"
+
+        # ドメインヒント: vision は Google 系、それ以外はユーザー登録の先頭モデル
+        if domain == "vision":
+            google_model = self._get_first_cloud_model("google")
+            if google_model:
+                model_id = google_model
+
+        backend = "cloud_gemini" if "gemini" in model_id else "cloud_claude"
+        if model_id == "local-default":
+            backend = "local"
 
         return RoutingDecision(
-            selected_backend="cloud_claude" if "claude" in model_id else "cloud_gemini",
+            selected_backend=backend,
             model_id=model_id,
             reason=f"cloud_first_strategy_domain_{domain}",
-            fallback_chain=[model_id, "claude-opus-4.5", "local"],
+            fallback_chain=[model_id, "local"],
             estimated_cost=self._estimate_cost(model_id, context.estimated_tokens),
             estimated_latency_ms=2000,
             strategy_used="cloud_first",
@@ -458,22 +482,31 @@ class HybridRouter:
         return False
 
     def _build_fallback_chain(self, primary_backend: str) -> List[str]:
-        """フォールバックチェーンを構築"""
-        chains = {
-            "local": ["local", "claude-sonnet-4.5", "claude-opus-4.5"],
-            "cloud_claude": ["claude-sonnet-4.5", "claude-opus-4.5", "local"],
-            "cloud_gemini": ["gemini-3-pro", "gemini-3-flash", "claude-sonnet-4.5"],
-        }
-        return chains.get(primary_backend, ["claude-sonnet-4.5", "local"])
+        """フォールバックチェーンを構築（cloud_models.json から動的生成）"""
+        first_cloud = self._get_first_cloud_model()
+        if primary_backend == "local":
+            chain = ["local"]
+            if first_cloud:
+                chain.append(first_cloud)
+            return chain
+        elif primary_backend in ("cloud_claude", "cloud_gemini"):
+            chain = []
+            if first_cloud:
+                chain.append(first_cloud)
+            chain.append("local")
+            return chain
+        return [first_cloud, "local"] if first_cloud else ["local"]
 
     def _get_default_model_for_backend(self, backend: str) -> str:
-        """バックエンドのデフォルトモデルを取得"""
-        defaults = {
-            "local": "local-default",
-            "cloud_claude": "claude-sonnet-4.5",
-            "cloud_gemini": "gemini-3-pro",
-        }
-        return defaults.get(backend, "claude-sonnet-4.5")
+        """バックエンドのデフォルトモデルを取得（cloud_models.json から動的解決）"""
+        if backend == "local":
+            return "local-default"
+        if backend == "cloud_gemini":
+            google_model = self._get_first_cloud_model("google")
+            if google_model:
+                return google_model
+        first_cloud = self._get_first_cloud_model()
+        return first_cloud if first_cloud else "local-default"
 
     def _estimate_cost(self, model_id: str, tokens: int) -> float:
         """コストを概算"""

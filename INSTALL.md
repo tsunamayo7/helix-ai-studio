@@ -10,7 +10,7 @@
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/your-repo/helix-ai-studio.git
+git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
 
 # install.bat を実行（対話的インストール）
@@ -38,7 +38,7 @@ https://docs.anthropic.com/en/docs/claude-code
 ### Ollama（localAI 機能に必要）
 
 Ollama をインストールしてモデルをダウンロード:
-https://ollama.ai
+https://ollama.com
 
 ```bash
 ollama pull qwen3:32b
