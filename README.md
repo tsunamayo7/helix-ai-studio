@@ -45,25 +45,19 @@
 
 ## 🎬 See It in Action
 
-### mixAI Pipeline — Desktop App
+### mixAI Pipeline — 3-Phase AI Orchestration
 
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/desktop_mixai_en.mp4" controls muted loop title="mixAI Pipeline Demo (Desktop)"></video>
+![mixAI Pipeline Demo](docs/demo/desktop_mixai.gif)
 
 > Claude plans the work, local LLMs execute in parallel, Claude validates the result. All in one click.
 
-### mixAI Pipeline — Web UI
+### cloudAI Chat — Direct conversation with Claude, GPT, Gemini
 
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_mixai_en.mp4" controls muted loop title="mixAI Pipeline Demo (Web UI)"></video>
+![cloudAI Chat Demo](docs/demo/desktop_cloudai.gif)
 
-> The same pipeline, accessible from your phone or any browser on your network.
+### localAI Chat — Talk directly to local models on your GPU
 
-### cloudAI Chat — Claude direct conversation
-
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_cloudai_en.mp4" controls muted loop title="cloudAI Chat Demo"></video>
-
-### localAI Chat — Talk directly to local models
-
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_localai_en.mp4" controls muted loop title="localAI Chat Demo"></video>
+![localAI Chat Demo](docs/demo/desktop_localai.gif)
 
 > Pick any Ollama model and chat. Switch models mid-conversation. Everything runs on your GPU.
 

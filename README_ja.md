@@ -23,25 +23,19 @@ Helix AI Studio は、異なるAIモデルを本当の意味で「協力」さ�
 
 ## 動いている様子を見てみよう
 
-### mixAI パイプライン — デスクトップ版
+### mixAI パイプライン — 3フェーズAIオーケストレーション
 
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/desktop_mixai_jp.mp4" controls muted loop title="mixAI パイプラインデモ（デスクトップ）"></video>
+![mixAI パイプラインデモ](docs/demo/desktop_mixai_ja.gif)
 
 > Claudeが作業計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。ワンクリックで全自動。
 
-### mixAI パイプライン — Web UI版
+### cloudAI チャット — Claude・GPT・Geminiと直接対話
 
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_mixai_jp.mp4" controls muted loop title="mixAI パイプラインデモ（Web UI）"></video>
-
-> スマホやブラウザから同じパイプラインを利用できます。
-
-### cloudAI チャット — Claude直接対話
-
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_cloudai_jp.mp4" controls muted loop title="cloudAI チャットデモ"></video>
+![cloudAI チャットデモ](docs/demo/desktop_cloudai_ja.gif)
 
 ### localAI チャット — ローカルモデルと直接対話
 
-<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_localai_jp.mp4" controls muted loop title="localAI チャットデモ"></video>
+![localAI チャットデモ](docs/demo/desktop_localai_ja.gif)
 
 > Ollamaのモデルを選んですぐチャット。会話の途中でモデルを切り替えることもできます。すべてあなたのGPUで動作します。
 
