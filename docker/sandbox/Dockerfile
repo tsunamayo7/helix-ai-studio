@@ -35,9 +35,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     imagemagick \
     # 日本語フォント (i18n対応)
     fonts-noto-cjk \
-    # Qt/GUI依存
-    libgl1-mesa-glx \
-    libegl1-mesa \
+    # Qt/GUI依存 (Ubuntu 24.04 では旧名パッケージ廃止)
+    libgl1 \
+    libglx-mesa0 \
+    libegl1 \
+    libegl-mesa0 \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
     # X11基本
@@ -47,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # --- 2. 非rootユーザー作成 ---
-RUN useradd -m -s /bin/bash -u 1000 sandbox \
+RUN useradd -m -s /bin/bash -o -u 1000 sandbox \
     && mkdir -p /workspace /workspace-overlay \
     && chown -R sandbox:sandbox /workspace /workspace-overlay
 
