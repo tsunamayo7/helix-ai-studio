@@ -11,7 +11,7 @@ Helix AI Studio is a desktop app that makes different AI models actually work *t
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.4-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v11.9.5-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -23,25 +23,27 @@ Helix AI Studio is a desktop app that makes different AI models actually work *t
 
 ## See It in Action
 
-### mixAI Pipeline -- Multiple AIs collaborating on your task
+### mixAI Pipeline — Desktop App
 
-![mixAI Pipeline Demo](docs/demo/mixai_pipeline.gif)
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/desktop_mixai_en.mp4" controls muted loop title="mixAI Pipeline Demo (Desktop)"></video>
 
 > Claude plans the work, local LLMs execute in parallel, Claude validates the result. All in one click.
 
-### localAI Chat -- Talk directly to local models
+### mixAI Pipeline — Web UI
 
-![localAI Chat Demo](docs/demo/localai_chat.gif)
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_mixai_en.mp4" controls muted loop title="mixAI Pipeline Demo (Web UI)"></video>
+
+> The same pipeline, accessible from your phone or any browser on your network.
+
+### cloudAI Chat — Claude direct conversation
+
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_cloudai_en.mp4" controls muted loop title="cloudAI Chat Demo"></video>
+
+### localAI Chat — Talk directly to local models
+
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_localai_en.mp4" controls muted loop title="localAI Chat Demo"></video>
 
 > Pick any Ollama model and chat. Switch models mid-conversation. Everything runs on your GPU.
-
-### Desktop + Web UI -- Use it anywhere
-
-| Desktop (PyQt6) | Web UI (React) |
-|:---:|:---:|
-| ![Desktop](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main.png) |
-
-> The desktop app runs on your PC. The Web UI lets you chat from your phone, tablet, or any browser on your network.
 
 ### Helix Pilot v2.0 — AI that controls the UI for you
 
@@ -295,7 +297,8 @@ The app includes a built-in Web UI. Enable it in Settings, then open `http://loc
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.4** | **Helix Pilot v2.0** (autonomous Vision LLM GUI agent), Gemini thread safety fix, model display improvements |
+| **v11.9.5** | **Demo videos** (Desktop + Web UI, 14 recordings), cloudAI WebSocket DB schema fix |
+| v11.9.4 | Helix Pilot v2.0 (autonomous Vision LLM GUI agent), Gemini thread safety fix, model display improvements |
 | v11.9.3 | Provider-based model classification, combo width fix |
 | v11.9.2 | Terminal toggle, Enter-to-send toggle, 240+ color literals purged |
 | v11.9.0 | Unified Obsidian theme, SS semantic helpers, SplashScreen |

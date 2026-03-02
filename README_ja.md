@@ -11,7 +11,7 @@ Helix AI Studio は、異なるAIモデルを本当の意味で「協力」さ�
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.4-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v11.9.5-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -23,25 +23,27 @@ Helix AI Studio は、異なるAIモデルを本当の意味で「協力」さ�
 
 ## 動いている様子を見てみよう
 
-### mixAI パイプライン -- 複数のAIがあなたのタスクに協力
+### mixAI パイプライン — デスクトップ版
 
-![mixAI パイプラインデモ](docs/demo/mixai_pipeline_ja.gif)
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/desktop_mixai_jp.mp4" controls muted loop title="mixAI パイプラインデモ（デスクトップ）"></video>
 
 > Claudeが作業計画を立て、ローカルLLMが実行し、Claudeが結果を検証します。ワンクリックで全自動。
 
-### localAI チャット -- ローカルモデルと直接対話
+### mixAI パイプライン — Web UI版
 
-![localAI チャットデモ](docs/demo/localai_chat_ja.gif)
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_mixai_jp.mp4" controls muted loop title="mixAI パイプラインデモ（Web UI）"></video>
+
+> スマホやブラウザから同じパイプラインを利用できます。
+
+### cloudAI チャット — Claude直接対話
+
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_cloudai_jp.mp4" controls muted loop title="cloudAI チャットデモ"></video>
+
+### localAI チャット — ローカルモデルと直接対話
+
+<video src="https://github.com/tsunamayo7/helix-ai-studio/releases/download/v11.9.5/webui_localai_jp.mp4" controls muted loop title="localAI チャットデモ"></video>
 
 > Ollamaのモデルを選んですぐチャット。会話の途中でモデルを切り替えることもできます。すべてあなたのGPUで動作します。
-
-### デスクトップ + Web UI -- どこからでも使える
-
-| デスクトップ (PyQt6) | Web UI (React) |
-|:---:|:---:|
-| ![デスクトップ](docs/demo/desktop_mixai.png) | ![Web UI](docs/demo/webui_main_ja.png) |
-
-> デスクトップアプリはあなたのPCで動作。Web UIを使えば、スマホやタブレット、ネットワーク上のどのブラウザからでもチャットできます。
 
 ### Helix Pilot v2.0 — AIがUIを自動操作
 
@@ -273,7 +275,8 @@ python HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |---|---|
-| **v11.9.4** | **Helix Pilot v2.0**（Vision LLM自律GUIエージェント）、Geminiスレッド安全性修正、モデル表示改善 |
+| **v11.9.5** | **デモビデオ追加**（デスクトップ + Web UI、14本）、cloudAI WebSocket DBスキーマ修正 |
+| v11.9.4 | Helix Pilot v2.0（Vision LLM自律GUIエージェント）、Geminiスレッド安全性修正、モデル表示改善 |
 | v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
 | v11.9.2 | ターミナル表示トグル、Enter送信切替、240+カラーリテラル排除 |
 | v11.9.0 | Unified Obsidianテーマ、SSセマンティックヘルパー、スプラッシュスクリーン |
