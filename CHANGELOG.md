@@ -5,36 +5,6 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [12.0.0] - 2026-03-03 "Sandbox First"
-
-### Added
-- **Docker Sandbox Virtual Desktop** (7th tab): Isolated Docker container with Xvfb + x11vnc + NoVNC for safe code execution
-  - `docker/sandbox/Dockerfile` + `entrypoint.sh`: Ubuntu 24.04 sandbox image (non-root, 1280x720)
-  - `src/sandbox/sandbox_config.py`: `SandboxConfig`, `SandboxInfo`, `SandboxStatus` dataclasses/enum
-  - `src/sandbox/sandbox_manager.py`: Docker SDK wrapper — create/destroy/execute/write_file/read_file/screenshot/get_diff
-  - `src/sandbox/promotion_engine.py`: Diff generation, preview (FileChange), selective apply with backup, rollback
-  - `src/tabs/virtual_desktop_tab.py`: Full UI — NoVNC viewer sub-tab + Settings sub-tab, Promotion panel
-  - `scripts/build_sandbox_image.sh` / `scripts/build_sandbox_image.ps1`: Image build scripts
-- **Sandbox tool routing** for localAI and cloudAI:
-  - `src/tabs/local_ai_tab.py`: `write_file`/`create_file` routed to sandbox when running
-  - `src/backends/local_agent.py`: 4 sandbox tools (`sandbox_write_file`, `sandbox_exec`, `sandbox_read_file`, `sandbox_list_dir`)
-  - `src/tabs/claude_tab.py`: `set_sandbox_manager()` for cloudAI sandbox integration
-- `src/utils/feature_flags.py`: `is_sandbox_enabled()` function
-- ~50 i18n keys under `desktop.virtualDesktop.*` in `ja.json` / `en.json`
-
-### Changed
-- `src/main_window.py`: 7-tab layout (added VirtualDesktop at index 5, Settings shifted to index 6), SandboxManager singleton
-- `src/utils/constants.py`: `APP_VERSION` → "12.0.0", `APP_CODENAME` → "Sandbox First"
-- `src/__init__.py`: `__version__` → "12.0.0"
-- `requirements.txt`: Added `docker>=7.0.0` as optional dependency
-- `.gitignore`: Added `docker/sandbox/tmp/`, `.helix-backup-*/`, `data/sandbox_snapshots/`, `.backup/`
-- `scripts/build_bundle.py`: Added sandbox files to bundle list
-- `README.md` / `README_ja.md`: Version badge v12.0.0, Docker Sandbox in Features + Tech Stack + Version History
-
-### Notes
-- Docker SDK is **optional** — app starts normally without Docker (graceful degradation)
-- Sandbox requires `pip install docker` + Docker Desktop/Engine installed
-
 ## [11.9.7] - 2026-03-03 "Settings-Based Features"
 
 ### Added

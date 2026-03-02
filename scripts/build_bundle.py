@@ -26,9 +26,6 @@ files = [
     'src/utils/style_helpers.py',
     'src/utils/error_utils.py',
     'src/utils/discord_notifier.py',
-    'src/utils/error_translator.py',
-    'src/utils/feature_flags.py',
-    'src/utils/platform_utils.py',
     'src/utils/prompt_cache.py',
     'src/utils/diagnostics.py',
     'src/utils/diff_risk.py',
@@ -140,12 +137,6 @@ files = [
     'src/routing/routing_executor.py',
     'src/routing/task_types.py',
 
-    # --- src/sandbox ---
-    'src/sandbox/__init__.py',
-    'src/sandbox/sandbox_config.py',
-    'src/sandbox/sandbox_manager.py',
-    'src/sandbox/promotion_engine.py',
-
     # --- src/security ---
     'src/security/__init__.py',
     'src/security/approvals_store.py',
@@ -161,7 +152,6 @@ files = [
     'src/tabs/history_tab.py',
     'src/tabs/information_collection_tab.py',
     'src/tabs/settings_cortex_tab.py',
-    'src/tabs/virtual_desktop_tab.py',
 
     # --- src/ui ---
     'src/ui/__init__.py',

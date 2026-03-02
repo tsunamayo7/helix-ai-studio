@@ -89,18 +89,12 @@ webui_current_state.png
 webui_localai_*.png
 webui_state*.png
 
-# Docker Sandbox
-docker/sandbox/tmp/
-.helix-backup-*/
-data/sandbox_snapshots/
-.backup/
-
 # Playwright MCP
 .playwright-mcp/
 
-# Demo video logs and MP4 recordings (too large for git)
+# Demo video logs and test recordings
 docs/demo/**/*.log
-docs/demo/**/*.mp4
+docs/demo/**/_test_*.mp4
 
 # GitHub README check screenshots
 github_readme_*.png

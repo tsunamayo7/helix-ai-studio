@@ -672,9 +672,6 @@ class ClaudeTab(QWidget):
         except Exception as e:
             logger.warning(f"ChatStore init failed for cloudAI: {e}")
 
-        # v12.0.0: Sandbox Manager (VirtualDesktop タブから共有)
-        self._sandbox_manager = None
-
         # v8.1.0: メモリマネージャー
         self._memory_manager = None
         try:
@@ -709,11 +706,6 @@ class ClaudeTab(QWidget):
             if obj == getattr(self, 'settings_ollama_model', None):
                 return True  # イベントを消費（無効化）
         return super().eventFilter(obj, event)
-
-    # v12.0.0: Sandbox Manager
-    def set_sandbox_manager(self, manager):
-        """VirtualDesktop タブから SandboxManager 参照を受け取る"""
-        self._sandbox_manager = manager
 
     # v11.0.0: CLI検出完了シグナル
     _cli_check_done = pyqtSignal(bool)

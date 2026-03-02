@@ -29,9 +29,6 @@ from .tabs.information_collection_tab import InformationCollectionTab
 from .tabs.local_ai_tab import LocalAITab
 # v11.0.0: Historyタブ追加
 from .tabs.history_tab import HistoryTab
-# v12.0.0: Virtual Desktop タブ追加
-from .tabs.virtual_desktop_tab import VirtualDesktopTab
-from .sandbox.sandbox_manager import SandboxManager
 from .utils.constants import APP_NAME, APP_VERSION
 from .utils.i18n import t, set_language, get_language
 # v11.0.0: ChatHistoryPanel removed (replaced by History tab)
@@ -196,11 +193,8 @@ class MainWindow(QMainWindow):
         self.tab_widget.setDocumentMode(True)
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
 
-        # v12.0.0: SandboxManager を先に生成（各タブに参照を渡す）
-        self._sandbox_manager = SandboxManager(parent=self)
-
         # タブを追加（workflow_stateを渡す）
-        # v12.0.0: タブ順序: mixAI → cloudAI → localAI → History → RAG → VirtualDesktop → 一般設定
+        # v11.0.0: タブ順序: mixAI → cloudAI → localAI → History → RAG → 一般設定
 
         # 1. mixAI タブ (3Phase実行アーキテクチャ)
         self.llmmix_tab = HelixOrchestratorTab(workflow_state=self.workflow_state, main_window=self)
@@ -228,22 +222,10 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.ragTab'))
         self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
 
-        # 6. Virtual Desktop タブ (v12.0.0: Docker Sandbox)
-        self.virtual_desktop_tab = VirtualDesktopTab()
-        self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
-        self.tab_widget.addTab(self.virtual_desktop_tab, t('desktop.mainWindow.virtualDesktopTab'))
-        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
-
-        # v12.0.0: SandboxManager を localAI / cloudAI タブに渡す
-        if hasattr(self.local_ai_tab, 'set_sandbox_manager'):
-            self.local_ai_tab.set_sandbox_manager(self._sandbox_manager)
-        if hasattr(self.claude_tab, 'set_sandbox_manager'):
-            self.claude_tab.set_sandbox_manager(self._sandbox_manager)
-
-        # 7. 一般設定 タブ (v6.0.0: APIキー設定削除)
+        # 6. 一般設定 タブ (v6.0.0: APIキー設定削除)
         self.settings_tab = SettingsCortexTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.settings_tab, t('desktop.mainWindow.settingsTab'))
-        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.settingsTip'))
 
         # v10.1.0: 言語切替ボタン（タブバー右端に常時表示）
         corner_widget = QWidget()
@@ -330,9 +312,6 @@ class MainWindow(QMainWindow):
 
         # v8.5.0: 情報収集タブのステータス
         self.info_tab.statusChanged.connect(self._update_status)
-
-        # v12.0.0: Virtual Desktop タブのステータス
-        self.virtual_desktop_tab.statusChanged.connect(self._update_status)
 
         # 設定変更の反映
         self.settings_tab.settingsChanged.connect(self._on_settings_changed)
@@ -439,28 +418,26 @@ class MainWindow(QMainWindow):
 
     def retranslateUi(self):
         """v9.6.0: 言語切替時にUIテキストを更新"""
-        # タブ名 (v12.0.0: VirtualDesktop追加、インデックス変更)
+        # タブ名 (v11.0.0: History追加、インデックス変更)
         self.tab_widget.setTabText(0, t('desktop.mainWindow.mixAITab'))
         self.tab_widget.setTabText(1, t('desktop.mainWindow.cloudAITab'))
         self.tab_widget.setTabText(2, t('desktop.mainWindow.localAITab'))
         self.tab_widget.setTabText(3, t('desktop.mainWindow.historyTab'))
         self.tab_widget.setTabText(4, t('desktop.mainWindow.ragTab'))
-        self.tab_widget.setTabText(5, t('desktop.mainWindow.virtualDesktopTab'))
-        self.tab_widget.setTabText(6, t('desktop.mainWindow.settingsTab'))
+        self.tab_widget.setTabText(5, t('desktop.mainWindow.settingsTab'))
         # タブツールチップ
         self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
         self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.cloudAITip'))
         self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.localAITip'))
         self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
         self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
-        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
-        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.settingsTip'))
         # ステータスバー（_init_statusbar() 完了前は属性未存在）
         if hasattr(self, 'status_label') and not self._web_locked:
             self.status_label.setText(t('desktop.mainWindow.ready'))
 
-        # 子タブにも通知 (v12.0.0: virtual_desktop_tab追加)
-        for tab in [self.llmmix_tab, self.claude_tab, self.local_ai_tab, self.history_tab, self.info_tab, self.virtual_desktop_tab, self.settings_tab]:
+        # 子タブにも通知 (v11.0.0: history_tab追加)
+        for tab in [self.llmmix_tab, self.claude_tab, self.local_ai_tab, self.history_tab, self.info_tab, self.settings_tab]:
             if hasattr(tab, 'retranslateUi'):
                 tab.retranslateUi()
 

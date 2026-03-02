@@ -202,90 +202,6 @@ BROWSER_USE_TOOL = {
     }
 }
 
-# v12.0.0: Sandbox ツール定義（sandbox 起動中のみ有効）
-SANDBOX_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "sandbox_write_file",
-            "description": "sandbox コンテナ内にファイルを書き込む。sandbox が起動中のみ使用可能。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "sandbox 内のファイルパス（/workspace/ からの絶対パスまたは相対パス）"
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "書き込む内容"
-                    }
-                },
-                "required": ["path", "content"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "sandbox_exec",
-            "description": "sandbox コンテナ内でコマンドを実行する。sandbox が起動中のみ使用可能。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "実行するコマンド"
-                    },
-                    "workdir": {
-                        "type": "string",
-                        "description": "作業ディレクトリ（デフォルト: /workspace）",
-                        "default": "/workspace"
-                    }
-                },
-                "required": ["command"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "sandbox_read_file",
-            "description": "sandbox コンテナ内のファイルを読み取る。sandbox が起動中のみ使用可能。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "sandbox 内のファイルパス"
-                    }
-                },
-                "required": ["path"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "sandbox_list_dir",
-            "description": "sandbox コンテナ内のディレクトリ一覧を取得する。sandbox が起動中のみ使用可能。",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "sandbox 内のディレクトリパス（デフォルト: /workspace）",
-                        "default": "/workspace"
-                    }
-                },
-                "required": []
-            }
-        }
-    },
-]
-
-SANDBOX_TOOL_NAMES = {"sandbox_write_file", "sandbox_exec", "sandbox_read_file", "sandbox_list_dir"}
-
 # v11.3.1: localAI / mixAI search 担当 LLM 向け Web ツール使い分けガイド
 LOCALAI_WEB_TOOL_GUIDE = """## Web情報取得ツールの優先順位
 
@@ -314,16 +230,12 @@ class LocalAgentRunner:
     def __init__(self, model_name: str, project_dir: str,
                  tools_config: dict = None,
                  ollama_host: str = OLLAMA_HOST,
-                 timeout: int = 1800,
-                 sandbox_manager=None):
+                 timeout: int = 1800):
         self.model_name = model_name
         self.project_dir = Path(project_dir) if project_dir else Path(".")
         self.tools_config = tools_config or {}
         self.ollama_host = ollama_host
         self.timeout = timeout
-
-        # v12.0.0: Sandbox Manager 参照
-        self._sandbox_manager = sandbox_manager
 
         # コールバック
         self.on_streaming: Optional[Callable[[str], None]] = None
@@ -354,20 +266,7 @@ class LocalAgentRunner:
         # v11.1.0: Browser Use ツールを条件付きで追加
         if self._is_browser_use_enabled():
             active.append(BROWSER_USE_TOOL)
-        # v12.0.0: Sandbox ツールを条件付きで追加
-        if self._is_sandbox_running():
-            active.extend(SANDBOX_TOOLS)
         return active
-
-    def _is_sandbox_running(self) -> bool:
-        """v12.0.0: sandbox が起動中か確認"""
-        if not self._sandbox_manager:
-            return False
-        try:
-            from ..sandbox.sandbox_config import SandboxStatus
-            return self._sandbox_manager.get_status() == SandboxStatus.RUNNING
-        except Exception:
-            return False
 
     def _is_browser_use_enabled(self) -> bool:
         """v11.1.0: config.jsonのlocalai_browser_use_enabledとbrowser_useパッケージを確認"""
@@ -512,10 +411,6 @@ class LocalAgentRunner:
 
     def _execute_tool(self, name: str, args: dict) -> dict:
         """ツールを実行して結果を返す"""
-        # v12.0.0: Sandbox ツールはパス検証をスキップ（sandbox 内部パス）
-        if name in SANDBOX_TOOL_NAMES:
-            return self._execute_sandbox_tool(name, args)
-
         # パストラバーサル防止（path キーがある場合）
         if "path" in args:
             if not self._validate_path(args["path"]):
@@ -551,27 +446,6 @@ class LocalAgentRunner:
                 return {"error": f"未知のツール: {name}"}
         except Exception as e:
             logger.debug(f"[LocalAgent] Tool execution silent error in {name}: {e}")
-            return {"error": str(e)}
-
-    def _execute_sandbox_tool(self, name: str, args: dict) -> dict:
-        """v12.0.0: Sandbox ツールのディスパッチ"""
-        if not self._is_sandbox_running():
-            return {"error": "Sandbox が起動していません。Virtual Desktop タブから起動してください。"}
-        try:
-            if name == "sandbox_write_file":
-                return self._sandbox_manager.write_file(
-                    args.get("path", ""), args.get("content", ""))
-            elif name == "sandbox_exec":
-                return self._sandbox_manager.execute(
-                    args.get("command", ""), args.get("workdir", "/workspace"))
-            elif name == "sandbox_read_file":
-                return self._sandbox_manager.read_file(args.get("path", ""))
-            elif name == "sandbox_list_dir":
-                return self._sandbox_manager.list_dir(args.get("path", "/workspace"))
-            else:
-                return {"error": f"未知の sandbox ツール: {name}"}
-        except Exception as e:
-            logger.error(f"[LocalAgent] Sandbox tool error in {name}: {e}")
             return {"error": str(e)}
 
     def _validate_path(self, rel_path: str) -> bool:
