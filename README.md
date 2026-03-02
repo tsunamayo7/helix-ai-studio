@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.7-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v12.0.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -182,6 +182,7 @@ Most AI tools give you a chat window with **one** model. Helix gives you a **pip
 | 🌍 **i18n** | Full Japanese and English UI, switchable at any time |
 | 🔔 **Discord Notifications** | Get notified when your AI tasks complete |
 | 📜 **Chat History** | SQLite-backed history shared between Desktop and Web |
+| 🐳 **Docker Sandbox** | Isolated virtual desktop (Docker + NoVNC) — localAI/cloudAI can write files safely inside the container, then promote changes to host |
 | 📖 **BIBLE System** | Project documentation auto-injected into AI prompts for better context |
 
 ---
@@ -274,6 +275,7 @@ python HelixAIStudio.py
 | Cloud AI | Anthropic / OpenAI / Google Gemini APIs |
 | CLI Backends | Claude Code CLI / Codex CLI |
 | Local LLM | Ollama |
+| Sandbox | Docker + Xvfb + NoVNC (optional) |
 | Memory | SQLite + vector embeddings + knowledge graph |
 | i18n | Shared JSON (ja/en) for Desktop + Web |
 
@@ -330,7 +332,8 @@ python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
-| **v11.9.7** | ⚙️ **BIBLE/Pilot settings-tab migration** (removed per-tab toggle buttons → global Settings control), 🏳️ **Feature Flags** (`feature_flags.py`), 🌐 **Error translation system**, 📁 Project file reorganization |
+| **v12.0.0** | 🐳 **Docker Sandbox Virtual Desktop** — isolated container (NoVNC) for safe file writes from localAI/cloudAI, Promotion Engine for diff preview & host apply, 7-tab layout |
+| v11.9.7 | ⚙️ **BIBLE/Pilot settings-tab migration** (removed per-tab toggle buttons → global Settings control), 🏳️ **Feature Flags** (`feature_flags.py`), 🌐 **Error translation system**, 📁 Project file reorganization |
 | v11.9.5 | 🤖 **Helix Pilot in-app integration** (all 3 chat tabs + Settings), 🔧 **Model-agnostic hardening** (removed 7+ hardcoded model deps), 🎬 Demo videos (14 recordings), 📚 Unified RAG, doc fixes |
 | v11.9.4 | 🆕 **Helix Pilot v2.0** — autonomous Vision LLM GUI agent; Gemini thread safety fix |
 | v11.9.3 | Provider-based model classification, combo width fix |

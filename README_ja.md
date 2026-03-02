@@ -14,7 +14,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v11.9.7-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v12.0.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
 ![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
 
@@ -182,6 +182,7 @@ python HelixAIStudio.py
 | 🌍 **多言語対応** | 日本語と英語の完全対応。いつでも切り替え可能 |
 | 🔔 **Discord通知** | AIタスクの完了をリアルタイムで通知 |
 | 📜 **チャット履歴** | SQLiteベースの履歴をデスクトップとWebで共有 |
+| 🐳 **Docker Sandbox** | Dockerコンテナ内の仮想デスクトップ（NoVNC）でファイル書き込みを安全に実行。差分プレビュー後にホストへ本番適用 |
 | 📖 **BIBLEシステム** | プロジェクトドキュメントをAIプロンプトに自動注入し、より良いコンテキストを提供 |
 
 ---
@@ -276,6 +277,7 @@ python HelixAIStudio.py
 | クラウド AI | Anthropic / OpenAI / Google Gemini API |
 | CLI バックエンド | Claude Code CLI / Codex CLI |
 | ローカル LLM | Ollama |
+| Sandbox | Docker + Xvfb + NoVNC（オプション） |
 | メモリ | SQLite + ベクトル埋め込み + ナレッジグラフ |
 | 多言語対応 | 共有 JSON (ja/en) — デスクトップ + Web 共通 |
 
@@ -332,7 +334,8 @@ python HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |----------|---------|
-| **v11.9.7** | ⚙️ **BIBLE/Pilot設定タブ移行**（チャットタブのボタン削除→設定タブでグローバル制御）、🏳️ **Feature Flags**（`feature_flags.py`）、🌐 **エラー翻訳システム**、📁 プロジェクトファイル整理 |
+| **v12.0.0** | 🐳 **Docker Sandbox Virtual Desktop** — Dockerコンテナ内の仮想デスクトップ（NoVNC）でlocalAI/cloudAIの安全なファイル書き込み、差分プレビュー＆本番適用、7タブ構成 |
+| v11.9.7 | ⚙️ **BIBLE/Pilot設定タブ移行**（チャットタブのボタン削除→設定タブでグローバル制御）、🏳️ **Feature Flags**（`feature_flags.py`）、🌐 **エラー翻訳システム**、📁 プロジェクトファイル整理 |
 | v11.9.5 | 🤖 **Helix Pilotアプリ内統合**（全3チャットタブ + 設定）、🔧 **モデル非依存性強化**（7箇所以上のハードコード排除）、🎬 デモビデオ追加（14本）、📚 統合RAG、ドキュメント修正 |
 | v11.9.4 | 🆕 **Helix Pilot v2.0**（Vision LLM自律GUIエージェント）、Geminiスレッド安全性修正 |
 | v11.9.3 | プロバイダーベースのモデル分類、コンボ幅修正 |
