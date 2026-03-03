@@ -90,6 +90,11 @@ class VirtualDesktopTab(QWidget):
             manager.errorOccurred.connect(self._on_sandbox_error)
             from ..sandbox.promotion_engine import PromotionEngine
             self._promotion_engine = PromotionEngine()
+            # v12.0.1: SandboxManager設定後にDocker状態を再チェック
+            self._update_docker_status()
+            # Docker daemon 応答が遅い場合に備えて遅延リトライ
+            QTimer.singleShot(3000, self._update_docker_status)
+            QTimer.singleShot(8000, self._update_docker_status)
 
     # ─── UI 構築 ───
 
@@ -718,7 +723,8 @@ class VirtualDesktopTab(QWidget):
             self._start_btn.setEnabled(False)
             return
 
-        if self._sandbox_manager.is_docker_available():
+        _avail = self._sandbox_manager.is_docker_available()
+        if _avail:
             self._docker_status_label.setText("Docker: ● Connected")
             self._docker_status_label.setStyleSheet(SS.ok())
             self._docker_missing_label.setVisible(False)

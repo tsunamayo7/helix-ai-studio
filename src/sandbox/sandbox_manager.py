@@ -164,6 +164,12 @@ class SandboxManager(QObject):
             # CPU 制限
             nano_cpus = int(config.cpu_limit * 1e9)
 
+            # v12.0.1: network_disabled=True だとポートフォワーディングが無効化され
+            # NoVNC にアクセスできないため、最低限 bridge モードを使用する
+            effective_network = config.network_mode
+            if effective_network == "none":
+                effective_network = "bridge"
+
             container = client.containers.run(
                 image=config.image_name,
                 detach=True,
@@ -173,8 +179,7 @@ class SandboxManager(QObject):
                 volumes=volumes,
                 nano_cpus=nano_cpus,
                 mem_limit=config.memory_limit,
-                network_mode=config.network_mode if config.network_mode != "none" else None,
-                network_disabled=(config.network_mode == "none"),
+                network_mode=effective_network,
             )
 
             # 起動確認 (最大10秒)
@@ -186,6 +191,21 @@ class SandboxManager(QObject):
 
             if container.status != "running":
                 raise RuntimeError(f"Container failed to start: {container.status}")
+
+            # v12.0.1: NoVNC HTTP サービスの起動完了を待機（最大20秒）
+            import urllib.request
+            for i in range(40):
+                try:
+                    req = urllib.request.urlopen(
+                        f"http://localhost:{novnc_port}/vnc.html", timeout=2
+                    )
+                    if req.status == 200:
+                        logger.info(f"[SandboxManager] NoVNC HTTP ready after {(i+1)*0.5:.1f}s")
+                        break
+                except Exception:
+                    time.sleep(0.5)
+            else:
+                logger.warning("[SandboxManager] NoVNC HTTP not ready after 20s, proceeding anyway")
 
             vnc_url = f"http://localhost:{novnc_port}/vnc.html"
             if config.vnc_password:
