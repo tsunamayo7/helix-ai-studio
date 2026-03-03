@@ -31,8 +31,8 @@ def get_google_api_key() -> Optional[str]:
     """API キーを環境変数 → general_settings.json の順で取得"""
     # 環境変数を優先（GOOGLE_API_KEY が GEMINI_API_KEY より優先される仕様）
     key = (
-        os.environ.get("GOOGLE_API_KEY")
-        or os.environ.get("GEMINI_API_KEY")
+        os.environ.get("GOOGLE_API_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
     )
     if key:
         return key
@@ -42,7 +42,8 @@ def get_google_api_key() -> Optional[str]:
         settings_path = Path("config/general_settings.json")
         if settings_path.exists():
             data = json.loads(settings_path.read_text(encoding="utf-8"))
-            return data.get("google_api_key") or None
+            key = data.get("google_api_key", "")
+            return key.strip() if key else None
     except Exception:
         pass
     return None

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v11.9.0 "Unified Obsidian"
+Helix AI Studio v12.0.0 "Sandbox First"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:
@@ -208,6 +208,9 @@ def setup_crash_logging():
     logger.info("Global exception handlers installed (sys.excepthook + threading.excepthook)")
 
 
+_CLEANUP_DONE = False
+
+
 def cleanup_on_exit():
     """
     v3.9.6: アプリケーション終了時のクリーンアップ処理
@@ -215,6 +218,11 @@ def cleanup_on_exit():
     PyInstallerの一時ディレクトリ削除エラーを防ぐため、
     残っているスレッドやプロセスを適切に終了させる
     """
+    global _CLEANUP_DONE
+    if _CLEANUP_DONE:
+        return
+    _CLEANUP_DONE = True
+
     logger = logging.getLogger(__name__)
     logger.info("[Cleanup] Starting application cleanup...")
 
@@ -303,7 +311,7 @@ def _create_splash_screen(app):
 
 
 def main():
-    """Helix AI Studio エントリーポイント v11.9.0"""
+    """Helix AI Studio エントリーポイント v12.0.0"""
     setup_crash_logging()
     atexit.register(cleanup_on_exit)
 

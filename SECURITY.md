@@ -6,7 +6,7 @@ We actively support the latest major and minor versions with security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 11.9.x  | :white_check_mark: |
+| 12.x    | :white_check_mark: |
 | 11.x    | :white_check_mark: |
 | < 11.0  | :x:                |
 

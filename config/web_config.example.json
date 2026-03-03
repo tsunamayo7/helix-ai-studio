@@ -1,0 +1,7 @@
+{
+  "web_server": {
+    "pin": "000000",
+    "jwt_expiry_hours": 168,
+    "allowed_tailscale_subnet": "100.64.0.0/10"
+  }
+}

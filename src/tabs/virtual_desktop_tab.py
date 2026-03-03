@@ -180,7 +180,59 @@ class VirtualDesktopTab(QWidget):
         status_layout.addStretch()
         layout.addLayout(status_layout)
 
-        # --- NoVNC ビューア / プレースホルダー ---
+        # --- メインコンテンツ（スプリッター: ファイルブラウザ | NoVNC） ---
+        self._main_splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        # ── 左パネル: ファイルブラウザ ──
+        file_panel = QWidget()
+        file_panel_layout = QVBoxLayout(file_panel)
+        file_panel_layout.setContentsMargins(4, 4, 4, 4)
+        file_panel_layout.setSpacing(4)
+
+        file_header = QHBoxLayout()
+        file_title = QLabel(t("desktop.virtualDesktop.fileBrowserTitle"))
+        file_title.setStyleSheet("font-weight: bold; color: #e0e0e0;")
+        file_header.addWidget(file_title)
+
+        self._file_refresh_btn = QPushButton("🔄")
+        self._file_refresh_btn.setFixedSize(28, 28)
+        self._file_refresh_btn.setToolTip(t("desktop.virtualDesktop.fileBrowserRefresh"))
+        self._file_refresh_btn.clicked.connect(self._refresh_file_tree)
+        self._file_refresh_btn.setEnabled(False)
+        file_header.addWidget(self._file_refresh_btn)
+        file_header.addStretch()
+        file_panel_layout.addLayout(file_header)
+
+        # パスバー
+        self._file_path_label = QLabel("/workspace")
+        self._file_path_label.setStyleSheet(f"color: #888; font-size: 11px; padding: 2px 4px; background: {COLORS['bg_surface']};")
+        file_panel_layout.addWidget(self._file_path_label)
+
+        # ファイルツリー
+        self._file_tree = QTreeWidget()
+        self._file_tree.setHeaderLabels([
+            t("desktop.virtualDesktop.fileColName"),
+            t("desktop.virtualDesktop.fileColSize"),
+        ])
+        self._file_tree.setColumnWidth(0, 200)
+        self._file_tree.setColumnWidth(1, 70)
+        self._file_tree.setStyleSheet(SCROLLBAR_STYLE)
+        self._file_tree.itemDoubleClicked.connect(self._on_file_tree_double_click)
+        file_panel_layout.addWidget(self._file_tree, stretch=1)
+
+        # 戻るボタン
+        self._file_back_btn = QPushButton(t("desktop.virtualDesktop.fileBrowserBack"))
+        self._file_back_btn.setStyleSheet(SECONDARY_BTN)
+        self._file_back_btn.setFixedHeight(28)
+        self._file_back_btn.clicked.connect(self._on_file_back)
+        self._file_back_btn.setEnabled(False)
+        file_panel_layout.addWidget(self._file_back_btn)
+
+        file_panel.setMinimumWidth(200)
+        file_panel.setMaximumWidth(400)
+        self._main_splitter.addWidget(file_panel)
+
+        # ── 右パネル: NoVNC ビューア / プレースホルダー ──
         self._viewer_stack = QWidget()
         viewer_layout = QVBoxLayout(self._viewer_stack)
         viewer_layout.setContentsMargins(0, 0, 0, 0)
@@ -227,7 +279,16 @@ class VirtualDesktopTab(QWidget):
             self._web_view.setVisible(False)
             viewer_layout.addWidget(self._web_view)
 
-        layout.addWidget(self._viewer_stack, stretch=1)
+        self._main_splitter.addWidget(self._viewer_stack)
+
+        # スプリッター初期比率: ファイルブラウザ 25% / NoVNC 75%
+        self._main_splitter.setStretchFactor(0, 1)
+        self._main_splitter.setStretchFactor(1, 3)
+
+        # 現在のファイルブラウザパス
+        self._current_browse_path = "/workspace"
+
+        layout.addWidget(self._main_splitter, stretch=1)
 
         # --- Promotion パネル (初期非表示) ---
         self._promotion_panel = self._create_promotion_panel()
@@ -290,6 +351,25 @@ class VirtualDesktopTab(QWidget):
         layout.setContentsMargins(12, 12, 12, 12)
         layout.setSpacing(12)
 
+        # ─── バックエンド選択 ───
+        backend_group = QGroupBox(t("desktop.virtualDesktop.backendGroup"))
+        backend_group.setStyleSheet(SECTION_CARD_STYLE)
+        backend_layout = QHBoxLayout(backend_group)
+        backend_layout.addWidget(QLabel(t("desktop.virtualDesktop.backendLabel")))
+        self._backend_combo = NoScrollComboBox()
+        self._backend_combo.addItem(t("desktop.virtualDesktop.backendDocker"), "docker")
+        self._backend_combo.addItem(t("desktop.virtualDesktop.backendGuacamole"), "guacamole")
+        self._backend_combo.currentIndexChanged.connect(self._on_backend_changed)
+        backend_layout.addWidget(self._backend_combo)
+        backend_layout.addStretch()
+        layout.addWidget(backend_group)
+
+        # ─── Docker 設定コンテナ（Docker 選択時のみ表示）───
+        self._docker_settings_widget = QWidget()
+        docker_settings_layout = QVBoxLayout(self._docker_settings_widget)
+        docker_settings_layout.setContentsMargins(0, 0, 0, 0)
+        docker_settings_layout.setSpacing(12)
+
         # --- 基本設定 ---
         basic_group = QGroupBox(t("desktop.virtualDesktop.settingsGroup"))
         basic_group.setStyleSheet(SECTION_CARD_STYLE)
@@ -346,7 +426,7 @@ class VirtualDesktopTab(QWidget):
         row.addStretch()
         basic_layout.addLayout(row)
 
-        layout.addWidget(basic_group)
+        docker_settings_layout.addWidget(basic_group)
 
         # --- ワークスペース設定 ---
         ws_group = QGroupBox(t("desktop.virtualDesktop.workspaceGroup"))
@@ -380,7 +460,7 @@ class VirtualDesktopTab(QWidget):
         row.addWidget(self._exclude_edit)
         ws_layout.addLayout(row)
 
-        layout.addWidget(ws_group)
+        docker_settings_layout.addWidget(ws_group)
 
         # --- ネットワーク設定 ---
         net_group = QGroupBox(t("desktop.virtualDesktop.networkGroup"))
@@ -399,7 +479,7 @@ class VirtualDesktopTab(QWidget):
         net_warn.setWordWrap(True)
         net_layout.addWidget(net_warn)
 
-        layout.addWidget(net_group)
+        docker_settings_layout.addWidget(net_group)
 
         # --- Docker 状態 ---
         docker_group = QGroupBox(t("desktop.virtualDesktop.dockerStatusGroup"))
@@ -436,7 +516,74 @@ class VirtualDesktopTab(QWidget):
         docker_btn_row.addStretch()
         docker_layout.addLayout(docker_btn_row)
 
-        layout.addWidget(docker_group)
+        docker_settings_layout.addWidget(docker_group)
+
+        # Docker 設定コンテナをメインレイアウトに追加
+        layout.addWidget(self._docker_settings_widget)
+
+        # ─── Guacamole 設定コンテナ（Guacamole 選択時のみ表示）───
+        self._guacamole_settings_widget = QWidget()
+        guac_settings_layout = QVBoxLayout(self._guacamole_settings_widget)
+        guac_settings_layout.setContentsMargins(0, 0, 0, 0)
+        guac_settings_layout.setSpacing(12)
+
+        guac_group = QGroupBox(t("desktop.virtualDesktop.guacamoleGroup"))
+        guac_group.setStyleSheet(SECTION_CARD_STYLE)
+        guac_layout = QVBoxLayout(guac_group)
+
+        # URL
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("desktop.virtualDesktop.guacamoleUrl")))
+        self._guac_url_edit = QLineEdit("http://localhost:8080/guacamole")
+        row.addWidget(self._guac_url_edit)
+        guac_layout.addLayout(row)
+
+        # ユーザー名
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("desktop.virtualDesktop.guacamoleUser")))
+        self._guac_user_edit = QLineEdit("guacadmin")
+        row.addWidget(self._guac_user_edit)
+        guac_layout.addLayout(row)
+
+        # パスワード
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("desktop.virtualDesktop.guacamolePassword")))
+        self._guac_pass_edit = QLineEdit("guacadmin")
+        self._guac_pass_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        row.addWidget(self._guac_pass_edit)
+        guac_layout.addLayout(row)
+
+        # 接続名コンボ
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("desktop.virtualDesktop.guacamoleConnection")))
+        self._guac_conn_combo = NoScrollComboBox()
+        self._guac_conn_combo.setEditable(True)
+        row.addWidget(self._guac_conn_combo)
+        guac_layout.addLayout(row)
+
+        # ボタン行
+        guac_btn_row = QHBoxLayout()
+        self._guac_status_label = QLabel(t("desktop.virtualDesktop.guacamoleUnavailable"))
+        self._guac_status_label.setStyleSheet(SS.err())
+        guac_btn_row.addWidget(self._guac_status_label)
+        guac_btn_row.addStretch()
+        guac_refresh_btn = QPushButton(t("desktop.virtualDesktop.guacamoleRefreshBtn"))
+        guac_refresh_btn.setFixedHeight(28)
+        guac_refresh_btn.clicked.connect(self._refresh_guacamole_connections)
+        guac_btn_row.addWidget(guac_refresh_btn)
+        guac_layout.addLayout(guac_btn_row)
+
+        # ヒント
+        hint_label = QLabel(t("desktop.virtualDesktop.guacamoleHint"))
+        hint_label.setStyleSheet(f"color: #888; font-size: 9pt;")
+        hint_label.setWordWrap(True)
+        guac_layout.addWidget(hint_label)
+
+        guac_settings_layout.addWidget(guac_group)
+        layout.addWidget(self._guacamole_settings_widget)
+
+        # 初期状態は Docker モード
+        self._guacamole_settings_widget.setVisible(False)
 
         # --- 保存ボタン ---
         save_btn = create_section_save_button(
@@ -450,14 +597,123 @@ class VirtualDesktopTab(QWidget):
 
     # ─── イベントハンドラ ───
 
+    def _on_backend_changed(self, index: int):
+        """バックエンド選択変更時にUIを切り替え"""
+        backend = self._backend_combo.currentData()
+        is_docker = (backend == "docker")
+        self._docker_settings_widget.setVisible(is_docker)
+        self._guacamole_settings_widget.setVisible(not is_docker)
+        # Docker ツールバーボタン（起動/停止）はどちらのモードでも表示
+        # Guacamole モード時は Docker の状態チェックをスキップ
+        if not is_docker:
+            self._update_guacamole_status()
+
+    def _update_guacamole_status(self):
+        """Guacamole サーバーの接続状態を更新"""
+        from ..sandbox.guacamole_backend import GuacamoleManager
+        mgr = GuacamoleManager(self._guac_url_edit.text().strip())
+        if mgr.is_available():
+            self._guac_status_label.setText(t("desktop.virtualDesktop.guacamoleAvailable"))
+            self._guac_status_label.setStyleSheet(SS.ok())
+            self._start_btn.setEnabled(True)
+        else:
+            self._guac_status_label.setText(t("desktop.virtualDesktop.guacamoleUnavailable"))
+            self._guac_status_label.setStyleSheet(SS.err())
+            self._start_btn.setEnabled(False)
+
+    def _refresh_guacamole_connections(self):
+        """Guacamole から接続一覧を取得してコンボボックスに反映"""
+        from ..sandbox.guacamole_backend import GuacamoleManager
+        url = self._guac_url_edit.text().strip()
+        user = self._guac_user_edit.text().strip()
+        password = self._guac_pass_edit.text()
+
+        mgr = GuacamoleManager(url)
+        if not mgr.is_available():
+            self._guac_status_label.setText(t("desktop.virtualDesktop.guacamoleUnavailable"))
+            self._guac_status_label.setStyleSheet(SS.err())
+            self._start_btn.setEnabled(False)
+            QMessageBox.warning(
+                self, "Guacamole",
+                mgr.get_unavailable_reason()
+            )
+            return
+
+        token, ds = mgr.authenticate(user, password)
+        if not token:
+            QMessageBox.warning(
+                self, "Guacamole",
+                t("desktop.virtualDesktop.guacamoleAuthFailed")
+            )
+            return
+
+        connections = mgr.list_connections(token, ds)
+        self._guac_conn_combo.clear()
+        for conn in connections:
+            name = conn.get("name", conn.get("identifier", "?"))
+            conn_id = conn.get("identifier", "")
+            self._guac_conn_combo.addItem(name, conn_id)
+
+        self._guac_status_label.setText(t("desktop.virtualDesktop.guacamoleAvailable"))
+        self._guac_status_label.setStyleSheet(SS.ok())
+        self._start_btn.setEnabled(True)
+
+    def _on_start_guacamole(self):
+        """Guacamole モードでの接続開始"""
+        from ..sandbox.guacamole_backend import GuacamoleManager
+        url = self._guac_url_edit.text().strip()
+        user = self._guac_user_edit.text().strip()
+        password = self._guac_pass_edit.text()
+
+        if not url:
+            QMessageBox.warning(self, "Guacamole", "Guacamole URL を入力してください。")
+            return
+
+        mgr = GuacamoleManager(url)
+
+        # 接続名/IDが指定されていない場合はトップページを表示
+        conn_text = self._guac_conn_combo.currentText().strip()
+        conn_id = self._guac_conn_combo.currentData() or conn_text
+
+        if not conn_id:
+            # 接続指定なし → トップページを埋め込む（自分でログイン）
+            client_url = mgr.get_base_url()
+        else:
+            # 認証してクライアント URL を取得
+            token, ds = mgr.authenticate(user, password)
+            if not token:
+                QMessageBox.warning(
+                    self, "Guacamole",
+                    t("desktop.virtualDesktop.guacamoleAuthFailed")
+                )
+                return
+            client_url = mgr.get_client_url(conn_id, token, ds)
+
+        self._show_vnc(client_url)
+        self._stop_btn.setEnabled(True)
+
     def _on_start(self):
-        """sandbox 起動"""
+        """sandbox 起動（Docker / Guacamole どちらのモードにも対応）"""
+        # Guacamole モードに分岐
+        backend = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "docker"
+        if backend == "guacamole":
+            self._on_start_guacamole()
+            return
+
         if not self._sandbox_manager:
             return
 
         if not self._sandbox_manager.is_docker_available():
-            QMessageBox.warning(self, "Docker",
-                                t("desktop.virtualDesktop.placeholderDockerMissing"))
+            reason = self._sandbox_manager.get_docker_unavailable_reason()
+            QMessageBox.warning(
+                self, "Docker Not Available",
+                f"{t('desktop.virtualDesktop.dockerMissingDialog')}\n\n【詳細】\n{reason}"
+            )
+            return
+
+        if not self._sandbox_manager.check_image_exists():
+            QMessageBox.warning(self, "Image Not Built",
+                                t("desktop.virtualDesktop.imageMissingBuild"))
             return
 
         config = self._build_config()
@@ -473,7 +729,11 @@ class VirtualDesktopTab(QWidget):
             self._screenshot_btn.setEnabled(True)
             self._promote_btn.setEnabled(True)
             self._reset_btn.setEnabled(True)
+            self._file_refresh_btn.setEnabled(True)
+            self._file_back_btn.setEnabled(True)
             self._stats_timer.start(5000)
+            # ファイルツリー初期表示
+            self._refresh_file_tree()
         else:
             self._start_btn.setEnabled(True)
 
@@ -487,6 +747,11 @@ class VirtualDesktopTab(QWidget):
         self._screenshot_btn.setEnabled(False)
         self._promote_btn.setEnabled(False)
         self._reset_btn.setEnabled(False)
+        self._file_refresh_btn.setEnabled(False)
+        self._file_back_btn.setEnabled(False)
+        self._file_tree.clear()
+        self._current_browse_path = "/workspace"
+        self._file_path_label.setText("/workspace")
         self._stats_timer.stop()
         self._stats_label.setText("")
         self._promotion_panel.setVisible(False)
@@ -667,6 +932,76 @@ class VirtualDesktopTab(QWidget):
         self._status_label.setStyleSheet(style)
         self.statusChanged.emit(f"Sandbox: {text}")
 
+    # ─── ファイルブラウザ ───
+
+    def _refresh_file_tree(self):
+        """ファイルツリーを更新"""
+        if not self._sandbox_manager:
+            return
+
+        self._file_tree.clear()
+        result = self._sandbox_manager.list_dir(self._current_browse_path)
+
+        if "error" in result:
+            item = QTreeWidgetItem([f"Error: {result['error']}", ""])
+            self._file_tree.addTopLevelItem(item)
+            return
+
+        entries = result.get("entries", [])
+        if not entries and "listing" in result:
+            # フォールバック: 生テキストから簡易パース
+            item = QTreeWidgetItem([result["listing"][:100], ""])
+            self._file_tree.addTopLevelItem(item)
+            return
+
+        for entry in entries:
+            name = entry.get("name", "")
+            etype = entry.get("type", "file")
+            size = entry.get("size", 0)
+
+            icon = "📁" if etype == "dir" else "📄"
+            size_str = self._format_size(size) if etype == "file" else ""
+            item = QTreeWidgetItem([f"{icon} {name}", size_str])
+            item.setData(0, Qt.ItemDataRole.UserRole, {
+                "name": name, "type": etype,
+                "path": f"{self._current_browse_path.rstrip('/')}/{name}",
+            })
+            self._file_tree.addTopLevelItem(item)
+
+        self._file_path_label.setText(self._current_browse_path)
+
+    def _on_file_tree_double_click(self, item, column):
+        """ファイルツリーのダブルクリック — ディレクトリなら中に入る"""
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+
+        if data["type"] == "dir":
+            self._current_browse_path = data["path"]
+            self._refresh_file_tree()
+
+    def _on_file_back(self):
+        """ファイルブラウザで一階層上に戻る"""
+        if self._current_browse_path in ("/", "/workspace"):
+            return
+        import posixpath
+        parent = posixpath.dirname(self._current_browse_path)
+        if not parent:
+            parent = "/workspace"
+        self._current_browse_path = parent
+        self._refresh_file_tree()
+
+    @staticmethod
+    def _format_size(size_bytes: int) -> str:
+        """バイト数を読みやすい形式に変換"""
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.1f} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.1f} MB"
+        return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+
     def _on_sandbox_error(self, error: str):
         """SandboxManager からのエラー通知"""
         QMessageBox.critical(self, "Sandbox Error", error)
@@ -690,9 +1025,8 @@ class VirtualDesktopTab(QWidget):
         """NoVNC ビューアを非表示"""
         if self._web_view and HAS_WEBENGINE:
             self._web_view.setVisible(False)
-            self._web_view.setUrl(self._web_view.url().resolved(
-                __import__("PyQt6.QtCore", fromlist=["QUrl"]).QUrl("about:blank")
-            ))
+            from PyQt6.QtCore import QUrl
+            self._web_view.setUrl(QUrl("about:blank"))
         self._placeholder.setVisible(True)
         self._open_browser_btn.setVisible(False)
         self._ph_text.setText(t("desktop.virtualDesktop.placeholder"))
@@ -713,7 +1047,13 @@ class VirtualDesktopTab(QWidget):
             self._stats_label.setText("")
 
     def _update_docker_status(self):
-        """Docker 接続状態を更新"""
+        """Docker 接続状態を更新（呼び出し毎にキャッシュリセットして再検出）"""
+        # Guacamole モード時は Docker チェックをスキップして Guacamole 状態を更新
+        backend = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "docker"
+        if backend == "guacamole":
+            self._update_guacamole_status()
+            return
+
         if not self._sandbox_manager:
             self._docker_status_label.setText("Docker: N/A (SandboxManager not set)")
             self._docker_status_label.setStyleSheet(SS.muted())
@@ -722,6 +1062,9 @@ class VirtualDesktopTab(QWidget):
             self._docker_missing_label.setVisible(True)
             self._start_btn.setEnabled(False)
             return
+
+        # 毎回クライアントキャッシュをリセットして再接続を試みる
+        self._sandbox_manager.reset_connection()
 
         _avail = self._sandbox_manager.is_docker_available()
         if _avail:
@@ -733,14 +1076,23 @@ class VirtualDesktopTab(QWidget):
             if self._sandbox_manager.check_image_exists():
                 self._image_status_label.setText("Image: ● helix-sandbox:latest")
                 self._image_status_label.setStyleSheet(SS.ok())
+                self._docker_missing_label.setVisible(False)
             else:
                 self._image_status_label.setText("Image: ✗ Not built")
                 self._image_status_label.setStyleSheet(SS.warn())
+                self._docker_missing_label.setText(t("desktop.virtualDesktop.imageMissingBuild"))
+                self._docker_missing_label.setVisible(True)
+                self._start_btn.setEnabled(False)
         else:
+            reason = self._sandbox_manager.get_docker_unavailable_reason()
             self._docker_status_label.setText("Docker: ✗ Not detected")
+            self._docker_status_label.setToolTip(reason)
             self._docker_status_label.setStyleSheet(SS.err())
             self._image_status_label.setText("Image: N/A")
             self._image_status_label.setStyleSheet(SS.muted())
+            self._docker_missing_label.setText(
+                t("desktop.virtualDesktop.placeholderDockerMissing") + f"\n\n{reason}"
+            )
             self._docker_missing_label.setVisible(True)
             self._start_btn.setEnabled(False)
 
@@ -779,6 +1131,11 @@ class VirtualDesktopTab(QWidget):
                 "mount_readonly": self._mount_readonly_radio.isChecked(),
                 "network_mode": "none" if self._net_isolated_radio.isChecked() else "bridge",
                 "exclude_patterns": self._exclude_edit.text(),
+                # Guacamole 設定
+                "backend": self._backend_combo.currentData(),
+                "guacamole_url": self._guac_url_edit.text(),
+                "guacamole_user": self._guac_user_edit.text(),
+                "guacamole_connection": self._guac_conn_combo.currentText(),
             }
 
             _SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -831,6 +1188,20 @@ class VirtualDesktopTab(QWidget):
                     self._net_isolated_radio.setChecked(True)
             if "exclude_patterns" in sandbox:
                 self._exclude_edit.setText(sandbox["exclude_patterns"])
+            # Guacamole 設定
+            if "backend" in sandbox:
+                idx = self._backend_combo.findData(sandbox["backend"])
+                if idx >= 0:
+                    self._backend_combo.setCurrentIndex(idx)
+                    self._on_backend_changed(idx)
+            if "guacamole_url" in sandbox:
+                self._guac_url_edit.setText(sandbox["guacamole_url"])
+            if "guacamole_user" in sandbox:
+                self._guac_user_edit.setText(sandbox["guacamole_user"])
+            if "guacamole_connection" in sandbox:
+                idx = self._guac_conn_combo.findText(sandbox["guacamole_connection"])
+                if idx >= 0:
+                    self._guac_conn_combo.setCurrentIndex(idx)
 
         except Exception as e:
             logger.debug(f"[VirtualDesktop] Load settings: {e}")
@@ -852,3 +1223,9 @@ class VirtualDesktopTab(QWidget):
         self._build_image_btn.setText(t("desktop.virtualDesktop.buildImageBtn"))
         self._delete_image_btn.setText(t("desktop.virtualDesktop.deleteImageBtn"))
         self._refresh_btn.setText(t("desktop.virtualDesktop.refreshBtn"))
+        self._file_refresh_btn.setToolTip(t("desktop.virtualDesktop.fileBrowserRefresh"))
+        self._file_back_btn.setText(t("desktop.virtualDesktop.fileBrowserBack"))
+        self._file_tree.setHeaderLabels([
+            t("desktop.virtualDesktop.fileColName"),
+            t("desktop.virtualDesktop.fileColSize"),
+        ])

@@ -72,16 +72,21 @@ except ImportError:
 # DPI Awareness (must be set before any GUI calls)
 # ---------------------------------------------------------------------------
 if sys.platform == "win32":
-    try:
-        import ctypes
-        # Per-Monitor DPI Aware v2 — ensures pyautogui and pygetwindow
-        # return consistent physical-pixel coordinates on 4K / HiDPI displays.
-        ctypes.windll.shcore.SetProcessDpiAwareness(2)
-    except Exception:
+    import ctypes
+    # HELIX_PILOT_SKIP_DPI: helix_pilot_tool.py が PyQt6 プロセス内で
+    # import する場合にセットする。PyQt6 が既に DPI Awareness を設定済み
+    # のため、二重設定による座標系不整合を防止。
+    _SKIP_DPI = os.environ.get("HELIX_PILOT_SKIP_DPI", "").strip()
+    if not _SKIP_DPI:
         try:
-            ctypes.windll.user32.SetProcessDPIAware()
+            # Per-Monitor DPI Aware v2 — ensures pyautogui and pygetwindow
+            # return consistent physical-pixel coordinates on 4K / HiDPI displays.
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except Exception:
-            pass
+            try:
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -657,9 +662,12 @@ class VisionLLM:
                 return False, f"Ollama returned status {resp.status_code}"
             models = [m.get("name", "")
                       for m in resp.json().get("models", [])]
-            # Check if our model exists (allow partial match without tag)
+            # Check if our model exists: exact match first, then base-name match
             model_base = self._model.split(":")[0]
-            found = any(model_base in m for m in models)
+            found = any(
+                m == self._model or m.split(":")[0] == model_base
+                for m in models
+            )
             if not found:
                 return False, f"Model '{self._model}' not found. Available: {models}"
 
@@ -675,6 +683,36 @@ class VisionLLM:
             return True, "ok"
         except httpx.ConnectError:
             return False, f"Cannot connect to Ollama at {self._endpoint}"
+        except httpx.TimeoutException:
+            return False, (f"not_connected: Ollama at {self._endpoint} did not respond "
+                           f"within 3s (timeout). Ollama may be starting up or under load.")
+        except Exception as e:
+            return False, str(e)
+
+    def check_model_exists(self, model_name: str) -> Tuple[bool, str]:
+        """Check if a specific model exists in Ollama (no capability check)."""
+        if not HAS_HTTPX:
+            return False, "httpx not installed"
+        try:
+            resp = httpx.get(
+                f"{self._endpoint}/api/tags", timeout=3)
+            if resp.status_code != 200:
+                return False, f"Ollama returned status {resp.status_code}"
+            models = [m.get("name", "")
+                      for m in resp.json().get("models", [])]
+            model_base = model_name.split(":")[0]
+            found = any(
+                m == model_name or m.split(":")[0] == model_base
+                for m in models
+            )
+            if not found:
+                return False, f"Model '{model_name}' not found. Available: {models}"
+            return True, "ok"
+        except httpx.ConnectError:
+            return False, f"Cannot connect to Ollama at {self._endpoint}"
+        except httpx.TimeoutException:
+            return False, (f"not_connected: Ollama at {self._endpoint} did not respond "
+                           f"within 3s (timeout). Ollama may be starting up or under load.")
         except Exception as e:
             return False, str(e)
 
@@ -764,6 +802,47 @@ class CoreOperations:
         self._safety = safety
         self._logger = plogger
         self._ss_dir = config.screenshot_dir_path
+        # Cache DPI state once at init (does not change during process lifetime)
+        self._dpi_awareness = self._detect_dpi_awareness()
+        self._dpi_scale_pct = self._detect_dpi_scale()
+
+    # --- DPI helpers (Windows only) ---
+
+    @staticmethod
+    def _detect_dpi_awareness() -> int:
+        """Detect current process DPI Awareness level.
+
+        Returns:
+            0 = DPI Unaware (coordinates are logical/scaled)
+            1 = System DPI Aware
+            2 = Per-Monitor DPI Aware v2 (coordinates are physical)
+            -1 = Unknown / non-Windows
+        """
+        if sys.platform != "win32":
+            return -1
+        try:
+            awareness = ctypes.c_int()
+            ctypes.windll.shcore.GetProcessDpiAwareness(
+                None, ctypes.byref(awareness))
+            return awareness.value
+        except Exception:
+            return -1
+
+    @staticmethod
+    def _detect_dpi_scale() -> int:
+        """Get primary monitor DPI scale percentage (e.g. 100, 125, 150, 200).
+
+        Returns:
+            Scale percentage, or 100 if detection fails.
+        """
+        if sys.platform != "win32":
+            return 100
+        try:
+            # GetDpiForSystem returns DPI value (96=100%, 120=125%, 144=150%, 192=200%)
+            dpi = ctypes.windll.user32.GetDpiForSystem()
+            return round(dpi * 100 / 96)
+        except Exception:
+            return 100
 
     def _activate_window(self, win) -> bool:
         """Bring window to foreground."""
@@ -802,10 +881,20 @@ class CoreOperations:
         else:
             img = pyautogui.screenshot()
 
-        # Track original size and logical window size for coordinate scaling.
-        # pyautogui.screenshot() captures at PHYSICAL pixel resolution,
-        # but pyautogui.click() uses LOGICAL (DPI-scaled) coordinates.
-        # We need logical_width / screenshot_width as the scale factor.
+        # Track original screenshot size for coordinate scaling.
+        # The scale_factor converts Vision LLM coordinates (in resized-image
+        # pixel space) back to the coordinate system used by pyautogui.click().
+        #
+        # DPI Awareness affects what coordinate system pyautogui/pygetwindow use:
+        #   Awareness=2 (Per-Monitor v2): physical pixels everywhere
+        #   Awareness=1 (System):         system-DPI-scaled pixels
+        #   Awareness=0 (Unaware):        logical (96-DPI) pixels
+        #
+        # Regardless of DPI mode, win.width and pyautogui.click() use the SAME
+        # coordinate space (they both go through the same Win32 API layer
+        # matching the process's DPI Awareness). So scale_factor is always:
+        #   win.width / resized_image_width
+        # (which collapses to original_width / resized_width when no window)
         original_size = list(img.size)
         logical_size = None
         if win:
@@ -821,7 +910,9 @@ class CoreOperations:
             img = img.resize((new_w, new_h), Image.LANCZOS)
             resized = True
 
-        # Scale factor: screenshot coords -> logical (click) coords
+        # Scale factor: Vision LLM (resized screenshot) coords -> click coords
+        # win.width and pyautogui.click() share the same coordinate system
+        # (determined by DPI Awareness), so we simply undo the resize.
         if logical_size:
             scale_factor = logical_size[0] / img.size[0]
         elif resized:
@@ -838,12 +929,19 @@ class CoreOperations:
             "original_size": original_size,
             "logical_size": logical_size,
             "scale_factor": round(scale_factor, 4),
+            "dpi_awareness": self._dpi_awareness,
+            "dpi_scale_pct": self._dpi_scale_pct,
             "window": window_title,
         }
 
     def click(self, x: int, y: int, window_title: str = None,
               button: str = "left", clicks: int = 1) -> dict:
-        """Click at coordinates (relative to window if specified)."""
+        """Click at coordinates (relative to window if specified).
+
+        x, y are in the same coordinate system as win.left/win.top
+        (determined by process DPI Awareness). cmd_find() applies
+        scale_factor to convert from Vision LLM coords before calling this.
+        """
         abs_x, abs_y = x, y
         if window_title:
             win = self._safety.find_target_window(window_title)
@@ -1994,8 +2092,18 @@ class HelixPilot:
 
     def cmd_status(self) -> dict:
         """System status (no lock needed)."""
-        # Ollama check
+        # Ollama + vision model check
         ollama_ok, ollama_msg = self.vision.check_availability()
+
+        # Reasoning model check (only if different from vision model)
+        reasoning_name = self.config.reasoning_model_name
+        if reasoning_name and reasoning_name != self.config.vision_model:
+            reasoning_ok, reasoning_msg = self.vision.check_model_exists(
+                reasoning_name)
+        else:
+            # Same as vision model, or empty (falls back to vision)
+            reasoning_ok = ollama_ok
+            reasoning_msg = "same as vision_model" if ollama_ok else ollama_msg
 
         # Visible windows
         try:
@@ -2030,7 +2138,21 @@ class HelixPilot:
                 "name": self.config.vision_model,
                 "available": ollama_ok,
             },
-            "reasoning_model": self.config.reasoning_model_name,
+            "reasoning_model": {
+                "name": reasoning_name,
+                "available": reasoning_ok,
+                "message": reasoning_msg,
+            },
+            "dependencies": {
+                "httpx": HAS_HTTPX,
+                "pynput": HAS_PYNPUT,
+                "pyperclip": HAS_PYPERCLIP,
+            },
+            "dpi_info": {
+                "awareness_level": self.ops._dpi_awareness,
+                "scale_percent": self.ops._dpi_scale_pct,
+                "skip_dpi_set": bool(os.environ.get("HELIX_PILOT_SKIP_DPI", "")),
+            },
             "visible_windows": visible[:20],
             "screen_size": [screen_w, screen_h],
             "user_monitoring": "pynput" if HAS_PYNPUT else "polling",
