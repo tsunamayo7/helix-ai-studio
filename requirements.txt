@@ -46,6 +46,11 @@ qrcode[pil]>=7.4.0
 # Optional Packages (install to unlock additional features)
 # ============================================================
 
+# --- Docker SDK (Sandbox Virtual Desktop) ---
+# Without it, the Virtual Desktop tab is disabled (graceful degradation).
+# Install: pip install docker
+# docker>=7.0.0
+
 # --- Browser Use (JS-rendered page fetching for localAI) ---
 # Without it, only static pages can be fetched (httpx fallback works).
 # Install: pip install browser-use && python -m playwright install chromium

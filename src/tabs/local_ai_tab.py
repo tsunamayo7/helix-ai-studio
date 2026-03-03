@@ -53,7 +53,7 @@ class OllamaWorkerThread(QThread):
 
     def __init__(self, host: str, model: str, messages: list,
                  tools: list = None, project_dir: str = None,
-                 timeout: int = 300, parent=None):
+                 timeout: int = 300, sandbox_manager=None, parent=None):
         super().__init__(parent)
         self._host = host
         self._model = model
@@ -61,6 +61,7 @@ class OllamaWorkerThread(QThread):
         self._tools = tools
         self._project_dir = project_dir or "."
         self._timeout = timeout
+        self._sandbox_manager = sandbox_manager
         self._full_response = ""
 
     def run(self):
@@ -146,7 +147,13 @@ class OllamaWorkerThread(QThread):
         elif name == "search_files":
             return runner._tool_search_files(args.get("query", ""), args.get("search_content", False))
         elif name in ("write_file", "create_file"):
-            return {"error": "localAI チャットでのファイル書き込みは無効化されています。mixAI Phaseを使用してください。"}
+            # v12.0.0: sandbox 起動中は sandbox 内に書き込み可能
+            if self._sandbox_manager:
+                from ..sandbox.sandbox_config import SandboxStatus
+                if self._sandbox_manager.get_status() == SandboxStatus.RUNNING:
+                    return self._sandbox_manager.write_file(
+                        args.get("path", ""), args.get("content", ""))
+            return {"error": t("desktop.virtualDesktop.writeDisabledNoSandbox")}
         elif name == "web_search":
             return runner._tool_web_search(args.get("query", ""), args.get("max_results", 5))
         elif name == "fetch_url":
@@ -199,6 +206,7 @@ class LocalAITab(QWidget):
         self.main_window = main_window
 
         self._ollama_host = OLLAMA_HOST
+        self._sandbox_manager = None  # v12.0.0: sandbox 連携
         self._messages = []  # チャット履歴
         # v11.3.1: browser_use 有効時はツール使い分けガイドをシステムメッセージとして注入
         try:
@@ -231,6 +239,10 @@ class LocalAITab(QWidget):
         self._caps_ready.connect(self._apply_capabilities)
         # 初回モデル一覧取得
         QTimer.singleShot(500, self._refresh_models)
+
+    def set_sandbox_manager(self, manager):
+        """v12.0.0: SandboxManager の参照を設定"""
+        self._sandbox_manager = manager
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -825,6 +837,7 @@ class LocalAITab(QWidget):
             messages=list(self._messages),
             tools=tools_to_use,
             project_dir=project_dir,
+            sandbox_manager=getattr(self, '_sandbox_manager', None),
         )
         self._worker.chunkReceived.connect(self._on_chunk)
         self._worker.completed.connect(self._on_completed)
