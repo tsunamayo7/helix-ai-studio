@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 from PyQt6.QtGui import QFont, QAction, QTextCursor, QKeyEvent
-from ..utils.i18n import t
+from ..utils.i18n import t, get_language
 from ..utils.styles import COLORS
 from ..utils.style_helpers import SS
 from ..utils.error_translator import translate_error
@@ -332,11 +332,12 @@ class GeminiWorkerThread(QThread):
     errorOccurred = pyqtSignal(str)       # error_message
     chunkReceived = pyqtSignal(str)       # chunk (ストリーミング用、将来対応)
 
-    def __init__(self, prompt: str, model_id: str, api_key: str, parent=None):
+    def __init__(self, prompt: str, model_id: str, api_key: str, system_prompt: str = "", parent=None):
         super().__init__(parent)
         self._prompt = prompt
         self._model_id = model_id
         self._api_key = api_key
+        self._system_prompt = system_prompt
 
     def run(self):
         import logging
@@ -351,6 +352,7 @@ class GeminiWorkerThread(QThread):
                 prompt=self._prompt,
                 model_id=self._model_id,
                 api_key=self._api_key,
+                system_prompt=self._system_prompt,
             ):
                 full_text += chunk
                 self.chunkReceived.emit(chunk)
@@ -3560,8 +3562,10 @@ class ClaudeTab(QWidget):
         )
 
         # v11.9.4: GeminiWorkerThread — Qt Signal でスレッド安全にコールバック
+        _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
         self._gemini_worker = GeminiWorkerThread(
-            prompt=prompt, model_id=model_id, api_key=api_key, parent=self
+            prompt=prompt, model_id=model_id, api_key=api_key,
+            system_prompt=_lang_sys, parent=self
         )
 
         # 保存用変数（ラムダ内で model_id を参照）
@@ -3653,7 +3657,9 @@ class ClaudeTab(QWidget):
                     if key:
                         env["GEMINI_API_KEY"] = key
 
-                cmd = ["gemini", "-p", prompt, "--model", model_id, "--yolo"]
+                _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
+                _cli_prompt = f"{_lang_sys}\n\n{prompt}"
+                cmd = ["gemini", "-p", _cli_prompt, "--model", model_id, "--yolo"]
                 result = subprocess.run(
                     cmd, capture_output=True, text=True,
                     timeout=timeout_sec, env=env,
@@ -3844,6 +3850,8 @@ class ClaudeTab(QWidget):
                     except Exception:
                         pass
 
+        _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
+
         def _thread_run():
             full_text = ""
             error = ""
@@ -3852,6 +3860,7 @@ class ClaudeTab(QWidget):
                     prompt=prompt,
                     model_id=model_id,
                     api_key=api_key,
+                    system_prompt=_lang_sys,
                 ):
                     full_text += chunk
                     # CLI chunk handler を流用してストリーミング表示
@@ -3912,6 +3921,8 @@ class ClaudeTab(QWidget):
                     except Exception:
                         pass
 
+        _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
+
         def _thread_run():
             full_text = ""
             error = ""
@@ -3920,6 +3931,7 @@ class ClaudeTab(QWidget):
                     prompt=prompt,
                     model_id=model_id,
                     api_key=api_key,
+                    system_prompt=_lang_sys,
                 ):
                     full_text += chunk
             except Exception as e:
@@ -3994,9 +4006,11 @@ class ClaudeTab(QWidget):
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions, model=selected_model)
 
         # CLIWorkerThreadで非同期実行
+        _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
+        _cli_prompt = f"{_lang_sys}\n\n{prompt}"
         self._cli_worker = CLIWorkerThread(
             backend=self._cli_backend,
-            prompt=prompt,
+            prompt=_cli_prompt,
             model=selected_model,  # v3.9.4: モデルを渡す
             working_dir=working_dir,
         )

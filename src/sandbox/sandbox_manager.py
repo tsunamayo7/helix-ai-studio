@@ -64,22 +64,72 @@ class SandboxManager(QObject):
             try:
                 self._client = docker.from_env()
                 self._client.ping()
+                logger.info("[SandboxManager] Docker connection established.")
             except Exception as e:
-                logger.debug(f"[SandboxManager] Docker connection failed: {e}")
+                logger.warning(
+                    f"[SandboxManager] Docker connection failed: {e}\n"
+                    "Docker Desktop / Rancher Desktop が起動していない可能性があります。"
+                    "コンテナランタイムを起動してから「🔄 更新」ボタンを押してください。"
+                )
                 self._client = None
         return self._client
 
-    def is_docker_available(self) -> bool:
-        """Docker が利用可能かチェック（例外を投げない）"""
-        if not DOCKER_SDK_AVAILABLE:
-            return False
+    def reset_connection(self):
+        """キャッシュ済み Docker クライアントをリセット（再接続に使用）"""
+        self._client = None
+        logger.debug("[SandboxManager] Client cache cleared (reset_connection).")
+
+    @staticmethod
+    def _is_docker_available_via_cli() -> bool:
+        """CLI fallback: `docker version` が成功するか確認（SDK が使えない場合の補完）"""
         try:
-            client = self._get_client()
-            if client:
-                client.ping()
-                return True
+            import subprocess
+            result = subprocess.run(
+                ["docker", "version"],
+                capture_output=True, timeout=5
+            )
+            return result.returncode == 0
         except Exception:
-            pass
+            return False
+
+    def get_docker_unavailable_reason(self) -> str:
+        """Docker が利用不可な理由を人間が読める形で返す"""
+        if not DOCKER_SDK_AVAILABLE:
+            return "docker SDK 未インストール: `pip install docker` を実行してください。"
+
+        # CLI で確認
+        if not self._is_docker_available_via_cli():
+            return (
+                "docker CLI が見つからないか、Docker エンジンが起動していません。\n"
+                "Docker Desktop または Rancher Desktop を起動してください。"
+            )
+
+        # CLI は OK だが SDK の接続に失敗する場合（ソケット差異など）
+        return (
+            "docker CLI は有効ですが、Python SDK の接続に失敗しています。\n"
+            "DOCKER_HOST 環境変数が正しいか確認してください。\n"
+            "Rancher Desktop を使用している場合は Moby/dockerd エンジンを選択してください。"
+        )
+
+    def is_docker_available(self) -> bool:
+        """Docker が利用可能かチェック（SDK→CLI 2段フォールバック）"""
+        # 1段目: SDK で確認
+        if DOCKER_SDK_AVAILABLE:
+            try:
+                client = self._get_client()
+                if client:
+                    client.ping()
+                    return True
+                # キャッシュが None = 前回失敗 → CLI へフォールバック
+            except Exception:
+                # 接続は取れていたが ping 失敗 = ソケットが失われた（再起動等）
+                self.reset_connection()
+
+        # 2段目: CLI フォールバック（SDK 未導入 or SDK 接続失敗時）
+        if self._is_docker_available_via_cli():
+            logger.info("[SandboxManager] Docker available via CLI fallback (SDK unavailable/failed).")
+            return True
+
         return False
 
     def check_image_exists(self) -> bool:
@@ -170,6 +220,10 @@ class SandboxManager(QObject):
             if effective_network == "none":
                 effective_network = "bridge"
 
+            # host.docker.internal でコンテナ内からホストのサービス
+            # （Ollama localhost:11434 等）にアクセス可能にする
+            extra_hosts = {"host.docker.internal": "host-gateway"}
+
             container = client.containers.run(
                 image=config.image_name,
                 detach=True,
@@ -180,6 +234,7 @@ class SandboxManager(QObject):
                 nano_cpus=nano_cpus,
                 mem_limit=config.memory_limit,
                 network_mode=effective_network,
+                extra_hosts=extra_hosts,
             )
 
             # 起動確認 (最大10秒)
@@ -236,6 +291,15 @@ class SandboxManager(QObject):
 
         except Exception as e:
             logger.error(f"[SandboxManager] Create failed: {e}")
+            # 残骸コンテナを掃除
+            try:
+                client = self._get_client()
+                if client:
+                    c = client.containers.get(container_name)
+                    c.remove(force=True)
+                    logger.info(f"[SandboxManager] Cleaned up failed container: {container_name}")
+            except Exception:
+                pass
             self._set_status(SandboxStatus.ERROR)
             self.errorOccurred.emit(str(e))
             return None
@@ -291,13 +355,32 @@ class SandboxManager(QObject):
         return {"error": result["stderr"] or "File not found"}
 
     def list_dir(self, path: str = "/workspace") -> dict:
-        """sandbox 内のディレクトリ一覧"""
+        """sandbox 内のディレクトリ一覧（構造化データ）"""
         if not self._validate_sandbox_path(path):
             return {"error": "Invalid path: path traversal detected"}
 
-        result = self.execute(f"ls -la '{path}'")
+        # JSON 形式で取得: name, type(file/dir/link), size, permissions
+        script = (
+            f"python3 -c \""
+            f"import os, json, stat; "
+            f"p='{path}'; entries=[]; "
+            f"[entries.append({{"
+            f"'name':e,'type':'dir' if os.path.isdir(os.path.join(p,e)) else 'file',"
+            f"'size':os.path.getsize(os.path.join(p,e)) if os.path.isfile(os.path.join(p,e)) else 0"
+            f"}}) for e in sorted(os.listdir(p))]; "
+            f"print(json.dumps({{'path':p,'entries':entries}}))\""
+        )
+        result = self.execute(script)
         if result["exit_code"] == 0:
-            return {"listing": result["stdout"], "path": path}
+            try:
+                import json
+                data = json.loads(result["stdout"].strip())
+                data["ok"] = True
+                return data
+            except Exception:
+                pass
+            # フォールバック: 生テキスト
+            return {"ok": True, "listing": result["stdout"], "path": path}
         return {"error": result["stderr"] or "Directory not found"}
 
     def screenshot(self) -> Optional[bytes]:
@@ -400,13 +483,14 @@ class SandboxManager(QObject):
         self.statusChanged.emit(status.value)
 
     def _validate_sandbox_path(self, path: str) -> bool:
-        """パストラバーサル検査"""
-        # 正規化して .. を含まないことを確認
-        normalized = os.path.normpath(path)
-        if ".." in normalized:
+        """パストラバーサル検査（sandbox 内の POSIX パスとして検証）"""
+        # ".." を含むパスを拒否
+        import posixpath
+        normalized = posixpath.normpath(path)
+        if ".." in normalized.split("/"):
             return False
         # 絶対パスの場合は /workspace 配下であること
-        if os.path.isabs(path) and not normalized.startswith("/workspace"):
+        if path.startswith("/") and not normalized.startswith("/workspace"):
             return False
         return True
 

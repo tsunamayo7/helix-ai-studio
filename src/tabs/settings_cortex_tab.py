@@ -1376,13 +1376,17 @@ class SettingsCortexTab(QWidget):
                 self.pilot_status_label.setStyleSheet(
                     f"color: {COLORS.get('success', '#10b981')}; font-size: 11px;")
             else:
-                error = pilot.last_error
-                if "not_connected" in error:
+                error = pilot.last_error or ""
+                if "not_capable" in error:
+                    model = error.split(":")[-1].strip() if ":" in error else ""
+                    self.pilot_status_label.setText(
+                        t('desktop.settings.pilotVisionNotCapable').replace("{model}", model))
+                elif "not_connected" in error:
                     self.pilot_status_label.setText(t('desktop.settings.pilotOllamaNg'))
                 elif "not_set" in error:
                     self.pilot_status_label.setText(t('desktop.settings.pilotVisionNotSet'))
                 elif "not_found" in error:
-                    model = error.split(":")[-1] if ":" in error else ""
+                    model = error.split(":")[-1].strip() if ":" in error else ""
                     self.pilot_status_label.setText(
                         t('desktop.settings.pilotVisionNotFound').replace("{model}", model))
                 else:

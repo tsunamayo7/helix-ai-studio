@@ -34,6 +34,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .auth import WebAuthManager
 from .api_routes import router as api_router, _load_merged_settings
+from ..utils.constants import APP_VERSION
 from .rag_bridge import WebRAGBridge
 from .chat_store import ChatStore
 from .ws_manager import WebSocketManager
@@ -120,7 +121,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Helix AI Studio Web API",
-    version="10.0.0",
+    version=APP_VERSION,
     lifespan=lifespan,
 )
 
@@ -401,7 +402,7 @@ async def _handle_local_execute(client_id: str, data: dict):
 
     # チャットID管理
     if not chat_id:
-        chat = chat_store.create_chat(tab="soloAI")
+        chat = chat_store.create_chat(tab="localAI")
         chat_id = chat["id"]
         await ws_manager.send_to(client_id, {
             "type": "chat_created",
@@ -448,12 +449,17 @@ async def _handle_local_execute(client_id: str, data: dict):
 
     start_time = _time.time()
 
+    # 言語指示system prompt
+    from src.utils.i18n import get_language as _get_lang
+    _lang_sys = "Respond in English." if _get_lang() == "en" else "日本語で回答してください。"
+
     try:
         response = await _run_ollama_async(
             model=model,
             prompt=full_prompt,
             timeout=_get_claude_timeout_sec(),
             host=ollama_host,
+            system=_lang_sys,
         )
 
         elapsed = _time.time() - start_time
@@ -545,6 +551,8 @@ async def _handle_solo_execute(client_id: str, data: dict):
     attached_files = data.get("attached_files", [])
     client_info = data.get("client_info", "Web Client")  # v9.5.0
 
+    start_time = _time.time()
+
     if not prompt:
         await ws_manager.send_error(client_id, _t('common.errors.promptEmpty'))
         return
@@ -605,6 +613,11 @@ async def _handle_solo_execute(client_id: str, data: dict):
         file_lines = [f"- {f}" for f in attached_files]
         full_prompt += f"\n\n[添付ファイル]\n" + "\n".join(file_lines)
 
+    # 言語指示をプロンプトに追加
+    from src.utils.i18n import get_language as _get_lang_solo
+    _lang_line_solo = "Respond in English." if _get_lang_solo() == "en" else "日本語で回答してください。"
+    full_prompt = f"{_lang_line_solo}\n\n{full_prompt}"
+
     # ステータス: 実行中
     ws_manager.set_active_task(client_id, "cloudAI")
     await ws_manager.send_status(client_id, "executing", f"Claude ({model_id}) 実行中...")
@@ -664,7 +677,8 @@ async def _handle_solo_execute(client_id: str, data: dict):
             await ws_manager.send_status(client_id, "completed", "実行完了")
 
             # v11.5.3: Discord完了通知
-            _notify_discord("cloudAI", "completed", response_text[:500])
+            elapsed = _time.time() - start_time
+            _notify_discord("cloudAI", "completed", response_text[:500], elapsed=elapsed)
 
             # 会話をRAGに保存
             asyncio.ensure_future(_save_web_conversation(
@@ -721,6 +735,8 @@ async def _handle_mix_execute(client_id: str, data: dict):
     timeout = timeout if timeout > 0 else _get_claude_timeout_sec()
     enable_rag = data.get("enable_rag", True)
     client_info = data.get("client_info", "Web Client")  # v9.5.0
+
+    start_time = _time.time()
 
     if not prompt:
         await ws_manager.send_error(client_id, _t('common.errors.promptEmpty'))
@@ -852,6 +868,8 @@ async def _handle_mix_execute(client_id: str, data: dict):
 
             # v11.6.0: クラウド/ローカル分岐
             start = _time.time()
+            from src.utils.i18n import get_language as _get_lang_p2
+            _lang_sys_p2 = "Respond in English." if _get_lang_p2() == "en" else "日本語で回答してください。"
             try:
                 cloud_provider = _get_cloud_provider_for_model_web(task["model"])
                 if cloud_provider:
@@ -859,12 +877,14 @@ async def _handle_mix_execute(client_id: str, data: dict):
                         model_name=task["model"],
                         prompt=task["prompt"],
                         provider=cloud_provider,
+                        system_prompt=_lang_sys_p2,
                     )
                 else:
                     result = await _run_ollama_async(
                         model=task["model"],
                         prompt=task["prompt"],
                         timeout=task.get("timeout", 300),
+                        system=_lang_sys_p2,
                     )
                 elapsed = _time.time() - start
                 phase2_results.append({
@@ -959,7 +979,8 @@ async def _handle_mix_execute(client_id: str, data: dict):
         await ws_manager.send_status(client_id, "completed", "3Phase実行完了")
 
         # v11.5.3: Discord完了通知
-        _notify_discord("mixAI", "completed", final_answer[:500])
+        elapsed = _time.time() - start_time
+        _notify_discord("mixAI", "completed", final_answer[:500], elapsed=elapsed)
 
         # 会話をRAGに保存
         asyncio.ensure_future(_save_web_conversation(
@@ -1025,15 +1046,19 @@ async def _run_claude_cli_async(prompt: str, model_id: str,
 
 
 async def _run_ollama_async(model: str, prompt: str,
-                            timeout: int = 300, host: str = "http://localhost:11434") -> str:
+                            timeout: int = 300, host: str = "http://localhost:11434",
+                            system: str = "") -> str:
     """v11.7.0: タイムアウト/接続失敗/HTTPエラーを個別キャッチ"""
     import httpx
 
     try:
+        _payload = {"model": model, "prompt": prompt, "stream": False}
+        if system:
+            _payload["system"] = system
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout)) as client:
             resp = await client.post(
                 f"{host}/api/generate",
-                json={"model": model, "prompt": prompt, "stream": False},
+                json=_payload,
             )
             resp.raise_for_status()
             return resp.json().get("response", "")
@@ -1083,19 +1108,23 @@ def _resolve_cloud_model_id_web(model_name: str) -> str:
     return model_name
 
 
-async def _run_cloud_api_async(model_name: str, prompt: str, provider: str) -> str:
+async def _run_cloud_api_async(model_name: str, prompt: str, provider: str,
+                               system_prompt: str = "") -> str:
     """v11.6.0: クラウドAPIを非同期で呼び出し（Web Phase 2用）"""
     model_id = _resolve_cloud_model_id_web(model_name)
 
     if provider in ("anthropic_api", "anthropic_cli"):
-        from src.backends.anthropic_api_backend import call_anthropic_api
-        return await asyncio.to_thread(call_anthropic_api, prompt=prompt, model_id=model_id)
+        from ..backends.anthropic_api_backend import call_anthropic_api
+        return await asyncio.to_thread(call_anthropic_api, prompt=prompt, model_id=model_id,
+                                       system_prompt=system_prompt)
     elif provider in ("openai_api", "openai_cli"):
-        from src.backends.openai_api_backend import call_openai_api
-        return await asyncio.to_thread(call_openai_api, prompt=prompt, model_id=model_id)
+        from ..backends.openai_api_backend import call_openai_api
+        return await asyncio.to_thread(call_openai_api, prompt=prompt, model_id=model_id,
+                                       system_prompt=system_prompt)
     elif provider in ("google_api", "google_cli"):
-        from src.backends.google_api_backend import call_google_api
-        return await asyncio.to_thread(call_google_api, prompt=prompt, model_id=model_id)
+        from ..backends.google_api_backend import call_google_api
+        return await asyncio.to_thread(call_google_api, prompt=prompt, model_id=model_id,
+                                       system_prompt=system_prompt)
     else:
         raise RuntimeError(f"Unsupported cloud provider: {provider}")
 
@@ -1298,13 +1327,13 @@ complexity=lowの場合はskip_phase2=trueとしてください。
 def _build_phase2_tasks(llm_instructions: dict, model_assignments: dict) -> list:
     """Phase 2タスクリスト構築（v11.6.0: research向けWebツールガイド注入）"""
     try:
-        from src.backends.local_agent import LOCALAI_WEB_TOOL_GUIDE
+        from ..backends.local_agent import LOCALAI_WEB_TOOL_GUIDE
     except Exception:
         LOCALAI_WEB_TOOL_GUIDE = ""
 
     tasks = []
     for category, spec in llm_instructions.items():
-        if isinstance(spec, dict) and not spec.get("skip", True):
+        if isinstance(spec, dict) and not spec.get("skip", False):
             model = model_assignments.get(category)
             if not model:
                 continue

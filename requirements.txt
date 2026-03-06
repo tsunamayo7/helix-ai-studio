@@ -1,5 +1,5 @@
 # Helix AI Studio - Dependencies
-# Version: 11.9.5
+# Version: 12.0.0
 
 # Core GUI Framework
 PyQt6>=6.6.0
@@ -38,6 +38,7 @@ python-dotenv>=1.0.0
 pyyaml>=6.0.1
 cryptography>=41.0.0
 requests>=2.31.0
+PyJWT>=2.8.0                    # Web UI JWT authentication
 
 # QR Code generation (v10.0.0: Discord notification)
 qrcode[pil]>=7.4.0
@@ -61,6 +62,15 @@ qrcode[pil]>=7.4.0
 # Without it, Ollama Embedding is used (requires Ollama running).
 # Install: pip install sentence-transformers
 # sentence-transformers>=2.2.0
+
+# --- Helix Pilot (GUI Automation) ---
+# Without these, Helix Pilot commands (auto/browse/find/describe) are unavailable.
+# Install: pip install pyautogui pygetwindow Pillow pynput pyperclip
+# pyautogui>=0.9.54
+# pygetwindow>=0.0.9
+# Pillow>=10.0.0
+# pynput>=1.7.6
+# pyperclip>=1.8.2
 
 # ============================================================
 # External CLI Tools (install separately)

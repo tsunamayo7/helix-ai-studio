@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QThread, QTimer
 from PyQt6.QtGui import QFont, QTextCursor
 
-from ..utils.i18n import t
+from ..utils.i18n import t, get_language
 from ..utils.error_translator import translate_error
 from ..utils.constants import APP_VERSION
 from ..utils.styles import (
@@ -761,7 +761,7 @@ class LocalAITab(QWidget):
                     config = pilot._load_config()
                     window = config.get("default_window", "")
                     screen_ctx = pilot.get_screen_context(window)
-                    lang = "ja" if t('desktop.localAI.sendBtn') != "Send" else "en"
+                    lang = get_language()
                     pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
                     message = pilot_prompt + "\n\n" + message
         except Exception as e:
@@ -830,11 +830,13 @@ class LocalAITab(QWidget):
         model_supports_tools = caps_data.get(model, {}).get("tools", False)
         tools_to_use = dynamic_tools if model_supports_tools else None
 
-        # ワーカー開始
+        # ワーカー開始（言語指示system messageを先頭に追加）
+        _lang_sys = "Respond in English." if get_language() == "en" else "日本語で回答してください。"
+        _msgs_for_worker = [{"role": "system", "content": _lang_sys}] + list(self._messages)
         self._worker = OllamaWorkerThread(
             host=self._ollama_host,
             model=model,
-            messages=list(self._messages),
+            messages=_msgs_for_worker,
             tools=tools_to_use,
             project_dir=project_dir,
             sandbox_manager=getattr(self, '_sandbox_manager', None),

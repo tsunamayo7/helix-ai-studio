@@ -426,8 +426,20 @@ class LocalAgentRunner:
             messages.append(message)  # アシスタントメッセージを追加
 
             for tool_call in tool_calls:
-                func_name = tool_call["function"]["name"]
-                func_args = tool_call["function"].get("arguments", {})
+                # 問題11: tool_call の形式が Ollama バージョン/モデルで揺れるため安全に取得
+                func_info = tool_call.get("function", {})
+                func_name = func_info.get("name", "")
+                if not func_name:
+                    logger.warning("[LocalAgent] tool_call に function.name がありません: %s", tool_call)
+                    continue
+                func_args = func_info.get("arguments", {})
+                # arguments が文字列 (JSON) で返されるモデルに対応
+                if isinstance(func_args, str):
+                    try:
+                        func_args = json.loads(func_args)
+                    except json.JSONDecodeError:
+                        logger.warning("[LocalAgent] arguments の JSON 解析に失敗: %s", func_args)
+                        func_args = {}
 
                 # コールバック通知
                 if self.on_tool_call:
@@ -444,9 +456,10 @@ class LocalAgentRunner:
                     "loop": loop_count,
                 })
 
-                # ツール結果をメッセージに追加
+                # 問題10: Ollama 仕様準拠 — tool 結果メッセージに tool_name を付与
                 messages.append({
                     "role": "tool",
+                    "tool_name": func_name,
                     "content": json.dumps(result, ensure_ascii=False),
                 })
 

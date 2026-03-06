@@ -1,6 +1,6 @@
 {
   "name": "helix-ai-studio-web",
-  "version": "9.0.0",
+  "version": "12.0.0",
   "private": true,
   "type": "module",
   "scripts": {

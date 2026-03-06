@@ -39,7 +39,6 @@ from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 
-from .auth import WebAuthManager
 from .file_transfer import UPLOAD_MAX_SIZE_BYTES, UPLOAD_MAX_SIZE_MB, UPLOAD_ALLOWED_EXTENSIONS, validate_upload
 from ..utils.constants import APP_VERSION, APP_CODENAME
 
@@ -84,7 +83,11 @@ class ModelInfo(BaseModel):
 # =============================================================================
 
 security = HTTPBearer()
-auth_manager = WebAuthManager()
+
+def _get_auth_manager():
+    """server.pyと同一のAuthManagerインスタンスを取得"""
+    from .server import auth_manager
+    return auth_manager
 
 # v11.2.1: ブルートフォース対策
 _login_attempts: dict = defaultdict(list)
@@ -100,11 +103,12 @@ async def verify_jwt(
     """JWT認証の依存性注入"""
     # IP チェック
     client_ip = request.client.host
-    if not auth_manager.check_ip(client_ip):
+    _auth = _get_auth_manager()
+    if not _auth.check_ip(client_ip):
         raise HTTPException(status_code=403, detail="Access denied: IP not in allowed range")
 
     # JWT検証
-    payload = auth_manager.verify_token(credentials.credentials)
+    payload = _auth.verify_token(credentials.credentials)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -146,7 +150,8 @@ async def login(request: Request, body: LoginRequest):
     client_ip = request.client.host
 
     # IPチェック
-    if not auth_manager.check_ip(client_ip):
+    _auth = _get_auth_manager()
+    if not _auth.check_ip(client_ip):
         raise HTTPException(status_code=403, detail="Access denied: IP not in allowed range")
 
     # v11.2.1: レート制限チェック
@@ -166,7 +171,7 @@ async def login(request: Request, body: LoginRequest):
         )
 
     # PIN検証
-    if not auth_manager.verify_pin(body.pin):
+    if not _auth.verify_pin(body.pin):
         _login_attempts[client_ip].append(now)
         logger.warning(f"Failed login attempt from {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid PIN")
@@ -175,12 +180,12 @@ async def login(request: Request, body: LoginRequest):
     _login_attempts[client_ip] = []
 
     # JWT発行
-    token = auth_manager.create_token(client_ip)
+    token = _auth.create_token(client_ip)
     logger.info(f"Login successful from {client_ip}")
 
     return LoginResponse(
         token=token,
-        expires_in_hours=auth_manager.jwt_expiry_hours,
+        expires_in_hours=_auth.jwt_expiry_hours,
     )
 
 
@@ -237,11 +242,16 @@ async def solo_execute(body: SoloExecuteRequest, payload: dict = Depends(verify_
     """
     from ..utils.subprocess_utils import run_hidden
 
+    model_id = body.model_id
+    if not model_id:
+        from .server import _get_default_model
+        model_id = _get_default_model()
+
     cmd = [
         "claude",
         "-p",
         "--output-format", "json",
-        "--model", body.model_id,
+        "--model", model_id,
     ]
 
     if body.auto_approve:
@@ -763,21 +773,22 @@ async def rag_search(request: RAGSearchRequest, payload: dict = Depends(verify_j
 # チャット履歴 API (v9.2.0)
 # =============================================================================
 
-from .chat_store import ChatStore
-
-chat_store = ChatStore()
+def _get_chat_store():
+    """server.pyと同一のChatStoreインスタンスを取得"""
+    from .server import chat_store
+    return chat_store
 
 
 @router.get("/api/chats/storage/stats")
 async def storage_stats(payload: dict = Depends(verify_jwt)):
     """ストレージ統計"""
-    return chat_store.get_storage_stats()
+    return _get_chat_store().get_storage_stats()
 
 
 @router.get("/api/chats")
 async def list_chats(tab: str = None, payload: dict = Depends(verify_jwt)):
     """チャット一覧取得"""
-    chats = chat_store.list_chats(tab=tab)
+    chats = _get_chat_store().list_chats(tab=tab)
     return {"chats": chats}
 
 
@@ -785,17 +796,18 @@ async def list_chats(tab: str = None, payload: dict = Depends(verify_jwt)):
 async def create_chat(tab: str = "cloudAI", context_mode: str = "session",
                       payload: dict = Depends(verify_jwt)):
     """新規チャット作成"""
-    chat = chat_store.create_chat(tab=tab, context_mode=context_mode)
+    chat = _get_chat_store().create_chat(tab=tab, context_mode=context_mode)
     return chat
 
 
 @router.get("/api/chats/{chat_id}")
 async def get_chat_detail(chat_id: str, payload: dict = Depends(verify_jwt)):
     """チャット詳細 + メッセージ取得"""
-    chat = chat_store.get_chat(chat_id)
+    store = _get_chat_store()
+    chat = store.get_chat(chat_id)
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
-    messages = chat_store.get_messages(chat_id)
+    messages = store.get_messages(chat_id)
     return {"chat": chat, "messages": messages}
 
 
@@ -806,7 +818,7 @@ class TitleUpdate(BaseModel):
 @router.put("/api/chats/{chat_id}/title")
 async def update_title(chat_id: str, body: TitleUpdate, payload: dict = Depends(verify_jwt)):
     """タイトル更新"""
-    chat_store.update_chat_title(chat_id, body.title)
+    _get_chat_store().update_chat_title(chat_id, body.title)
     return {"status": "ok"}
 
 
@@ -817,14 +829,14 @@ class ModeUpdate(BaseModel):
 @router.put("/api/chats/{chat_id}/mode")
 async def update_mode(chat_id: str, body: ModeUpdate, payload: dict = Depends(verify_jwt)):
     """コンテキストモード変更"""
-    chat_store.update_context_mode(chat_id, body.mode)
+    _get_chat_store().update_context_mode(chat_id, body.mode)
     return {"status": "ok", "mode": body.mode}
 
 
 @router.delete("/api/chats/{chat_id}")
 async def delete_chat(chat_id: str, payload: dict = Depends(verify_jwt)):
     """チャット削除"""
-    chat_store.delete_chat(chat_id)
+    _get_chat_store().delete_chat(chat_id)
     return {"status": "ok"}
 
 
@@ -967,15 +979,13 @@ async def copy_upload_to_project(filename: str, dest_dir: str = "",
 # =============================================================================
 
 @router.get("/api/chats/public-list")
-async def public_chat_list(limit: int = 10):
-    """認証不要: 直近チャットのタイトル+プレビューを返す
+async def public_chat_list(limit: int = 10, payload: dict = Depends(verify_jwt)):
+    """直近チャットのタイトル+プレビューを返す
 
-    注意: JWT認証なし。Tailscale VPN内アクセス前提。
     チャット本文は含まない。タイトルとプレビュー（50文字）のみ。
     """
     try:
-        from .chat_store import ChatStore
-        store = ChatStore()
+        store = _get_chat_store()
         chats = store.list_chats(limit=limit)
 
         public_chats = []

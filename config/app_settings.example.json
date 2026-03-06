@@ -1,0 +1,50 @@
+{
+  "version": "12.0.0",
+  "general": {
+    "dark_mode": true,
+    "font_size": 10,
+    "auto_save": true,
+    "auto_context": true
+  },
+  "claude": {
+    "default_model": "claude-sonnet-4-20250514",
+    "timeout_minutes": 30,
+    "mcp_enabled": true,
+    "diff_view_enabled": true,
+    "auto_context_enabled": true
+  },
+  "gemini": {
+    "default_model": "gemini-2.5-flash",
+    "yolo_mode": false,
+    "sandbox_mode": true
+  },
+  "memory": {
+    "auto_save": true,
+    "risk_gate_enabled": true,
+    "save_threshold": ""
+  },
+  "bible": {
+    "auto_discover": true,
+    "auto_manage": true,
+    "project_root": ""
+  },
+  "app_manager": {
+    "base_directory": "",
+    "show_hidden": false
+  },
+  "information_collection": {
+    "folder_path": "data/information",
+    "default_time_minutes": 30,
+    "chunk_size": 512,
+    "chunk_overlap": 64,
+    "rag_model": "",
+    "auto_rebuild_on_change": false,
+    "last_build_timestamp": null,
+    "last_plan_id": null
+  },
+  "rag": {
+    "time_limit_minutes": 240,
+    "chunk_size": 512,
+    "overlap": 64
+  }
+}
