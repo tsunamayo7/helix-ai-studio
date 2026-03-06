@@ -3735,6 +3735,7 @@ class ClaudeTab(QWidget):
         self._codex_response_ready.connect(self._on_codex_response)
         self._codex_error_ready.connect(self._on_codex_error)
         self._codex_current_session_id = session_id
+        self._codex_current_model_name = model_id or "Codex CLI"
 
         def _run():
             try:
@@ -3749,11 +3750,12 @@ class ClaudeTab(QWidget):
         threading.Thread(target=_run, daemon=True).start()
 
     def _on_codex_response(self, response_text: str, session_id: str):
-        """v9.9.1: Codex CLI応答処理"""
+        """v9.9.1: Codex CLI応答処理 (v12.6.0: 選択モデル名表示)"""
         rendered = markdown_to_html(response_text)
+        display_name = getattr(self, '_codex_current_model_name', 'Codex CLI')
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:{COLORS['warning']};'>GPT-5.3-Codex (CLI):</b><br>"
+            f"<b style='color:{COLORS['warning']};'>{display_name} (CLI):</b><br>"
             f"{rendered}"
             f"</div>"
         )
@@ -3762,10 +3764,22 @@ class ClaudeTab(QWidget):
         self.statusChanged.emit(t('desktop.cloudAI.codexComplete'))
 
     def _on_codex_error(self, error_msg: str):
-        """v9.9.1: Codex CLIエラー処理"""
+        """v9.9.1: Codex CLIエラー処理 (v12.6.0: 原因別分類)"""
+        msg_lower = error_msg.lower()
+        if "見つかりません" in error_msg or "not found" in msg_lower:
+            category = "未インストール"
+        elif "タイムアウト" in error_msg or "timeout" in msg_lower:
+            category = "タイムアウト"
+        elif "auth" in msg_lower or "unauthorized" in msg_lower or "401" in error_msg:
+            category = "認証エラー (codex auth でログイン)"
+        elif "unsupported" in msg_lower or "invalid model" in msg_lower:
+            category = "非対応モデル"
+        else:
+            category = "実行エラー"
+        display_name = getattr(self, '_codex_current_model_name', 'Codex CLI')
         self.chat_display.append(
             f"<div style='{AI_MESSAGE_STYLE}'>"
-            f"<b style='color:{COLORS['error']};'>Codex Error:</b><br>"
+            f"<b style='color:{COLORS['error']};'>{display_name} — {category}:</b><br>"
             f"{error_msg[:500]}"
             f"</div>"
         )

@@ -94,11 +94,22 @@ class SandboxManager(QObject):
 
     def get_docker_unavailable_reason(self) -> str:
         """Docker が利用不可な理由を人間が読める形で返す"""
-        if not DOCKER_SDK_AVAILABLE:
-            return "docker SDK 未インストール: `pip install docker` を実行してください。"
+        cli_ok = self._is_docker_available_via_cli()
 
-        # CLI で確認
-        if not self._is_docker_available_via_cli():
+        if not DOCKER_SDK_AVAILABLE:
+            if cli_ok:
+                return (
+                    "docker CLI は有効ですが、Python SDK が未インストールです。\n"
+                    "一部機能（イメージ検査・削除）は CLI 経由で動作します。\n"
+                    "フル機能を使うには: pip install docker"
+                )
+            return (
+                "Docker が利用できません。\n"
+                "Docker Desktop または Rancher Desktop をインストール・起動してください。\n"
+                "Python SDK も必要です: pip install docker"
+            )
+
+        if not cli_ok:
             return (
                 "docker CLI が見つからないか、Docker エンジンが起動していません。\n"
                 "Docker Desktop または Rancher Desktop を起動してください。"
@@ -108,7 +119,7 @@ class SandboxManager(QObject):
         return (
             "docker CLI は有効ですが、Python SDK の接続に失敗しています。\n"
             "DOCKER_HOST 環境変数が正しいか確認してください。\n"
-            "Rancher Desktop を使用している場合は Moby/dockerd エンジンを選択してください。"
+            "Rancher Desktop の場合は Moby/dockerd エンジンを選択してください。"
         )
 
     def is_docker_available(self) -> bool:
@@ -133,29 +144,55 @@ class SandboxManager(QObject):
         return False
 
     def check_image_exists(self) -> bool:
-        """helix-sandbox:latest イメージが存在するかチェック"""
+        """helix-sandbox:latest イメージが存在するかチェック（SDK→CLI fallback）"""
+        # 1段目: SDK
         client = self._get_client()
-        if not client:
-            return False
+        if client:
+            try:
+                client.images.get("helix-sandbox:latest")
+                return True
+            except Exception:
+                return False
+
+        # 2段目: CLI fallback
         try:
-            client.images.get("helix-sandbox:latest")
-            return True
+            import subprocess
+            result = subprocess.run(
+                ["docker", "image", "inspect", "helix-sandbox:latest"],
+                capture_output=True, timeout=10
+            )
+            return result.returncode == 0
         except Exception:
             return False
 
     def remove_image(self, force: bool = True) -> bool:
-        """v12.6.0: helix-sandbox:latest イメージを削除"""
+        """v12.6.0: helix-sandbox:latest イメージを削除（SDK→CLI fallback）"""
+        # 1段目: SDK
         client = self._get_client()
-        if not client:
-            return False
+        if client:
+            try:
+                client.images.remove("helix-sandbox:latest", force=force)
+                logger.info("[SandboxManager] Image removed via SDK")
+                return True
+            except Exception as e:
+                logger.warning(f"[SandboxManager] SDK image removal failed: {e}")
+
+        # 2段目: CLI fallback
         try:
-            client.images.remove("helix-sandbox:latest", force=force)
-            logger.info("[SandboxManager] Image helix-sandbox:latest removed")
-            return True
+            import subprocess
+            args = ["docker", "rmi", "helix-sandbox:latest"]
+            if force:
+                args.insert(2, "--force")
+            result = subprocess.run(args, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                logger.info("[SandboxManager] Image removed via CLI fallback")
+                return True
+            logger.warning(f"[SandboxManager] CLI image removal failed: {result.stderr.strip()}")
         except Exception as e:
-            logger.warning(f"[SandboxManager] Image removal failed: {e}")
-            self.errorOccurred.emit(f"Image removal failed: {e}")
-            return False
+            logger.warning(f"[SandboxManager] CLI image removal error: {e}")
+
+        self.errorOccurred.emit("Image removal failed (SDK/CLI both failed)")
+        return False
 
     def build_image(self, progress_callback: Optional[Callable] = None) -> bool:
         """Dockerfile からイメージをビルド"""
