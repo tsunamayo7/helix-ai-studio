@@ -5,6 +5,30 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [12.5.0] - 2026-03-06 "CrewAI Integration"
+
+### Added
+
+- **CrewAI multi-agent integration** in mixAI Pipeline
+  - Sequential and Hierarchical orchestration modes
+  - Agent team configuration via UI — no code required
+- **MCP (Model Context Protocol) support across all tabs**
+  - External tool access available in mixAI, cloudAI, and localAI
+- **5-phase pipeline** (Plan → Execute → Validate → Refine → Output)
+- `scripts/screen_recorder.py`: Screen recorder utility for demo recording
+- Codex CLI fix: `stdin=subprocess.DEVNULL` + memory context bug resolved
+
+### Changed
+
+- `src/utils/constants.py`: `APP_VERSION` → "12.5.0"
+- 7-tab layout: mixAI / cloudAI / localAI / History / RAG / Virtual Desktop / Settings
+- i18n: Japanese/English 1,939 keys fully synchronized with one-click switching
+- README.md / README_ja.md: Complete rewrite with "Why Helix?" section, 4 demo GIFs, comparison table, 3-line install, collapsible sections
+- SETUP_GUIDE.md: Updated to v12.5.0 with CrewAI in dependency table
+- `install.bat` / `install.sh`: 8-step fully automated installer (Python, Ollama, Node.js, Web UI, CLI tools)
+
+
+
 ## [12.0.0] - 2026-03-03 "Sandbox First"
 
 ### Added
