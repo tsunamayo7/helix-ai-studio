@@ -1154,7 +1154,12 @@ class CoreOperations:
 # Inline script for the indicator subprocess (avoids tkinter thread issues)
 _INDICATOR_SCRIPT = r'''
 import tkinter as tk, sys, os
+
+TIMEOUT_MS = 300_000  # 5 minutes — auto-destroy to prevent orphan windows
+PARENT_CHECK_MS = 3_000  # check parent process every 3 seconds
+
 command = sys.argv[1] if len(sys.argv) > 1 else ""
+parent_pid = int(sys.argv[2]) if len(sys.argv) > 2 else None
 text = f"  Helix Pilot: {command}...  " if command else "  Helix Pilot 動作中...  "
 root = tk.Tk()
 root.overrideredirect(True)
@@ -1167,6 +1172,23 @@ root.update_idletasks()
 w, h = root.winfo_reqwidth(), root.winfo_reqheight()
 sx, sy = root.winfo_screenwidth(), root.winfo_screenheight()
 root.geometry(f"{w}x{h}+{sx - w - 20}+{sy - h - 60}")
+
+# Auto-destroy after timeout to prevent orphan windows
+root.after(TIMEOUT_MS, root.destroy)
+
+# Periodically check if parent process is still alive
+def _check_parent():
+    if parent_pid is not None:
+        try:
+            os.kill(parent_pid, 0)  # signal 0 = check existence
+        except OSError:
+            root.destroy()
+            return
+    root.after(PARENT_CHECK_MS, _check_parent)
+
+if parent_pid is not None:
+    root.after(PARENT_CHECK_MS, _check_parent)
+
 root.mainloop()
 '''
 
@@ -1177,17 +1199,25 @@ class PilotIndicator:
     Spawns a tiny subprocess that displays a semi-transparent label
     at the bottom-right of the screen. Killed on hide().
     Subprocess approach avoids tkinter-in-thread segfault issues.
+
+    Safety measures against orphan processes:
+    - The indicator script auto-destroys after 5 minutes (TIMEOUT_MS)
+    - The indicator script monitors the parent PID and exits if parent dies
+    - atexit handler ensures cleanup when the Python interpreter exits
     """
 
     def __init__(self):
         self._proc = None
+        import atexit
+        atexit.register(self.hide)
 
     def show(self, command: str = ""):
         """Show the indicator by spawning a subprocess."""
         self.hide()  # Clean up any previous
         try:
             self._proc = subprocess.Popen(
-                [sys.executable, "-c", _INDICATOR_SCRIPT, command],
+                [sys.executable, "-c", _INDICATOR_SCRIPT,
+                 command, str(os.getpid())],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
