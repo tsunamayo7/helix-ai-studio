@@ -5,150 +5,183 @@
 
 # Helix AI Studio
 
-**One prompt. Multiple AI models. One integrated answer.**
+### Claude, GPT, Gemini, and local LLMs — all in one app.
 
-*A desktop app that makes Claude, GPT, Gemini, and local LLMs actually work **together** — sharing one RAG knowledge base, no copy-pasting, no coding required.*
+*Multiple AIs collaborate automatically and deliver one refined answer.*
+*Free with local LLMs. Add API keys for cloud AIs.*
 
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v12.0.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
-![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
+[![Version](https://img.shields.io/badge/version-v12.5.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
-[Japanese README](README_ja.md) · [Setup Guide](SETUP_GUIDE.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
+[Japanese](README_ja.md) · [Setup Guide](SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
-> If Helix AI Studio looks useful to you, a star helps more developers discover it. Thank you!
+![Helix AI Studio Screenshot](docs/demo/cloudai_chat.png)
 
 </div>
 
 ---
 
-## Why Helix?
+## Getting Started
 
-| | |
-|---|---|
-| **Save tokens, not quality** | Claude handles 20% (planning + validation). Free local LLMs handle 80%. Same result, fraction of the cost. |
-| **Or go all-cloud for precision** | Route any prompt directly to Claude, GPT, or Gemini when you want full cloud power. |
-| **Build safely with Virtual Desktop** | Docker sandbox with a virtual screen — AI writes files inside an isolated container, you review the diff before anything touches your machine. |
-| **One memory across all models** | A single RAG knowledge base shared by Claude, GPT, Gemini, and Ollama. Build once, every model benefits. |
-| **Your hardware, your rules** | No Docker required. No subscription. `pip install` and run. Add Ollama for fully local, private inference. |
+Copy-paste 3 lines. The installer sets up everything.
 
----
+### Windows
 
-## Demo
+```cmd
+git clone https://github.com/tsunamayo7/helix-ai-studio.git
+cd helix-ai-studio
+install.bat
+```
 
-### mixAI Pipeline — Cloud plans, local executes, cloud validates
-
-![mixAI Pipeline Demo](docs/demo/desktop_mixai.gif)
-
-### Virtual Desktop — Docker sandbox with NoVNC
-
-![Virtual Desktop Demo](docs/demo/desktop_virtualdesktop.gif)
-
-### localAI Chat — Any Ollama model, running on your GPU
-
-![localAI Chat Demo](docs/demo/desktop_localai.gif)
-
----
-
-## Quick Start
+### macOS / Linux
 
 ```bash
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
-pip install -r requirements.txt
-python HelixAIStudio.py          # macOS: python3
+chmod +x install.sh && ./install.sh
 ```
 
-Add API keys in **Settings**, or install [Ollama](https://ollama.com) for fully local inference.
-Web UI starts at `http://localhost:8500`.
+```bash
+python HelixAIStudio.py   # launch
+```
 
-> New to this? See [SETUP_GUIDE.md](SETUP_GUIDE.md) for a step-by-step walkthrough.
+The desktop app opens. Access from your phone at `http://localhost:8500`.
+
+<details>
+<summary>What the installer does</summary>
+
+- Installs all AI-related packages
+- Installs Ollama (local AI engine) and downloads a starter model
+- Builds the Web UI
+- Sets up CLI tools (Claude Code / Codex)
+- Creates config files
+
+If anything fails, the installer keeps going. Failed items show as `[WARN]`.
+
+</details>
+
+> First time? See the [Setup Guide](SETUP_GUIDE.md).
 
 ---
 
-## How It Works
+## What Helix does
+
+| Feature | What it does |
+|---------|-------------|
+| **mixAI Pipeline** | Multiple AIs auto-collaborate: plan → execute → validate → refine → one answer |
+| **cloudAI Chat** | Chat with Claude, GPT, or Gemini. Switch models mid-conversation — context carries over |
+| **localAI Chat** | Fully offline with any Ollama model. Zero API cost |
+| **Virtual Desktop** | AI writes and runs code inside a Docker sandbox. Your machine stays clean |
+| **RAG** | Load PDFs and documents into a shared knowledge base for every AI |
+| **Web UI** | Access from phones and tablets on your LAN |
+| **MCP Support** | External tool integration via Model Context Protocol |
+| **i18n** | Japanese and English UI, switchable with one click |
+
+---
+
+## See it in action
+
+### Multiple AIs collaborate on one task (mixAI Pipeline)
+
+Claude plans, Mistral and Gemma execute, then results are merged and validated. One prompt does it all.
+
+![mixAI Pipeline Demo](docs/demo/gif/demo_mixai_pipeline.gif)
+
+### Pick any model and chat (cloudAI)
+
+Switch between Claude, GPT, and Gemini from a dropdown. Change models — your conversation continues.
+
+![cloudAI Demo](docs/demo/gif/demo_cloudai_models.gif)
+
+### Generate code with local LLMs (localAI)
+
+Ollama's qwen3.5 (122B) writes Python code. No internet, zero API cost.
+
+![localAI Demo](docs/demo/gif/demo_localai_chat.gif)
+
+### Preview AI-built apps instantly (Virtual Desktop)
+
+Apps run inside a Docker Virtual Desktop. Your actual machine stays untouched.
+
+![Virtual Desktop Demo](docs/demo/gif/demo_vd_sandbox.gif)
+
+---
+
+## API Keys
+
+**Using only local AI (Ollama)? No API key needed.** Start for free.
+
+For cloud AIs:
+
+| Provider | Get your key | Notes |
+|----------|-------------|-------|
+| Google | [aistudio.google.com](https://aistudio.google.com/app/apikey) | Gemini (**free tier**) |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude |
+| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | GPT |
+
+Enter keys in the Settings tab after launch.
+
+---
+
+## How Helix compares
+
+| What you want | Open WebUI | AnythingLLM | Dify | CrewAI | **Helix** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **Multi-AI pipeline** | — | — | Builder | Code | **GUI, one click** |
+| **AI agent teams** | — | — | Plugins | Code required | **Configure in UI** |
+| **Desktop app** | — | Yes | — | — | **Yes** |
+| **Mobile access** | Yes | — | — | — | **Yes** |
+| **No Docker needed** | Required | Optional | Required | pip | **Not required** |
+
+> No other tool offers a GUI-based multi-AI pipeline.
+
+---
+
+## How the Pipeline Works
 
 ```
         YOUR PROMPT
               |
               v
  ┌─────────────────────────┐
- │    Phase 1: PLANNING    │  Cloud AI (Claude / GPT / Gemini)
- │  - Analyze the task     │
- │  - Create sub-tasks     │
- │  - Set pass/fail rules  │
+ │    Phase 1: PLANNING    │  Cloud AI decides strategy and sub-tasks
  └─────────────────────────┘
               |
     ┌────┬───┴───┬────┐
     v    v       v    v
- ┌──────┐ ┌────────┐ ┌─────────┐ ┌────────┐
- │Coding│ │Research│ │Reasoning│ │ Vision │  Phase 2: LOCAL (your GPU)
- └──────┘ └────────┘ └─────────┘ └────────┘
-    └────┬────┘           └─────┬─────┘
-         └──────────┬───────────┘
-                    v
+ ┌──────┐┌──────┐┌──────┐┌──────┐
+ │ Code ││ Research ││Reason││Vision│  Phase 2: Agents work in parallel
+ └──────┘└──────┘└──────┘└──────┘
+         └──────┬──────┘
+                v
  ┌─────────────────────────┐
- │   Phase 3: VALIDATION   │  Cloud AI
- │  - Integrate outputs    │
- │  - PASS / FAIL check    │
- │  - Final synthesis      │
+ │   Phase 3: VALIDATION   │  Merge outputs, run quality checks
+ └─────────────────────────┘
+              |
+              v
+ ┌─────────────────────────┐
+ │  Phase 4: REFINEMENT    │  Polish and produce final answer
  └─────────────────────────┘
               |
               v
          FINAL OUTPUT
 ```
 
----
-
-## Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **mixAI Pipeline** | 3-phase orchestration: plan, execute, validate — one click |
-| **cloudAI Chat** | Direct chat with Claude, GPT, Gemini via API |
-| **localAI Chat** | Chat with any Ollama model on your GPU |
-| **Docker Sandbox** | Isolated virtual desktop (NoVNC). AI writes files inside the container, you review the diff, then promote to host |
-| **Unified RAG** | One knowledge base shared across all AI providers — local embeddings, build once |
-| **Helix Pilot v2.0** | Vision LLM agent integrated into all chat tabs — reads your screen and executes GUI commands |
-| **Web UI** | React-based mobile-friendly interface, accessible from any device on your LAN |
-| **4-Layer Memory** | Thread, Episodic, Semantic, Procedural — context persists across sessions |
-| **i18n** | Full Japanese and English UI, switchable at any time |
-
----
-
-## Helix vs. Popular Alternatives
-
-| | Open WebUI | AnythingLLM | Dify | LangChain | **Helix** |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **GitHub Stars** | 60k+ | 30k+ | 129k+ | 80k+ | — |
-| **Auto pipeline (cloud+local)** | Manual | Manual | Visual builder | Code required | **1-click** |
-| **Unified RAG (cloud+local)** | — | Partial | Cloud only | Manual | **All models** |
-| **Desktop app** | — | Yes | — | — | **Yes** |
-| **LAN Web UI** | Yes | — | — | — | **Yes** |
-| **Docker required** | Yes | Optional | Yes | N/A | **No** |
-| **Setup** | docker run | Installer | docker compose | pip + code | **pip + run** |
-| **Claude/GPT/Gemini native** | Via proxy | Yes | Yes | Yes | **Yes** |
-| **Cost optimization** | — | — | — | Manual | **Built-in** |
-| **MIT License** | Yes | Yes | Yes | Yes | **Yes** |
-
-> **The gap Helix fills**: A GUI desktop app that automatically orchestrates cloud + local models in a cost-optimized pipeline — with a unified RAG knowledge base shared across all AI providers, zero Docker requirement, LAN access built in.
+> Phase 2 supports CrewAI: Sequential or Hierarchical mode.
 
 ---
 
 <details>
-<summary><strong>Screenshots</strong></summary>
+<summary><strong>More Screenshots</strong></summary>
 
-### Pipeline Monitor
+### Pipeline Running
 ![Pipeline Monitor](docs/demo/mixai_monitor.png)
 
 ### Pipeline Complete
 ![Pipeline Complete](docs/demo/mixai_complete.png)
-
-### Cloud AI Chat
-![Cloud AI Chat](docs/demo/cloudai_chat.png)
 
 ### Local AI Chat
 ![Local AI Chat](docs/demo/desktop_localai_chat.png)
@@ -166,88 +199,43 @@ Web UI starts at `http://localhost:8500`.
 
 ---
 
-## Installation
+<details>
+<summary><strong>Tech Stack</strong></summary>
 
-### Requirements
+| Layer | Technology |
+|-------|-----------|
+| Desktop | PyQt6 |
+| Web UI | React + Vite + Tailwind CSS |
+| Server | FastAPI + Uvicorn (WebSocket) |
+| Cloud AI | Anthropic / OpenAI / Google Gemini APIs |
+| CLI | Claude Code CLI / Codex CLI |
+| Local LLM | Ollama |
+| Multi-Agent | CrewAI (Sequential / Hierarchical) |
+| Sandbox | Docker + Xvfb + NoVNC (optional) |
+| Memory | SQLite + vector embeddings |
+| Tools | MCP (Model Context Protocol) |
 
-| Item | Requirement |
-|------|-------------|
-| OS | Windows 10/11 or macOS 12+ (Apple Silicon & Intel) |
-| Python | 3.10+ (3.11 recommended) |
-| GPU | NVIDIA + CUDA (optional, for local LLMs on Windows). macOS uses Metal/CPU. |
-| RAM | 16 GB+ (32 GB+ for large models) |
+</details>
 
-### Setup
+---
 
-```bash
-git clone https://github.com/tsunamayo7/helix-ai-studio.git
-cd helix-ai-studio
-pip install -r requirements.txt
-```
+## Security
 
-**(Optional) Local LLMs:**
+- **Phase 2 runs 100% locally** — code and documents never leave your machine
+- **API keys stay local** — git-ignored
+- **Web UI is LAN-only** — not exposed to the internet
 
-```bash
-ollama pull gemma3:4b           # Lightweight
-ollama pull gemma3:27b          # Higher quality (16 GB+ VRAM)
-ollama pull mistral-small3.2    # Vision tasks
-```
+> Details in [SECURITY.md](SECURITY.md)
 
-**(Optional) Cloud AI keys:**
+---
 
-```bash
-# Windows
-copy config\general_settings.example.json config\general_settings.json
-# macOS / Linux
-cp config/general_settings.example.json config/general_settings.json
-```
-
-| Provider | Key source | Enables |
-|---|---|---|
-| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude chat + pipeline planning |
-| Google | [aistudio.google.com](https://aistudio.google.com/app/apikey) *(free tier)* | Gemini chat |
-| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | GPT chat |
-
-**Launch:**
-
-```bash
-python HelixAIStudio.py   # macOS: python3
-```
-
-### Update
+## Updating
 
 ```bash
 git pull && pip install -r requirements.txt && python HelixAIStudio.py
 ```
 
-> Settings (`config/`) and data (`data/`) are git-ignored and preserved across updates.
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Desktop GUI | PyQt6 |
-| Web UI | React + Vite + Tailwind CSS |
-| Web Server | FastAPI + Uvicorn (WebSocket) |
-| Cloud AI | Anthropic / OpenAI / Google Gemini APIs |
-| CLI Backends | Claude Code CLI / Codex CLI |
-| Local LLM | Ollama |
-| Sandbox | Docker + Xvfb + NoVNC (optional) |
-| Memory | SQLite + vector embeddings |
-| i18n | Shared JSON (ja/en) for Desktop + Web |
-
----
-
-## Security & Privacy
-
-- **Phase 2 is 100% local** — code and documents stay on your machine during execution
-- **API keys stay local** — stored in `config/general_settings.json` (git-ignored)
-- **Web UI is private** — designed for local/VPN access, not public internet
-- **Memory injection guard** — safety prompts prevent stored context from being used for prompt injection
-
-> See [SECURITY.md](SECURITY.md) for details on compliance with Anthropic, OpenAI, and Ollama terms.
+> Settings (`config/`) and data (`data/`) are preserved across updates.
 
 ---
 
@@ -255,41 +243,35 @@ git pull && pip install -r requirements.txt && python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
-| **v12.0.0** | Docker Sandbox Virtual Desktop (NoVNC), Promotion Engine (diff preview + host apply), 7-tab layout |
-| v11.9.7 | BIBLE/Pilot settings-tab migration, Feature Flags, Error translation system |
-| v11.9.5 | Helix Pilot in-app integration (all 3 chat tabs + Settings), model-agnostic hardening, demo videos |
+| **v12.5.0** | CrewAI integration, MCP across all tabs, 5-phase pipeline |
+| **v12.0.0** | Docker Virtual Desktop, 7-tab layout |
 | v11.9.4 | Helix Pilot v2.0 — autonomous Vision LLM GUI agent |
-| v11.9.0 | Unified Obsidian theme, SplashScreen |
-| v11.5.0 | Multi-provider API (Anthropic/OpenAI/Google) |
-| v11.0.0 | History tab, BIBLE cross-tab, cloud model selector |
+| v11.5.0 | Multi-provider API |
 | v9.0.0 | Web UI (React + FastAPI) |
 
-See [CHANGELOG.md](CHANGELOG.md) for the full history.
+See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ---
 
-## Articles & Resources
+## Articles
 
 | Article | Language | Link |
 |---------|----------|------|
-| v11.9.4 Release — Helix Pilot v2.0, tab-switching UI, i18n | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n7268ff58d0b0) |
-| v11.9.1 Release — color purge, pipeline automation | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
-| Architecture Deep Dive — multi-AI orchestration | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
-| Introduction & Setup Guide | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) |
-| Beginner's Guide — use multiple AIs for free | JP | [note.com](https://note.com/ai_tsunamayo_7/n/nb23a3ece82f8) |
+| Helix Pilot v2.0 Release | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n7268ff58d0b0) |
+| Multi-AI Orchestration Deep Dive | JP | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
+| Use Multiple AIs for Free | JP | [note.com](https://note.com/ai_tsunamayo_7/n/nb23a3ece82f8) |
 
 ---
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-For security issues, see [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT — [LICENSE](LICENSE)
 
 **Author**: tsunamayo7 ([@tsunamayo7](https://github.com/tsunamayo7))
 
@@ -297,7 +279,6 @@ MIT — see [LICENSE](LICENSE)
 
 <div align="center">
 
-**If Helix AI Studio is useful to you, please star the repo!**
-Feedback, issues, and PRs are always welcome.
+**If this is useful, a star helps others find it.**
 
 </div>

@@ -5,68 +5,138 @@
 
 # Helix AI Studio
 
-**ひとつのプロンプト。複数のAI。ひとつの統合された回答。**
+### Claude, GPT, Gemini, ローカルAI ―― 全部まとめて、ひとつのアプリで。
 
-*Claude・GPT・Gemini・ローカルLLMを**本当の意味で「協力」させる**デスクトップアプリです。
-ひとつのRAGナレッジベースを全AIで共有。コピペも、コーディングも不要。*
+*複数のAIが自動で協力し、ひとつの回答を仕上げます。*
+*ローカルLLMだけなら完全無料。API キーがあればクラウドAIも使えます。*
 
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyQt6](https://img.shields.io/badge/UI-PyQt6-green.svg)](https://pypi.org/project/PyQt6/)
-[![Version](https://img.shields.io/badge/version-v12.0.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
-![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-lightgrey)
-![i18n](https://img.shields.io/badge/i18n-ja%20%7C%20en-emerald)
+[![Version](https://img.shields.io/badge/version-v12.5.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
-[English README](README.md) · [セットアップガイド](SETUP_GUIDE.md) · [更新履歴](CHANGELOG.md) · [セキュリティ](SECURITY.md)
+[English](README.md) · [セットアップガイド](SETUP_GUIDE.md) · [更新履歴](CHANGELOG.md)
 
-> 役に立ちそうだと思ったら、スターをいただけると他の開発者に届きやすくなります。ありがとうございます！
+![Helix AI Studio Screenshot](docs/demo/cloudai_chat.png)
 
 </div>
 
 ---
 
-## なぜ Helix？
+## はじめかた
 
-| | |
-|---|---|
-| **トークン節約、品質はそのまま** | Claudeが担当するのは仕事の20%（計画+検証）。無料のローカルLLMが80%を実行。同じ結果を、わずかなコストで。 |
-| **クラウド全力モードも可能** | Claude・GPT・Geminiに直接プロンプトを送って、フルパワーのクラウドAIを使うこともできます。 |
-| **Virtual Desktopで安全に開発** | Docker仮想デスクトップ内でAIがファイルを書き込み。差分をプレビューしてからホストに適用。あなたの環境は安全です。 |
-| **全モデルで共有するメモリ** | Claude・GPT・Gemini・OllamaがひとつのRAGナレッジベースを共有。一度構築すれば、どのモデルも活用可能。 |
-| **あなたの環境で、あなたのルールで** | Docker不要。サブスクなし。`pip install`して起動するだけ。Ollamaを入れれば完全ローカルで動作。 |
+3行コピペするだけ。必要なツールはインストーラーが全部揃えます。
 
----
+### Windows
 
-## デモ
+```cmd
+git clone https://github.com/tsunamayo7/helix-ai-studio.git
+cd helix-ai-studio
+install.bat
+```
 
-### mixAI パイプライン — クラウドが計画、ローカルが実行、クラウドが検証
-
-![mixAI パイプラインデモ](docs/demo/desktop_mixai_ja.gif)
-
-### Virtual Desktop — Docker仮想デスクトップ（NoVNC）
-
-![Virtual Desktopデモ](docs/demo/desktop_virtualdesktop_ja.gif)
-
-### localAI チャット — OllamaモデルをあなたのGPUで
-
-![localAI チャットデモ](docs/demo/desktop_localai_ja.gif)
-
----
-
-## クイックスタート
+### macOS / Linux
 
 ```bash
 git clone https://github.com/tsunamayo7/helix-ai-studio.git
 cd helix-ai-studio
-pip install -r requirements.txt
-python HelixAIStudio.py          # macOS: python3
+chmod +x install.sh && ./install.sh
 ```
 
-設定画面でAPIキーを追加するか、[Ollama](https://ollama.com) をインストールすれば完全ローカルで動作。
-Web UIは `http://localhost:8500` でアクセス可能。
+```bash
+python HelixAIStudio.py   # 起動
+```
 
-> はじめての方へ: [SETUP_GUIDE.md](SETUP_GUIDE.md) にPython・Ollama・APIキーの設定まで丁寧に解説しています。
+デスクトップアプリが開きます。スマホからは `http://localhost:8500` でアクセスできます。
+
+<details>
+<summary>インストーラーが自動でやること</summary>
+
+- AI 関連パッケージの一括インストール
+- ローカル AI エンジン（Ollama）のインストールと初期モデルのダウンロード
+- Web UI のビルド
+- CLI ツール（Claude Code / Codex）のセットアップ
+- 設定ファイルの作成
+
+途中でエラーが出ても止まりません。失敗した項目は `[WARN]` で表示され、あとから対応できます。
+
+</details>
+
+> はじめての方は [セットアップガイド](SETUP_GUIDE.md) もどうぞ。
+
+---
+
+## Helix でできること
+
+| 機能 | 何ができるか |
+|------|------------|
+| **mixAI パイプライン** | 複数の AI が「計画→実行→検証→仕上げ」を自動で分担し、ひとつの回答を生成 |
+| **cloudAI チャット** | Claude・GPT・Gemini を切り替えてチャット。途中でモデルを変えても会話が続く |
+| **localAI チャット** | Ollama のローカルモデルで完全オフライン。API 費用ゼロ |
+| **Virtual Desktop** | Docker の仮想デスクトップ内で AI がコードを書いて実行。PC 環境を汚さない |
+| **RAG** | PDF やテキストを読み込ませて、すべての AI が参照できる共有知識に |
+| **Web UI** | LAN 上のスマホやタブレットからもアクセス |
+| **MCP 対応** | Model Context Protocol で外部ツール連携 |
+| **日本語 / 英語** | UI の言語をワンクリックで切替 |
+
+---
+
+## 動いている様子
+
+### 複数の AI が協力して回答を作る（mixAI パイプライン）
+
+Claude が計画を立て、Mistral と Gemma が実行し、最後に統合・検証。ひとつのプロンプトを入れるだけ。
+
+![mixAI Pipeline Demo](docs/demo/gif/demo_mixai_pipeline.gif)
+
+### 好きなモデルを選んでチャット（cloudAI）
+
+Claude・GPT・Gemini をドロップダウンで切り替え。モデルを変えても会話の流れはそのまま。
+
+![cloudAI Demo](docs/demo/gif/demo_cloudai_models.gif)
+
+### ローカル LLM でコード生成（localAI）
+
+Ollama の qwen3.5（122B）が Python コードを生成。インターネット不要、API 費用ゼロ。
+
+![localAI Demo](docs/demo/gif/demo_localai_chat.gif)
+
+### AI が作ったアプリをその場で確認（Virtual Desktop）
+
+Docker の仮想デスクトップ内でアプリが動く。あなたの PC 環境は一切汚れません。
+
+![Virtual Desktop Demo](docs/demo/gif/demo_vd_sandbox.gif)
+
+---
+
+## API キーについて
+
+**ローカル AI（Ollama）だけ使うなら、API キーは不要です。** 無料で始められます。
+
+クラウド AI も使いたい場合:
+
+| プロバイダー | 取得先 | 備考 |
+|------------|--------|------|
+| Google | [aistudio.google.com](https://aistudio.google.com/app/apikey) | Gemini（**無料枠あり**） |
+| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude |
+| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | GPT |
+
+起動後の設定画面から入力できます。
+
+---
+
+## 他のツールとの違い
+
+| やりたいこと | Open WebUI | AnythingLLM | Dify | CrewAI | **Helix** |
+|---|:---:|:---:|:---:|:---:|:---:|
+| **複数 AI を自動連携** | — | — | ビルダー | コード | **GUI ワンクリック** |
+| **AI エージェントチーム** | — | — | プラグイン | コード必須 | **画面から設定** |
+| **デスクトップアプリ** | — | あり | — | — | **あり** |
+| **スマホからアクセス** | あり | — | — | — | **あり** |
+| **Docker 不要** | 必須 | 任意 | 必須 | pip | **不要** |
+
+> GUI で使える「マルチ AI パイプライン」は他にありません。
 
 ---
 
@@ -77,83 +147,46 @@ Web UIは `http://localhost:8500` でアクセス可能。
         |
         v
 ┌─────────────────────────┐
-│   Phase 1: 計画立案     │  クラウドAI（Claude / GPT / Gemini）
-│  - タスクを分析         │
-│  - サブタスクを作成     │
-│  - 合格基準を設定       │
+│  Phase 1: 計画           │  クラウド AI がタスク分割を決定
 └─────────────────────────┘
         |
-  ┌─────┬────┴────┬─────┐
-  v     v         v     v
-┌──────┐┌────────┐┌─────────┐┌────────┐
-│コーディング││リサーチ││  推論   ││ビジョン│  Phase 2: ローカル（あなたのGPU）
-└──────┘└────────┘└─────────┘└────────┘
-        |
-        v
+  ┌─────┼─────┬─────┐
+  v     v     v     v
+┌────┐┌────┐┌────┐┌────┐
+│実装││調査││推論││画像│    Phase 2: エージェントが並行作業
+└────┘└────┘└────┘└────┘
+        └─────┬─────┘
+              v
 ┌─────────────────────────┐
-│   Phase 3: 統合・検証   │  クラウドAI
-│  - 全出力の統合         │
-│  - PASS/FAIL チェック   │
-│  - 最終回答の生成       │
+│  Phase 3: 統合・検証     │  出力を統合し品質チェック
 └─────────────────────────┘
-        |
-        v
-     最終出力
+              |
+              v
+┌─────────────────────────┐
+│  Phase 4: 最終仕上げ     │  表現を整えて回答を出力
+└─────────────────────────┘
+              |
+              v
+         完成した回答
 ```
 
----
-
-## 主な機能
-
-| 機能 | 説明 |
-|------|------|
-| **mixAI パイプライン** | 3フェーズのオーケストレーション: 計画 → 実行 → 検証 — ワンクリック |
-| **cloudAI チャット** | Claude・GPT・Gemini と API で直接チャット |
-| **localAI チャット** | Ollama のローカルモデルとGPU上でチャット |
-| **Docker Sandbox** | 仮想デスクトップ（NoVNC）でAIがファイルを書き込み。差分プレビュー後にホストへ適用 |
-| **統合RAG** | ひとつのナレッジベースを全AIプロバイダーで共有 — ローカル埋め込みで一度構築 |
-| **Helix Pilot v2.0** | Vision LLMエージェントが全チャットタブに統合 — 画面認識 + GUI自動操作 |
-| **Web UI** | React ベースのモバイルフレンドリーなインターフェース。LAN上のどのデバイスからもアクセス可能 |
-| **4層メモリ** | Thread / Episodic / Semantic / Procedural — セッションを超えてコンテキストを記憶 |
-| **多言語対応** | 日本語と英語の完全対応。いつでも切り替え可能 |
-
----
-
-## 競合との比較
-
-| | Open WebUI | AnythingLLM | Dify | LangChain | **Helix** |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **GitHub Stars** | 60k+ | 30k+ | 129k+ | 80k+ | — |
-| **自動パイプライン (クラウド+ローカル)** | 手動 | 手動 | ビジュアルビルダー | コード必要 | **ワンクリック** |
-| **統合RAG (クラウド+ローカル)** | — | 部分的 | クラウドのみ | 手動 | **全モデル対応** |
-| **デスクトップアプリ** | — | あり | — | — | **あり** |
-| **LAN Web UI** | あり | — | — | — | **あり** |
-| **Docker不要** | 必要 | オプション | 必要 | N/A | **不要** |
-| **セットアップ** | docker run | インストーラー | docker compose | pip + コード | **pip + 起動** |
-| **Claude/GPT/Gemini対応** | プロキシ経由 | あり | あり | あり | **あり** |
-| **コスト最適化** | — | — | — | 手動 | **自動** |
-| **MITライセンス** | あり | あり | あり | あり | **あり** |
-
-> **Helixが埋めるギャップ**: クラウド + ローカルモデルを自動でコスト最適化するGUIデスクトップアプリ — 全AIプロバイダーで共有される統合RAGナレッジベース付き、Docker不要、LAN対応内蔵。
+> Phase 2 では CrewAI エンジンを選択可能。Sequential / Hierarchical の 2 モード。
 
 ---
 
 <details>
-<summary><strong>スクリーンショット</strong></summary>
+<summary><strong>スクリーンショットをもっと見る</strong></summary>
 
-### パイプラインモニター
+### パイプライン実行中
 ![パイプラインモニター](docs/demo/mixai_monitor.png)
 
 ### パイプライン完了
 ![パイプライン完了](docs/demo/mixai_complete.png)
 
-### クラウドAIチャット
-![クラウドAIチャット](docs/demo/cloudai_chat.png)
-
-### ローカルAIチャット
+### ローカル AI チャット
 ![ローカルAIチャット](docs/demo/desktop_localai_chat.png)
 
-### RAGナレッジベース
+### RAG ナレッジベース
 ![RAG構築](docs/demo/rag_build.png)
 
 ### 設定画面
@@ -166,88 +199,43 @@ Web UIは `http://localhost:8500` でアクセス可能。
 
 ---
 
-## インストール
+<details>
+<summary><strong>技術スタック</strong></summary>
 
-### 必要な環境
+| レイヤー | 技術 |
+|---------|------|
+| デスクトップ | PyQt6 |
+| Web UI | React + Vite + Tailwind CSS |
+| サーバー | FastAPI + Uvicorn（WebSocket） |
+| クラウド AI | Anthropic / OpenAI / Google Gemini API |
+| CLI | Claude Code CLI / Codex CLI |
+| ローカル LLM | Ollama |
+| マルチエージェント | CrewAI（Sequential / Hierarchical） |
+| サンドボックス | Docker + Xvfb + NoVNC（任意） |
+| 記憶 | SQLite + ベクトル埋め込み |
+| ツール連携 | MCP（Model Context Protocol） |
 
-| 項目 | 要件 |
-|------|------|
-| OS | Windows 10/11 または macOS 12+（Apple Silicon・Intel両対応） |
-| Python | 3.10以上（3.11推奨） |
-| GPU | NVIDIA + CUDA（ローカルLLM用 — 任意）。macOSはMetal/CPU推論 |
-| RAM | 16GB以上（大型モデルには32GB以上推奨） |
+</details>
 
-### セットアップ
+---
 
-```bash
-git clone https://github.com/tsunamayo7/helix-ai-studio.git
-cd helix-ai-studio
-pip install -r requirements.txt
-```
+## セキュリティ
 
-**（任意）ローカルLLM:**
+- **Phase 2 は 100% ローカル実行** ― コードやドキュメントが PC の外に出ません
+- **API キーはローカル保存** ― git 管理対象外
+- **Web UI は LAN 専用** ― インターネットに公開されません
 
-```bash
-ollama pull gemma3:4b           # 軽量モデル
-ollama pull gemma3:27b          # 高品質（16GB以上のVRAMが必要）
-ollama pull mistral-small3.2    # 画像認識対応
-```
+> 詳細は [SECURITY.md](SECURITY.md)
 
-**（任意）クラウドAI APIキー:**
+---
 
-```bash
-# Windows
-copy config\general_settings.example.json config\general_settings.json
-# macOS / Linux
-cp config/general_settings.example.json config/general_settings.json
-```
-
-| プロバイダー | キーの取得先 | 使えるようになる機能 |
-|------------|------------|-------------------|
-| Anthropic | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claudeチャット、パイプライン計画立案 |
-| Google | [aistudio.google.com](https://aistudio.google.com/app/apikey)（無料枠あり） | Geminiチャット |
-| OpenAI | [platform.openai.com](https://platform.openai.com/api-keys) | GPTチャット |
-
-**起動:**
-
-```bash
-python HelixAIStudio.py   # macOS: python3
-```
-
-### アップデート
+## アップデート
 
 ```bash
 git pull && pip install -r requirements.txt && python HelixAIStudio.py
 ```
 
-> 設定ファイル（`config/`）やデータ（`data/`）は git 管理対象外のため、アップデートで上書きされません。
-
----
-
-## 技術スタック
-
-| コンポーネント | 技術 |
-|--------------|------|
-| デスクトップ GUI | PyQt6 |
-| Web UI | React + Vite + Tailwind CSS |
-| Web サーバー | FastAPI + Uvicorn (WebSocket) |
-| クラウド AI | Anthropic / OpenAI / Google Gemini API |
-| CLI バックエンド | Claude Code CLI / Codex CLI |
-| ローカル LLM | Ollama |
-| Sandbox | Docker + Xvfb + NoVNC（オプション） |
-| メモリ | SQLite + ベクトル埋め込み |
-| 多言語対応 | 共有 JSON (ja/en) — デスクトップ + Web 共通 |
-
----
-
-## セキュリティとプライバシー
-
-- **Phase 2は100%ローカル** — 実行フェーズ中、コードやドキュメントがあなたのマシンの外に出ることはありません
-- **APIキーはローカル保存** — `config/general_settings.json`（git管理対象外）に保存
-- **Web UIはプライベート** — ローカル/VPNアクセス専用設計
-- **メモリインジェクション防御** — 蓄積されたコンテキストを利用したプロンプトインジェクションを防止
-
-> 詳細は [SECURITY.md](SECURITY.md) をご覧ください。
+> 設定（`config/`）とデータ（`data/`）はアップデートで消えません。
 
 ---
 
@@ -255,41 +243,35 @@ git pull && pip install -r requirements.txt && python HelixAIStudio.py
 
 | バージョン | 主な変更 |
 |----------|---------|
-| **v12.0.0** | Docker Sandbox Virtual Desktop（NoVNC）、Promotion Engine（差分プレビュー＋本番適用）、7タブ構成 |
-| v11.9.7 | BIBLE/Pilot設定タブ移行、Feature Flags、エラー翻訳システム |
-| v11.9.5 | Helix Pilotアプリ内統合（全3チャットタブ + 設定）、モデル非依存性強化 |
-| v11.9.4 | Helix Pilot v2.0（Vision LLM自律GUIエージェント） |
-| v11.9.0 | Unified Obsidianテーマ、スプラッシュスクリーン |
-| v11.5.0 | マルチプロバイダーAPI（Anthropic/OpenAI/Google） |
-| v11.0.0 | Historyタブ、BIBLEクロスタブ、クラウドモデルセレクター |
+| **v12.5.0** | CrewAI 統合、MCP 全タブ対応、5 Phase パイプライン |
+| **v12.0.0** | Docker Virtual Desktop、7 タブ構成 |
+| v11.9.4 | Helix Pilot v2.0（Vision LLM 自律 GUI エージェント） |
+| v11.5.0 | マルチプロバイダー API |
 | v9.0.0 | Web UI（React + FastAPI） |
 
-詳細は [CHANGELOG.md](CHANGELOG.md) をご覧ください。
+詳細は [CHANGELOG.md](CHANGELOG.md)
 
 ---
 
-## 記事・リソース
+## 記事
 
 | 記事 | リンク |
 |------|--------|
-| v11.9.4 リリース — Helix Pilot v2.0・タブ切り替えUI・多言語強化 | [note.com](https://note.com/ai_tsunamayo_7/n/n7268ff58d0b0) |
-| v11.9.1 リリース — インラインカラー完全排除とパイプライン自動化 | [note.com](https://note.com/ai_tsunamayo_7/n/n410888aabe47) |
-| 【技術解説】マルチAIオーケストレーション アーキテクチャ | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
-| 【無料・オープンソース】Helix AI Studio を作った話 | [note.com](https://note.com/ai_tsunamayo_7/n/n410331c01ab0) |
-| 【完全無料】複数のAIを同時に使えるデスクトップアプリ | [note.com](https://note.com/ai_tsunamayo_7/n/nb23a3ece82f8) |
+| Helix Pilot v2.0 リリース | [note.com](https://note.com/ai_tsunamayo_7/n/n7268ff58d0b0) |
+| マルチ AI オーケストレーション技術解説 | [note.com](https://note.com/ai_tsunamayo_7/n/n5a97fbf68798) |
+| 複数の AI を同時に使えるデスクトップアプリ | [note.com](https://note.com/ai_tsunamayo_7/n/nb23a3ece82f8) |
 
 ---
 
 ## コントリビューション
 
-コントリビューションは歓迎です！ガイドラインは [CONTRIBUTING.md](CONTRIBUTING.md) をご覧ください。
-セキュリティの問題は [SECURITY.md](SECURITY.md) をご覧ください。
+Issue や Pull Request は歓迎です。[CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 
 ## ライセンス
 
-MIT — [LICENSE](LICENSE) を参照
+MIT — [LICENSE](LICENSE)
 
 **作者**: tsunamayo7 ([@tsunamayo7](https://github.com/tsunamayo7))
 
@@ -297,7 +279,6 @@ MIT — [LICENSE](LICENSE) を参照
 
 <div align="center">
 
-**Helix AI Studio が役に立ったら、ぜひスターをお願いします！**
-フィードバック、Issue、PRはいつでも歓迎です。
+**気に入ったらスターで応援してください。**
 
 </div>
