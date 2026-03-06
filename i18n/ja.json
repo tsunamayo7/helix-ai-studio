@@ -73,6 +73,20 @@
         "contextTooLong": "入力が長すぎます。メッセージを短くするか、コンテキストをクリアしてください。",
         "contentFiltered": "コンテンツポリシーによりブロックされました。プロンプトの内容を変更してください。"
       }
+    },
+    "deprecated": "非推奨",
+    "preview": "プレビュー",
+    "modelSync": "モデル同期",
+    "modelSyncBtn": "APIからモデル一覧を取得",
+    "modelSyncSuccess": "モデル一覧を取得しました ({count}件)",
+    "modelSyncError": "モデル一覧の取得に失敗しました: {error}",
+    "providerBadge": {
+      "anthropic_api": "Anthropic API",
+      "anthropic_cli": "Claude CLI",
+      "openai_api": "OpenAI API",
+      "openai_cli": "Codex CLI",
+      "google_api": "Gemini API",
+      "google_cli": "Gemini CLI"
     }
   },
   "tabs": {
@@ -411,7 +425,9 @@
     },
     "common": {
       "bibleToggleTooltip": "BIBLEコンテキスト注入の切替（Build Information Base for Lifecycle Engineering）",
-      "pilotToggleTooltip": "Helix Pilot (GUI自動操作) を有効化。ONにするとLLMが画面を認識し操作コマンドを実行できます"
+      "pilotToggleTooltip": "Helix Pilot (GUI自動操作) を有効化。ONにするとLLMが画面を認識し操作コマンドを実行できます",
+      "pilotCheckbox": "Pilot",
+      "pilotCheckboxTooltip": "Helix Pilot (GUI自動操作)\nONにするとAIが画面の状態を認識し、\nクリック・入力・スクロール等の\n操作コマンドを自律実行できます。\n\n※ 設定タブでOllamaとVisionモデルの\n  設定が必要です"
     },
     "chatHistory": {
       "title": "チャット履歴",

@@ -16,13 +16,55 @@ CLOUD_MODELS_PATH = Path("config/cloud_models.json")
 OLLAMA_DEFAULT_URL = "http://localhost:11434"
 
 
+def normalize_model_id(raw_model_id: str) -> str:
+    """model_id からCLIコマンド部分を除去し、純粋なモデルIDを返す。
+
+    cloud_models.json で CLI コマンドが model_id に埋め込まれている場合に対応:
+      "codex -m gpt-5.3-codex"           → "gpt-5.3-codex"
+      "claude --model claude-sonnet-4-6"  → "claude-sonnet-4-6"
+      "gemini-3-flash-preview"            → "gemini-3-flash-preview"（変更なし）
+    """
+    if not raw_model_id:
+        return raw_model_id
+    parts = raw_model_id.split()
+    if len(parts) == 1:
+        return raw_model_id
+    # "-m" or "--model" フラグの後の値を抽出
+    for i, p in enumerate(parts):
+        if p in ("-m", "--model") and i + 1 < len(parts):
+            return parts[i + 1]
+    # CLIコマンド名が先頭にある場合（"codex ..." / "claude ..."）
+    cli_prefixes = ("codex", "claude", "gemini")
+    if parts[0] in cli_prefixes:
+        return parts[-1]
+    return raw_model_id
+
+
+def _infer_family(provider: str) -> str:
+    """provider 文字列から family を推定"""
+    if "anthropic" in provider:
+        return "claude"
+    elif "openai" in provider:
+        return "gpt"
+    elif "google" in provider:
+        return "gemini"
+    return "unknown"
+
+
 def get_cloud_models() -> list[dict]:
-    """cloud_models.json からクラウドモデル一覧を取得"""
+    """cloud_models.json からクラウドモデル一覧を取得（v2.0スキーマ補完付き）"""
     try:
         if CLOUD_MODELS_PATH.exists():
             with open(CLOUD_MODELS_PATH, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            return data.get("models", [])
+            models = data.get("models", [])
+            for m in models:
+                m.setdefault("display_name", m.get("name", ""))
+                m.setdefault("family", _infer_family(m.get("provider", "")))
+                m.setdefault("transport", "api" if "_api" in m.get("provider", "") else "cli")
+                m.setdefault("capabilities", {})
+                m.setdefault("deprecated", False)
+            return models
     except Exception as e:
         logger.warning(f"Failed to load cloud models: {e}")
     return []

@@ -484,7 +484,7 @@ class MixAIOrchestrator(QThread):
             if "anthropic" in provider:
                 return self._execute_phase1_claude(engine)
             elif "openai" in provider:
-                return self._execute_phase1_codex()
+                return self._execute_phase1_openai(engine)
             elif "google" in provider:
                 return self._execute_phase1_gemini(engine)
         # cloud_models.json に未登録 → ローカルLLM
@@ -686,9 +686,12 @@ class MixAIOrchestrator(QThread):
             logger.error(f"Phase1 Gemini error: {e}")
             return {"error": str(e), "phase": "phase1"}
 
-    def _execute_phase1_codex(self) -> dict:
-        """Phase 1: GPT-5.3-Codex CLI版（v9.9.0）"""
-        from .codex_cli_backend import run_codex_cli
+    def _execute_phase1_openai(self, model_id: str = "") -> dict:
+        """Phase 1: OpenAI版 — API-first / Codex CLIフォールバック（v12.1.0）"""
+        from ..utils.model_catalog import normalize_model_id
+        from ..backends.api_priority_resolver import resolve_openai_connection, ConnectionMode
+
+        clean_model_id = normalize_model_id(model_id)
 
         system_prompt = self._build_phase1_system_prompt()
 
@@ -723,7 +726,29 @@ class MixAIOrchestrator(QThread):
         run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
         timeout = self.config.get("timeout", 600)
 
-        raw_output = run_codex_cli(full_prompt, effort=effort, run_cwd=run_cwd, timeout=timeout)
+        # API-first 判定
+        conn_method, conn_kwargs = resolve_openai_connection(ConnectionMode.AUTO)
+
+        if conn_method == "openai_api":
+            from ..backends.openai_api_backend import call_openai_api
+            raw_output = call_openai_api(
+                prompt=full_prompt,
+                model_id=clean_model_id or "gpt-4.1",
+                system_prompt="",
+            )
+        elif conn_method == "codex_cli":
+            from .codex_cli_backend import run_codex_cli
+            raw_output = run_codex_cli(
+                full_prompt,
+                model_id=clean_model_id,
+                effort=effort,
+                run_cwd=run_cwd,
+                timeout=timeout,
+            )
+        else:
+            reason = conn_kwargs.get("reason", "OpenAI に接続できません")
+            raise RuntimeError(f"Phase 1 (OpenAI) 接続不可: {reason}")
+
         return self._parse_phase1_output(raw_output)
 
     def _build_phase1_system_prompt(self) -> str:
@@ -1423,26 +1448,45 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
 品質スコアが0.7以上で重大な問題がなければ "pass" を返してください。
 """
 
-        # モデルルーティング（v11.3.0: 動的解決）
-        if model_key in ("GPT-5.3-Codex (CLI)", "gpt-5.3-codex"):
-            engine_type = "codex"
-        elif model_key.startswith("claude-"):
+        # モデルルーティング（v12.1.0: 動的解決 + model_id パススルー）
+        from ..utils.model_catalog import normalize_model_id, get_provider_for_engine
+        review_provider = get_provider_for_engine(model_key)
+
+        if model_key in ("GPT-5.3-Codex (CLI)", "gpt-5.3-codex") or (review_provider and "openai" in review_provider):
+            engine_type = "openai"
+        elif model_key.startswith("claude-") or (review_provider and "anthropic" in review_provider):
+            engine_type = model_key if model_key.startswith("claude-") else model_key
+        elif review_provider and "google" in review_provider:
             engine_type = model_key
         else:
             from ..utils.constants import resolve_claude_model_id
             engine_type = resolve_claude_model_id(model_key)
 
         try:
-            if engine_type == "codex":
-                from .codex_cli_backend import run_codex_cli
+            if engine_type == "openai":
+                clean_model_id = normalize_model_id(model_key)
+                from ..backends.api_priority_resolver import resolve_openai_connection, ConnectionMode
+                conn_method, conn_kwargs = resolve_openai_connection(ConnectionMode.AUTO)
                 project_dir = self.config.get("project_dir")
                 run_cwd = project_dir if project_dir and os.path.isdir(project_dir) else None
-                raw_output = run_codex_cli(
-                    review_prompt,
-                    effort="default",
-                    run_cwd=run_cwd,
-                    timeout=self.config.get("timeout", 300),
-                )
+
+                if conn_method == "openai_api":
+                    from .openai_api_backend import call_openai_api
+                    raw_output = call_openai_api(
+                        prompt=review_prompt,
+                        model_id=clean_model_id or "gpt-4.1",
+                    )
+                elif conn_method == "codex_cli":
+                    from .codex_cli_backend import run_codex_cli
+                    raw_output = run_codex_cli(
+                        review_prompt,
+                        model_id=clean_model_id,
+                        effort="default",
+                        run_cwd=run_cwd,
+                        timeout=self.config.get("timeout", 300),
+                    )
+                else:
+                    raise RuntimeError(f"Phase 3.5 (OpenAI) 接続不可: {conn_kwargs.get('reason')}")
             else:
                 raw_output = self._run_claude_cli(review_prompt, model_id=engine_type)
 

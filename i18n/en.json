@@ -73,6 +73,20 @@
         "contextTooLong": "Input is too long. Please shorten your message or clear the context.",
         "contentFiltered": "Blocked by content policy. Please modify your prompt."
       }
+    },
+    "deprecated": "Deprecated",
+    "preview": "Preview",
+    "modelSync": "Model Sync",
+    "modelSyncBtn": "Fetch model list from API",
+    "modelSyncSuccess": "Fetched model list ({count} models)",
+    "modelSyncError": "Failed to fetch model list: {error}",
+    "providerBadge": {
+      "anthropic_api": "Anthropic API",
+      "anthropic_cli": "Claude CLI",
+      "openai_api": "OpenAI API",
+      "openai_cli": "Codex CLI",
+      "google_api": "Gemini API",
+      "google_cli": "Gemini CLI"
     }
   },
   "tabs": {
@@ -411,7 +425,9 @@
     },
     "common": {
       "bibleToggleTooltip": "Toggle BIBLE context injection (Build Information Base for Lifecycle Engineering)",
-      "pilotToggleTooltip": "Enable Helix Pilot (GUI automation). When ON, the LLM can see the screen and execute GUI commands"
+      "pilotToggleTooltip": "Enable Helix Pilot (GUI automation). When ON, the LLM can see the screen and execute GUI commands",
+      "pilotCheckbox": "Pilot",
+      "pilotCheckboxTooltip": "Helix Pilot (GUI Automation)\nWhen ON, the AI can see the screen state\nand execute click, type, scroll, and other\nGUI commands autonomously.\n\nRequires Ollama + Vision model\nconfigured in Settings tab."
     },
     "chatHistory": {
       "title": "Chat History",

@@ -1309,7 +1309,10 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_attach_btn.setToolTip(t('desktop.mixAI.attachTip'))
         self.mixai_snippet_btn.setText(t('desktop.mixAI.snippetBtn'))
         self.mixai_snippet_btn.setToolTip(t('desktop.mixAI.snippetTip'))
-        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（retranslate不要）
+        # v12.1.0: Pilot checkbox
+        if hasattr(self, '_pilot_checkbox'):
+            self._pilot_checkbox.setText(t('common.pilotCheckbox'))
+            self._pilot_checkbox.setToolTip(t('common.pilotCheckboxTooltip'))
 
         # Tool log group (state-dependent title)
         if self.tool_log_group.isChecked():
@@ -1587,7 +1590,18 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_snippet_btn.clicked.connect(self._on_snippet_menu)
         btn_layout.addWidget(self.mixai_snippet_btn)
 
-        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（チャットタブから削除）
+        # v12.1.0: Helix Pilot チェックボックス（送信時にPilotコンテキスト注入）
+        from PyQt6.QtWidgets import QCheckBox
+        self._pilot_checkbox = QCheckBox(t('common.pilotCheckbox'))
+        self._pilot_checkbox.setFixedHeight(32)
+        self._pilot_checkbox.setChecked(False)
+        self._pilot_checkbox.setToolTip(t('common.pilotCheckboxTooltip'))
+        self._pilot_checkbox.setStyleSheet(f"""
+            QCheckBox {{ color: {COLORS['text_secondary']}; font-size: 11px; spacing: 4px; }}
+            QCheckBox:hover {{ color: {COLORS['text_primary']}; }}
+            QCheckBox::indicator {{ width: 14px; height: 14px; }}
+        """)
+        btn_layout.addWidget(self._pilot_checkbox)
 
         btn_layout.addStretch()
 
@@ -2141,20 +2155,11 @@ class HelixOrchestratorTab(QWidget):
         except Exception as e:
             logger.debug(f"[BIBLE] Prompt discovery error: {e}")
 
-        # v11.9.7: BIBLE context injection (設定タブで有効化時に常時注入)
-        try:
-            from ..utils.feature_flags import is_bible_enabled
-            if is_bible_enabled():
-                from ..mixins.bible_context_mixin import BibleContextMixin
-                mixin = BibleContextMixin()
-                prompt = mixin._inject_bible_to_prompt(prompt)
-        except Exception:
-            pass
+        # v12.1.0: BIBLE の自動注入は廃止 → ユニペット（snippets/）に移行
 
-        # v11.9.7: Helix Pilot context injection (設定タブで有効化時に常時注入)
-        try:
-            from ..utils.feature_flags import is_pilot_enabled
-            if is_pilot_enabled():
+        # v12.1.0: Helix Pilot — チェックボックスON時のみ注入
+        if getattr(self, '_pilot_checkbox', None) and self._pilot_checkbox.isChecked():
+            try:
                 from ..tools.pilot_response_processor import get_system_prompt_addition
                 from ..tools.helix_pilot_tool import HelixPilotTool
                 pilot = HelixPilotTool.get_instance()
@@ -2165,9 +2170,8 @@ class HelixOrchestratorTab(QWidget):
                     lang = "ja" if t('desktop.mixAI.executeBtn') != "Execute" else "en"
                     pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
                     prompt = pilot_prompt + "\n\n" + prompt
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+            except Exception as e:
+                logger.warning(f"[Pilot] Context injection failed: {e}")
 
         self.worker = MixAIOrchestrator(
             user_prompt=prompt,

@@ -98,6 +98,7 @@ def _run_codex(args: list, **kwargs) -> subprocess.CompletedProcess:
 
 def run_codex_cli(
     prompt: str,
+    model_id: str = "",
     effort: str = "default",
     run_cwd: str = None,
     timeout: int = 600,
@@ -107,6 +108,7 @@ def run_codex_cli(
 
     Args:
         prompt: 送信するプロンプトテキスト
+        model_id: 使用するモデルID（空の場合はCODEX_MODELデフォルト）
         effort: 推論努力度 ("default" / "minimal" / "low" / "medium" / "high" / "xhigh")
                 "default" の場合は -c オプションを省略する
         run_cwd: 実行時の作業ディレクトリ（省略時はNone）
@@ -119,7 +121,7 @@ def run_codex_cli(
         RuntimeError: Codex CLIがエラーを返した場合
         subprocess.TimeoutExpired: タイムアウトした場合
     """
-    args = ["exec", "--model", CODEX_MODEL]
+    args = ["exec", "--model", model_id or CODEX_MODEL]
 
     # effort が "default" 以外の場合のみ -c オプションを付加
     if effort and effort != "default":

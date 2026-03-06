@@ -2338,7 +2338,18 @@ class ClaudeTab(QWidget):
         self.snippet_add_btn = QPushButton()
         self.snippet_add_btn.setVisible(False)
 
-        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（チャットタブから削除）
+        # v12.1.0: Helix Pilot チェックボックス（送信時にPilotコンテキスト注入）
+        from PyQt6.QtWidgets import QCheckBox
+        self._pilot_checkbox = QCheckBox(t('common.pilotCheckbox'))
+        self._pilot_checkbox.setFixedHeight(32)
+        self._pilot_checkbox.setChecked(False)
+        self._pilot_checkbox.setToolTip(t('common.pilotCheckboxTooltip'))
+        self._pilot_checkbox.setStyleSheet(f"""
+            QCheckBox {{ color: {COLORS['text_secondary']}; font-size: 11px; spacing: 4px; }}
+            QCheckBox:hover {{ color: {COLORS['text_primary']}; }}
+            QCheckBox::indicator {{ width: 14px; height: 14px; }}
+        """)
+        btn_layout.addWidget(self._pilot_checkbox)
 
         btn_layout.addStretch()
 
@@ -2671,8 +2682,10 @@ class ClaudeTab(QWidget):
         self.snippet_btn.setToolTip(t('desktop.cloudAI.snippetTooltip'))
         self.send_btn.setText(t('desktop.cloudAI.sendBtnMain'))
         self.send_btn.setToolTip(t('desktop.cloudAI.sendTooltip'))
-        # v11.0.0: BIBLE toggle button
-        # v11.9.7: BIBLE/Pilot ボタンは設定タブに移行（retranslate不要）
+        # v12.1.0: Pilot checkbox
+        if hasattr(self, '_pilot_checkbox'):
+            self._pilot_checkbox.setText(t('common.pilotCheckbox'))
+            self._pilot_checkbox.setToolTip(t('common.pilotCheckboxTooltip'))
         # v11.0.0: Header title + model label
         if hasattr(self, 'cloud_header_title'):
             self.cloud_header_title.setText(t('desktop.cloudAI.headerTitle'))
@@ -3409,20 +3422,12 @@ class ClaudeTab(QWidget):
             if hasattr(self, 'browser_use_checkbox') and self.browser_use_checkbox.isChecked():
                 processed_message = self._prepend_browser_use_results(processed_message)
 
-            # v11.9.7: BIBLE context injection (設定タブで有効化時に常時注入)
-            try:
-                from ..utils.feature_flags import is_bible_enabled
-                if is_bible_enabled():
-                    from ..mixins.bible_context_mixin import BibleContextMixin
-                    mixin = BibleContextMixin()
-                    processed_message = mixin._inject_bible_to_prompt(processed_message)
-            except Exception:
-                pass
+            # v12.1.0: BIBLE/Pilot の自動注入は廃止 → ユニペット（snippets/）に移行
+            # ユーザーがスニペットメニューから選択して手動注入する方式に変更
 
-            # v11.9.7: Helix Pilot context injection (設定タブで有効化時に常時注入)
-            try:
-                from ..utils.feature_flags import is_pilot_enabled
-                if is_pilot_enabled():
+            # v12.1.0: Helix Pilot — チェックボックスON時のみ注入
+            if getattr(self, '_pilot_checkbox', None) and self._pilot_checkbox.isChecked():
+                try:
                     from ..tools.pilot_response_processor import get_system_prompt_addition
                     from ..tools.helix_pilot_tool import HelixPilotTool
                     pilot = HelixPilotTool.get_instance()
@@ -3433,9 +3438,8 @@ class ClaudeTab(QWidget):
                         lang = "ja" if t('desktop.cloudAI.sendBtnMain') != "Send" else "en"
                         pilot_prompt = get_system_prompt_addition(screen_ctx, lang)
                         processed_message = pilot_prompt + "\n\n" + processed_message
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(f"[Pilot] Context injection failed: {e}")
+                except Exception as e:
+                    logger.warning(f"[Pilot] Context injection failed: {e}")
 
             # Ollama モード（auth_mode=3）
             if auth_mode == 3 and hasattr(self, '_use_ollama_mode') and self._use_ollama_mode:
