@@ -13,12 +13,15 @@ from typing import Iterator, Optional
 
 logger = logging.getLogger(__name__)
 
-# v11.4.0: サポートモデル一覧
+# v12.1.0: サポートモデル一覧（2026年3月時点）
 OPENAI_SUPPORTED_MODELS = {
-    "gpt-4o": "GPT-4o (最高性能)",
+    "gpt-5.3-codex": "GPT-5.3 Codex (最新コーディング)",
+    "gpt-5.2": "GPT-5.2 (フラグシップ推論)",
+    "gpt-4.1": "GPT-4.1 (1Mコンテキスト)",
+    "gpt-4.1-mini": "GPT-4.1 mini (高速)",
+    "gpt-4.1-nano": "GPT-4.1 nano (最小・最速)",
+    "gpt-4o": "GPT-4o",
     "gpt-4o-mini": "GPT-4o mini (高速・低コスト)",
-    "gpt-4.1": "GPT-4.1",
-    "gpt-4.1-mini": "GPT-4.1 mini",
     "o3": "o3 (推論特化)",
     "o4-mini": "o4-mini (推論・高速)",
 }
@@ -125,6 +128,27 @@ def call_openai_api_stream(
     except Exception as e:
         logger.error(f"[OpenAIAPI] API call failed: {e}")
         raise
+
+
+def list_openai_models(api_key: Optional[str] = None) -> list[dict]:
+    """OpenAI API からモデル一覧を取得する（GPT/o系のみフィルタ）。"""
+    if not is_openai_sdk_available():
+        return []
+    key = api_key or get_openai_api_key()
+    if not key:
+        return []
+    import openai
+    client = openai.OpenAI(api_key=key)
+    try:
+        result = client.models.list()
+        return [
+            {"id": m.id, "created": m.created}
+            for m in result.data
+            if any(m.id.startswith(p) for p in ("gpt-", "o3", "o4", "codex"))
+        ]
+    except Exception as e:
+        logger.warning(f"[OpenAIAPI] Model list failed: {e}")
+        return []
 
 
 def call_openai_api(

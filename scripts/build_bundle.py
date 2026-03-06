@@ -58,6 +58,7 @@ files = [
     'src/backends/thermal_monitor.py',
     'src/backends/thermal_policy.py',
     'src/backends/tool_orchestrator.py',
+    'src/backends/crewai_engine.py',
 
     # --- src/bible ---
     'src/bible/__init__.py',
@@ -145,6 +146,7 @@ files = [
     'src/sandbox/sandbox_config.py',
     'src/sandbox/sandbox_manager.py',
     'src/sandbox/promotion_engine.py',
+    'src/sandbox/guacamole_backend.py',
 
     # --- src/security ---
     'src/security/__init__.py',
@@ -152,6 +154,12 @@ files = [
     'src/security/mcp_policy.py',
     'src/security/project_approval_profiles.py',
     'src/security/risk_gate.py',
+
+    # --- src/tools ---
+    'src/tools/__init__.py',
+    'src/tools/helix_pilot_tool.py',
+    'src/tools/pilot_response_processor.py',
+    'src/tools/pilot_worker.py',
 
     # --- src/tabs ---
     'src/tabs/__init__.py',

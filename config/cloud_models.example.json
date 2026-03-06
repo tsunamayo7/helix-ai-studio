@@ -1,4 +1,107 @@
 {
-  "_comment": "Copy this file to config/cloud_models.json. Add models via cloudAI tab > Settings > Cloud Model Management. / このファイルを config/cloud_models.json にコピー。cloudAI タブ > 設定 > クラウドモデル管理 でモデルを追加してください。",
-  "models": []
+  "schema_version": "2.0",
+  "_comment": "Copy to config/cloud_models.json. Add models via cloudAI tab > Settings > Cloud Model Management. / このファイルを config/cloud_models.json にコピー。cloudAI タブ > 設定 > クラウドモデル管理 でモデルを追加してください。",
+  "models": [
+    {
+      "name": "Claude Opus 4.6",
+      "model_id": "claude-opus-4-6",
+      "provider": "anthropic_api",
+      "builtin": false,
+      "family": "claude",
+      "capabilities": {
+        "extended_thinking": true,
+        "adaptive_thinking": true,
+        "vision": true,
+        "streaming": true,
+        "context_window_k": 200,
+        "max_output_k": 128
+      }
+    },
+    {
+      "name": "Claude Sonnet 4.6",
+      "model_id": "claude-sonnet-4-6",
+      "provider": "anthropic_api",
+      "builtin": false,
+      "family": "claude",
+      "capabilities": {
+        "extended_thinking": true,
+        "adaptive_thinking": true,
+        "vision": true,
+        "streaming": true,
+        "context_window_k": 200,
+        "max_output_k": 64
+      }
+    },
+    {
+      "name": "Claude Haiku 4.5",
+      "model_id": "claude-haiku-4-5",
+      "provider": "anthropic_api",
+      "builtin": false,
+      "family": "claude",
+      "capabilities": {
+        "extended_thinking": true,
+        "vision": true,
+        "streaming": true,
+        "context_window_k": 200,
+        "max_output_k": 64
+      }
+    },
+    {
+      "name": "GPT-5.3 Codex",
+      "model_id": "gpt-5.3-codex",
+      "provider": "openai_api",
+      "builtin": false,
+      "family": "gpt",
+      "capabilities": {
+        "streaming": true,
+        "context_window_k": 200
+      }
+    },
+    {
+      "name": "GPT-4.1",
+      "model_id": "gpt-4.1",
+      "provider": "openai_api",
+      "builtin": false,
+      "family": "gpt",
+      "capabilities": {
+        "vision": true,
+        "streaming": true,
+        "context_window_k": 1000
+      }
+    },
+    {
+      "name": "GPT-4.1 mini",
+      "model_id": "gpt-4.1-mini",
+      "provider": "openai_api",
+      "builtin": false,
+      "family": "gpt",
+      "capabilities": {
+        "vision": true,
+        "streaming": true,
+        "context_window_k": 1000
+      }
+    },
+    {
+      "name": "Gemini 3 Flash",
+      "model_id": "gemini-3-flash-preview",
+      "provider": "google_api",
+      "builtin": false,
+      "family": "gemini",
+      "capabilities": {
+        "vision": true,
+        "streaming": true
+      }
+    },
+    {
+      "name": "Gemini 3.1 Pro",
+      "model_id": "gemini-3.1-pro-preview",
+      "provider": "google_api",
+      "builtin": false,
+      "family": "gemini",
+      "capabilities": {
+        "vision": true,
+        "streaming": true
+      }
+    }
+  ]
 }

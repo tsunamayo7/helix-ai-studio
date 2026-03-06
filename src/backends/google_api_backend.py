@@ -49,9 +49,30 @@ def get_google_api_key() -> Optional[str]:
     return None
 
 
+def list_google_models(api_key: Optional[str] = None) -> list[dict]:
+    """Google AI からモデル一覧を取得する。"""
+    if not is_google_genai_sdk_available():
+        return []
+    key = api_key or get_google_api_key()
+    if not key:
+        return []
+    from google import genai
+    client = genai.Client(api_key=key, vertexai=False)
+    try:
+        models = client.models.list()
+        return [
+            {"id": m.name, "display_name": getattr(m, 'display_name', m.name),
+             "description": getattr(m, 'description', '')}
+            for m in models
+        ]
+    except Exception as e:
+        logger.warning(f"[GoogleAPI] Model list failed: {e}")
+        return []
+
+
 def call_google_api_stream(
     prompt: str,
-    model_id: str = "gemini-2.5-flash",
+    model_id: str = "gemini-3-flash-preview",
     system_prompt: str = "",
     api_key: Optional[str] = None,
     max_output_tokens: int = 8192,
@@ -123,7 +144,7 @@ def call_google_api_stream(
 
 def call_google_api(
     prompt: str,
-    model_id: str = "gemini-2.5-flash",
+    model_id: str = "gemini-3-flash-preview",
     system_prompt: str = "",
     api_key: Optional[str] = None,
     max_output_tokens: int = 8192,

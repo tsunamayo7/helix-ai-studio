@@ -50,12 +50,37 @@ def get_anthropic_api_key() -> Optional[str]:
     return None
 
 
+def list_anthropic_models(api_key: Optional[str] = None) -> list[dict]:
+    """Anthropic API からモデル一覧を取得する（GET /v1/models）。
+
+    Returns:
+        [{"id": "claude-opus-4-6", "display_name": "Claude Opus 4.6", ...}, ...]
+    """
+    if not is_anthropic_sdk_available():
+        return []
+    key = api_key or get_anthropic_api_key()
+    if not key:
+        return []
+    import anthropic
+    client = anthropic.Anthropic(api_key=key)
+    try:
+        result = client.models.list()
+        return [
+            {"id": m.id, "display_name": m.display_name, "created_at": m.created_at}
+            for m in result.data
+        ]
+    except Exception as e:
+        logger.warning(f"[AnthropicAPI] Model list failed: {e}")
+        return []
+
+
 def call_anthropic_api_stream(
     prompt: str,
     model_id: str = "",
     system_prompt: str = "",
     max_tokens: int = 8192,
     api_key: Optional[str] = None,
+    thinking: Optional[dict] = None,
 ) -> Iterator[str]:
     """
     Anthropic API をストリーミング呼び出しし、テキストチャンクを yield する。
@@ -66,6 +91,7 @@ def call_anthropic_api_stream(
         system_prompt: システムプロンプト（空文字列の場合はデフォルトなし）
         max_tokens: 最大トークン数
         api_key: API キー（None の場合は get_anthropic_api_key() を使用）
+        thinking: Extended/Adaptive thinking 設定（例: {"type": "adaptive"}）
 
     Yields:
         テキストチャンク（str）
@@ -77,7 +103,7 @@ def call_anthropic_api_stream(
     """
     if not is_anthropic_sdk_available():
         raise ImportError(
-            "anthropic パッケージが必要です: pip install anthropic>=0.40.0"
+            "anthropic パッケージが必要です: pip install anthropic>=0.45.0"
         )
 
     key = api_key or get_anthropic_api_key()
@@ -101,6 +127,8 @@ def call_anthropic_api_stream(
     }
     if system_prompt:
         kwargs["system"] = system_prompt
+    if thinking:
+        kwargs["thinking"] = thinking
 
     try:
         with client.messages.stream(**kwargs) as stream:

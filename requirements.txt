@@ -6,7 +6,7 @@ PyQt6>=6.6.0
 PyQt6-WebEngine>=6.6.0
 
 # AI/LLM Integration (v11.5.0: API-first architecture)
-anthropic>=0.40.0                # Claude API direct connection (v11.4.0+)
+anthropic>=0.45.0                # Claude API direct connection (v12.1.0: Models API + adaptive thinking)
 openai>=1.0.0                    # OpenAI / Codex API direct connection (v11.4.0+)
 google-genai>=1.0.0              # Google Gemini API (v11.5.0+, GA unified SDK)
 # NOTE: google-generativeai is EOL (2025/11/30) — use google-genai instead

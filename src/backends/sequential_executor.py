@@ -247,7 +247,8 @@ class SequentialExecutor:
 
             elif provider == "openai_cli":
                 from .codex_cli_backend import run_codex_cli
-                raw = run_codex_cli(task.prompt, timeout=task.timeout)
+                from ..utils.model_catalog import normalize_model_id
+                raw = run_codex_cli(task.prompt, model_id=normalize_model_id(model_id), timeout=task.timeout)
 
             elif provider == "google_api":
                 from .google_api_backend import call_google_api
