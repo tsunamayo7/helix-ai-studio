@@ -143,6 +143,20 @@ class SandboxManager(QObject):
         except Exception:
             return False
 
+    def remove_image(self, force: bool = True) -> bool:
+        """v12.6.0: helix-sandbox:latest イメージを削除"""
+        client = self._get_client()
+        if not client:
+            return False
+        try:
+            client.images.remove("helix-sandbox:latest", force=force)
+            logger.info("[SandboxManager] Image helix-sandbox:latest removed")
+            return True
+        except Exception as e:
+            logger.warning(f"[SandboxManager] Image removal failed: {e}")
+            self.errorOccurred.emit(f"Image removal failed: {e}")
+            return False
+
     def build_image(self, progress_callback: Optional[Callable] = None) -> bool:
         """Dockerfile からイメージをビルド"""
         client = self._get_client()

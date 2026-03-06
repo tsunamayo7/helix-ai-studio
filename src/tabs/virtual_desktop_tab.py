@@ -903,12 +903,8 @@ class VirtualDesktopTab(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            try:
-                import docker
-                client = docker.from_env()
-                client.images.remove("helix-sandbox:latest", force=True)
-            except Exception as e:
-                QMessageBox.critical(self, "Error", str(e))
+            if not self._sandbox_manager.remove_image():
+                QMessageBox.critical(self, "Error", "Failed to remove image")
             self._update_docker_status()
 
     def _browse_workspace(self):

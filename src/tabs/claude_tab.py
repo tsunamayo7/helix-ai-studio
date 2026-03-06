@@ -3500,7 +3500,7 @@ class ClaudeTab(QWidget):
                     )
 
             elif provider == "openai_cli":
-                self._send_via_codex(processed_message, session_id)
+                self._send_via_codex(processed_message, session_id, model_id=model_id)
 
             elif provider == "google_cli":
                 self._send_via_google_cli(processed_message, session_id, model_id=model_id)
@@ -3694,8 +3694,8 @@ class ClaudeTab(QWidget):
     _codex_response_ready = pyqtSignal(str, str)   # (response_text, session_id)
     _codex_error_ready = pyqtSignal(str)            # (error_message)
 
-    def _send_via_codex(self, prompt: str, session_id: str):
-        """v9.9.1: GPT-5.3-Codex CLI経由で送信 (v11.0.0: Windows .cmd対応)"""
+    def _send_via_codex(self, prompt: str, session_id: str, model_id: str = ""):
+        """v9.9.1: GPT-5.3-Codex CLI経由で送信 (v11.0.0: Windows .cmd対応, v12.6.0: model_id対応)"""
         import threading
 
         # Codex CLI可用性チェック（v11.0.0: check_codex_cli_available使用）
@@ -3739,7 +3739,9 @@ class ClaudeTab(QWidget):
         def _run():
             try:
                 from ..backends.codex_cli_backend import run_codex_cli
-                output = run_codex_cli(prompt, effort=gpt_effort, run_cwd=working_dir, timeout=timeout_sec)
+                from ..utils.model_catalog import normalize_model_id
+                clean_id = normalize_model_id(model_id, "openai") if model_id else ""
+                output = run_codex_cli(prompt, model_id=clean_id, effort=gpt_effort, run_cwd=working_dir, timeout=timeout_sec)
                 self._codex_response_ready.emit(output, session_id)
             except Exception as e:
                 self._codex_error_ready.emit(str(e))

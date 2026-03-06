@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v12.0.0 "Sandbox First"
+Helix AI Studio v12.6.0 "Multi-Provider Refactor"
 Multi-provider AI orchestration platform with dual interface (Desktop + Web)
 
 Tabs:

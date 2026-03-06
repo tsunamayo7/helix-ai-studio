@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "12.0.0"
-APP_CODENAME = "Sandbox First"
+APP_VERSION = "12.6.0"
+APP_CODENAME = "Multi-Provider Refactor"
 APP_DESCRIPTION = (
-    "Helix AI Studio v12.0.0 'Sandbox First' - "
-    "Docker Sandbox Virtual Desktop + localAI write unlock + Promotion Engine"
+    "Helix AI Studio v12.6.0 'Multi-Provider Refactor' - "
+    "OpenAI/Gemini/Claude multi-provider + model_id passthrough + BIBLE snippet migration"
 )
 
 # v8.5.0: 情報収集フォルダ

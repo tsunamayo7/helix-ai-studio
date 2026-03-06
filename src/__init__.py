@@ -1,5 +1,5 @@
 # Helix AI Studio - Main Package
-# Version: 12.0.0
+# Version: constants.py APP_VERSION が正（single source of truth）
+from .utils.constants import APP_VERSION as __version__
 
-__version__ = "12.0.0"
 __app_name__ = "Helix AI Studio"
