@@ -1,6 +1,6 @@
 # Helix AI Studio — セットアップガイド
 
-> **Version**: v12.5.0
+> **Version**: v12.7.0
 > **対象 OS**: Windows 10/11, macOS 12+ (Apple Silicon & Intel), Linux (Ubuntu 22.04+)
 
 **はじめに**: このガイドでは Helix AI Studio のインストールから起動までを説明します。
@@ -89,10 +89,11 @@ Web UI: `http://localhost:8500`
 
 | ツール | 必要な場面 | インストール方法 |
 |--------|----------|----------------|
-| **Docker Desktop** | Virtual Desktop タブ | [docker.com](https://www.docker.com/products/docker-desktop/) |
+| **Docker Desktop** | Virtual Desktop タブ（Docker バックエンド） | [docker.com](https://www.docker.com/products/docker-desktop/) |
 | **API キー** | クラウド AI 使用時 | 下記「API キー設定」参照 |
 
-> Docker がなくても他の全機能は動作します。Virtual Desktop だけが無効になります。
+> **Windows 11 Pro/Enterprise**: Windows Sandbox が標準で利用可能（Docker 不要）。
+> Docker がなくても他の全機能は動作します。
 
 ---
 
@@ -187,9 +188,10 @@ ollama list                            # インストール済みモデル一覧
 
 ---
 
-## Virtual Desktop (Docker) のセットアップ
+## Virtual Desktop のセットアップ
 
-> Docker は任意です。インストールすると Virtual Desktop タブが有効になります。
+> **Windows Sandbox（標準）**: Windows 11 Pro/Enterprise なら追加インストール不要。設定 → アプリ → オプション機能 で有効化するだけ。
+> **Docker（上級者向け）**: Docker Desktop をインストールすると、埋め込みビューやファイル閲覧など全機能が使えます。
 
 ### Docker Desktop のインストール
 
@@ -341,4 +343,4 @@ docker build -t helix-sandbox -f docker/sandbox/Dockerfile docker/sandbox/
 
 ---
 
-*Helix AI Studio v12.5.0 — Setup Guide*
+*Helix AI Studio v12.7.0 — Setup Guide*

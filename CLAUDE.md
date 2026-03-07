@@ -1,13 +1,13 @@
 # CLAUDE.md — Helix AI Studio
 
 > Claude Code がこのプロジェクトで作業する際に必ず読むファイルです。
-> 詳細な仕様は `BIBLE/BIBLE_Helix_AI_Studio_12.0.0.md` を参照してください。
+> 詳細な仕様は `BIBLE/BIBLE_Helix_AI_Studio_12.7.0.md` を参照してください。
 
 ---
 
 ## プロジェクト概要
 
-**Helix AI Studio v12.0.0 "Sandbox First"**
+**Helix AI Studio v12.7.0 "Windows Sandbox Default"**
 
 PyQt6製のAIオーケストレーションデスクトップアプリ + FastAPI製Web UI。
 Claude CLI / Anthropic API / OpenAI API / Google Gemini API / Ollama（ローカルLLM）を
