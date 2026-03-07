@@ -29,7 +29,6 @@ from .tabs.information_collection_tab import InformationCollectionTab
 from .tabs.local_ai_tab import LocalAITab
 # v11.0.0: Historyタブ追加
 from .tabs.history_tab import HistoryTab
-# v12.0.0: Virtual Desktop タブ追加
 from .tabs.virtual_desktop_tab import VirtualDesktopTab
 from .sandbox.backend_factory import BackendFactory
 from .sandbox.sandbox_manager import SandboxManager
@@ -207,7 +206,7 @@ class MainWindow(QMainWindow):
         )
 
         # タブを追加（workflow_stateを渡す）
-        # v12.0.0: タブ順序: mixAI → cloudAI → localAI → History → RAG → VirtualDesktop → 一般設定
+        # タブ順序: mixAI → cloudAI → localAI → History → RAG → VirtualDesktop → 一般設定
 
         # 1. mixAI タブ (3Phase実行アーキテクチャ)
         self.llmmix_tab = HelixOrchestratorTab(workflow_state=self.workflow_state, main_window=self)
@@ -245,7 +244,7 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.virtual_desktop_tab, t('desktop.mainWindow.virtualDesktopTab'))
         self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
 
-        # v12.0.0: SandboxManager を localAI / cloudAI タブに渡す
+        # SandboxManager を localAI / cloudAI タブに渡す（sandbox ツール連携用）
         if hasattr(self.local_ai_tab, 'set_sandbox_manager'):
             self.local_ai_tab.set_sandbox_manager(self._sandbox_manager)
         if hasattr(self.claude_tab, 'set_sandbox_manager'):
@@ -342,7 +341,7 @@ class MainWindow(QMainWindow):
         # v8.5.0: 情報収集タブのステータス
         self.info_tab.statusChanged.connect(self._update_status)
 
-        # v12.0.0: Virtual Desktop タブのステータス
+        # Virtual Desktop タブのステータス
         self.virtual_desktop_tab.statusChanged.connect(self._update_status)
 
         # 設定変更の反映
@@ -450,7 +449,7 @@ class MainWindow(QMainWindow):
 
     def retranslateUi(self):
         """v9.6.0: 言語切替時にUIテキストを更新"""
-        # タブ名 (v12.0.0: VirtualDesktop追加、インデックス変更)
+        # タブ名
         self.tab_widget.setTabText(0, t('desktop.mainWindow.mixAITab'))
         self.tab_widget.setTabText(1, t('desktop.mainWindow.cloudAITab'))
         self.tab_widget.setTabText(2, t('desktop.mainWindow.localAITab'))
@@ -470,7 +469,7 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'status_label') and not self._web_locked:
             self.status_label.setText(t('desktop.mainWindow.ready'))
 
-        # 子タブにも通知 (v12.0.0: virtual_desktop_tab追加)
+        # 子タブにも通知
         for tab in [self.llmmix_tab, self.claude_tab, self.local_ai_tab, self.history_tab, self.info_tab, self.virtual_desktop_tab, self.settings_tab]:
             if hasattr(tab, 'retranslateUi'):
                 tab.retranslateUi()

@@ -18,7 +18,7 @@ class SandboxStatus(Enum):
 
 @dataclass
 class SandboxConfig:
-    """Docker Sandbox コンテナの設定"""
+    """Docker コンテナバックエンドの設定"""
     image_name: str = "helix-sandbox:latest"
     cpu_limit: float = 2.0          # CPUs
     memory_limit: str = "2g"        # RAM

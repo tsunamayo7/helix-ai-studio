@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Helix AI Studio v12.6.0 "Multi-Provider Refactor"
-Multi-provider AI orchestration platform with dual interface (Desktop + Web)
+Helix AI Studio — Multi-provider AI orchestration platform
+
+Version / codename は src/utils/constants.py の APP_VERSION / APP_CODENAME が正
+（single source of truth）。
 
 Tabs:
 - mixAI: 3+1 Phase Pipeline (Cloud AI plans → Local LLM team → Cloud AI integrates → Apply)
@@ -9,6 +11,7 @@ Tabs:
 - localAI: Ollama direct chat with 5 specialized categories
 - History: JSONL chat history with search, date grouping, tab filters
 - RAG: Document chunking, vector search, knowledge graph
+- Virtual Desktop: Windows Sandbox (default) / Docker compatible runtime
 - Settings: API keys, model catalog, Ollama, MCP, memory, display
 
 Architecture: API-first with CLI fallback, dynamic model catalog (cloud_models.json),
@@ -311,7 +314,7 @@ def _create_splash_screen(app):
 
 
 def main():
-    """Helix AI Studio エントリーポイント v12.0.0"""
+    """Helix AI Studio エントリーポイント"""
     setup_crash_logging()
     atexit.register(cleanup_on_exit)
 
