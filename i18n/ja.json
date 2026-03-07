@@ -467,7 +467,7 @@
       "historyTab": "📜 History",
       "historyTip": "<b>History - 全タブ統合チャット履歴</b><br><br>全タブのチャット履歴をJSONLから検索・表示・引用。<br><br><b>機能:</b><br>・タブフィルタ (cloudAI / mixAI / localAI / All)<br>・全文検索・日付グルーピング<br>・メッセージコピー・他タブ引用",
       "virtualDesktopTab": "🖥️ Virtual Desktop",
-      "virtualDesktopTip": "<b>Virtual Desktop - Docker Sandbox</b><br><br>Docker コンテナ内の仮想デスクトップで安全にコード実行。<br><br><b>機能:</b><br>・NoVNC リモートデスクトップ<br>・sandbox 内ファイル書き込み<br>・差分プレビュー＆本番適用<br>・ロールバック機能",
+      "virtualDesktopTip": "<b>Virtual Desktop</b><br><br>Windows Sandbox / Docker で安全にコード実行。<br><br><b>機能:</b><br>・仮想デスクトップ環境<br>・sandbox 内ファイル編集<br>・差分プレビュー＆本番適用<br>・ロールバック機能",
       "settingsTab": "⚙️ 一般設定",
       "settingsTip": "<b>一般設定 - アプリ全体の設定</b><br><br>表示設定、自動化オプションなど。<br><br><b>主要機能:</b><br>・テーマ・フォント設定<br>・自動保存設定<br>・Knowledge/Encyclopedia"
     },
@@ -1933,6 +1933,9 @@
       "fileColSize": "サイズ",
       "backendGroup": "バックエンド",
       "backendLabel": "接続方式:",
+      "backendAuto": "Auto（推奨）",
+      "backendWindowsSandbox": "Windows Sandbox",
+      "backendDockerLabel": "Docker (上級者向け)",
       "backendDocker": "Docker Sandbox (NoVNC)",
       "backendGuacamole": "Guacamole Remote (RDP/VNC/SSH)",
       "guacamoleGroup": "Guacamole 設定",
@@ -1946,7 +1949,16 @@
       "guacamoleUnavailable": "Guacamole: ✗ 未検出",
       "guacamoleAuthFailed": "認証に失敗しました。ユーザー名・パスワードを確認してください。",
       "guacamoleNoConnection": "接続を選択してください。",
-      "guacamoleHint": "Guacamole を Docker で起動する場合:\ndocker run -d -p 8080:8080 guacamole/guacamole\n(事前に guacd + DB の設定が必要です)"
+      "guacamoleHint": "Guacamole を Docker で起動する場合:\ndocker run -d -p 8080:8080 guacamole/guacamole\n(事前に guacd + DB の設定が必要です)",
+      "placeholderWinSandboxMissing": "⚠️ Windows Sandbox が有効化されていません。\n\n【有効化手順】\n1. 設定 → アプリ → オプション機能 → Windows のその他の機能\n2. 「Windows サンドボックス」にチェックを入れる\n3. PC を再起動する\n\n※ Windows 11 Pro / Enterprise / Education が必要です。",
+      "placeholderWinSandboxRunning": "🖥️ 外部ウィンドウで仮想デスクトップが実行中です。\n\nWindows Sandbox は別ウィンドウで動作しています。\nタスクバーの Windows Sandbox アイコンをクリックして操作してください。",
+      "winSandboxNetworking": "ネットワーク:",
+      "winSandboxNetworkDefault": "有効（デフォルト）",
+      "winSandboxNetworkDisabled": "無効（隔離）",
+      "winSandboxVGpu": "GPU アクセラレーション:",
+      "winSandboxMemory": "メモリ (MB):",
+      "winSandboxClipboard": "クリップボード共有",
+      "enableInstructions": "有効化手順: 設定 → アプリ → オプション機能 → Windows サンドボックス"
     },
     "localAI": {
       "attachBtn": "📎 添付",

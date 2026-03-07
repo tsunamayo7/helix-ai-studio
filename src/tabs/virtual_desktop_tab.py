@@ -1,7 +1,8 @@
 """Helix AI Studio — Virtual Desktop タブ
 
-Docker Sandbox の仮想デスクトップを表示・操作する第7タブ。
-NoVNC ビューア + Sandbox 設定 の2サブタブ構成。
+Windows Sandbox / Docker Sandbox の仮想デスクトップを表示・操作する第7タブ。
+バックエンド抽象化により、BackendCapability に応じて UI を動的に切り替える。
+NoVNC ビューア（Docker） / 外部ウィンドウ（Windows Sandbox）+ 設定 の2サブタブ構成。
 """
 
 import json
@@ -71,7 +72,8 @@ class VirtualDesktopTab(QWidget):
         super().__init__(parent)
         self._workflow_state = workflow_state
         self._main_window = main_window
-        self._sandbox_manager = sandbox_manager
+        self._backend = None            # SandboxBackend インスタンス
+        self._sandbox_manager = sandbox_manager  # 後方互換（Docker直接参照用）
         self._promotion_engine = None
 
         # 状態追跡
@@ -80,21 +82,48 @@ class VirtualDesktopTab(QWidget):
 
         self._setup_ui()
         self._load_settings()
-        self._update_docker_status()
+        self._update_backend_status()
 
-    def set_sandbox_manager(self, manager):
-        """SandboxManager の参照を設定"""
-        self._sandbox_manager = manager
-        if manager:
-            manager.statusChanged.connect(self._on_sandbox_status_changed)
-            manager.errorOccurred.connect(self._on_sandbox_error)
+    def set_backend(self, backend):
+        """SandboxBackend の参照を設定（推奨）"""
+        from ..sandbox.backend_base import SandboxBackend, BackendCapability
+        self._backend = backend
+        if backend:
+            backend.statusChanged.connect(self._on_sandbox_status_changed)
+            backend.errorOccurred.connect(self._on_sandbox_error)
             from ..sandbox.promotion_engine import PromotionEngine
             self._promotion_engine = PromotionEngine()
-            # v12.0.1: SandboxManager設定後にDocker状態を再チェック
-            self._update_docker_status()
-            # Docker daemon 応答が遅い場合に備えて遅延リトライ
-            QTimer.singleShot(3000, self._update_docker_status)
-            QTimer.singleShot(8000, self._update_docker_status)
+
+            # Capability に応じて UI 要素を有効/無効化
+            caps = backend.capabilities()
+            self._screenshot_btn.setVisible(BackendCapability.SCREENSHOT in caps)
+            has_file_browse = BackendCapability.FILE_BROWSE in caps
+            self._file_refresh_btn.setVisible(has_file_browse)
+            self._file_back_btn.setVisible(has_file_browse)
+            # ファイルブラウザパネルの表示切替
+            self._main_splitter.widget(0).setVisible(has_file_browse)
+
+            # Docker 互換: _sandbox_manager も設定
+            if hasattr(backend, 'manager'):
+                self._sandbox_manager = backend.manager
+
+            self._update_backend_status()
+            QTimer.singleShot(3000, self._update_backend_status)
+            QTimer.singleShot(8000, self._update_backend_status)
+
+    def set_sandbox_manager(self, manager):
+        """SandboxManager の参照を設定（後方互換）"""
+        self._sandbox_manager = manager
+        if manager:
+            # DockerBackend でラップ
+            from ..sandbox.docker_backend import DockerBackend
+            if not self._backend:
+                backend = DockerBackend(parent=self)
+                backend._manager = manager
+                manager.statusChanged.connect(backend.statusChanged)
+                manager.errorOccurred.connect(backend.errorOccurred)
+                manager.outputReceived.connect(backend.outputReceived)
+                self.set_backend(backend)
 
     # ─── UI 構築 ───
 
@@ -357,7 +386,9 @@ class VirtualDesktopTab(QWidget):
         backend_layout = QHBoxLayout(backend_group)
         backend_layout.addWidget(QLabel(t("desktop.virtualDesktop.backendLabel")))
         self._backend_combo = NoScrollComboBox()
-        self._backend_combo.addItem(t("desktop.virtualDesktop.backendDocker"), "docker")
+        self._backend_combo.addItem(t("desktop.virtualDesktop.backendAuto"), "auto")
+        self._backend_combo.addItem(t("desktop.virtualDesktop.backendWindowsSandbox"), "windows_sandbox")
+        self._backend_combo.addItem(t("desktop.virtualDesktop.backendDockerLabel"), "docker")
         self._backend_combo.addItem(t("desktop.virtualDesktop.backendGuacamole"), "guacamole")
         self._backend_combo.currentIndexChanged.connect(self._on_backend_changed)
         backend_layout.addWidget(self._backend_combo)
@@ -601,12 +632,24 @@ class VirtualDesktopTab(QWidget):
         """バックエンド選択変更時にUIを切り替え"""
         backend = self._backend_combo.currentData()
         is_docker = (backend == "docker")
+        is_guacamole = (backend == "guacamole")
+        is_winsandbox = (backend == "windows_sandbox")
+        is_auto = (backend == "auto")
+
+        # Docker 設定: Docker 選択時のみ表示
         self._docker_settings_widget.setVisible(is_docker)
-        self._guacamole_settings_widget.setVisible(not is_docker)
-        # Docker ツールバーボタン（起動/停止）はどちらのモードでも表示
-        # Guacamole モード時は Docker の状態チェックをスキップ
-        if not is_docker:
+        # Guacamole 設定: Guacamole 選択時のみ表示
+        self._guacamole_settings_widget.setVisible(is_guacamole)
+
+        if is_guacamole:
             self._update_guacamole_status()
+        else:
+            # バックエンド切替時にバックエンドを再生成
+            from ..sandbox.backend_factory import BackendFactory
+            new_backend = BackendFactory.create(backend, parent=self)
+            if new_backend:
+                self.set_backend(new_backend)
+            self._update_backend_status()
 
     def _update_guacamole_status(self):
         """Guacamole サーバーの接続状態を更新"""
@@ -693,54 +736,72 @@ class VirtualDesktopTab(QWidget):
         self._stop_btn.setEnabled(True)
 
     def _on_start(self):
-        """sandbox 起動（Docker / Guacamole どちらのモードにも対応）"""
+        """sandbox 起動（Auto / Windows Sandbox / Docker / Guacamole に対応）"""
         # Guacamole モードに分岐
-        backend = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "docker"
-        if backend == "guacamole":
+        backend_type = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "auto"
+        if backend_type == "guacamole":
             self._on_start_guacamole()
             return
 
-        if not self._sandbox_manager:
+        if not self._backend:
+            QMessageBox.warning(self, "Backend", "Sandbox バックエンドが設定されていません。")
             return
 
-        if not self._sandbox_manager.is_docker_available():
-            reason = self._sandbox_manager.get_docker_unavailable_reason()
+        if not self._backend.is_available():
+            reason = self._backend.get_unavailable_reason()
             QMessageBox.warning(
-                self, "Docker Not Available",
-                f"{t('desktop.virtualDesktop.dockerMissingDialog')}\n\n【詳細】\n{reason}"
+                self, t("desktop.virtualDesktop.backendGroup"),
+                reason
             )
             return
 
-        if not self._sandbox_manager.check_image_exists():
-            QMessageBox.warning(self, "Image Not Built",
-                                t("desktop.virtualDesktop.imageMissingBuild"))
-            return
+        # Docker バックエンド固有: イメージ存在チェック
+        if self._backend.backend_type() == "docker":
+            if not self._backend.check_image_exists():
+                QMessageBox.warning(self, "Image Not Built",
+                                    t("desktop.virtualDesktop.imageMissingBuild"))
+                return
 
         config = self._build_config()
         self._start_btn.setEnabled(False)
         self._status_label.setText(t("desktop.virtualDesktop.statusCreating"))
         self._status_label.setStyleSheet(SS.warn())
 
-        # コンテナ作成（ブロッキング — 将来的にスレッド化検討）
-        info = self._sandbox_manager.create(config)
+        info = self._backend.create(config)
         if info:
-            self._show_vnc(info.vnc_url)
+            from ..sandbox.backend_base import BackendCapability
+            caps = self._backend.capabilities()
+
+            # NoVNC 埋め込み（Docker）
+            if BackendCapability.EMBED_VIEW in caps and info.vnc_url:
+                self._show_vnc(info.vnc_url)
+            else:
+                # Windows Sandbox: 外部ウィンドウで実行中の表示
+                self._placeholder.setVisible(True)
+                self._ph_text.setText(t("desktop.virtualDesktop.placeholderWinSandboxRunning"))
+                self._docker_missing_label.setVisible(False)
+
             self._stop_btn.setEnabled(True)
-            self._screenshot_btn.setEnabled(True)
             self._promote_btn.setEnabled(True)
             self._reset_btn.setEnabled(True)
-            self._file_refresh_btn.setEnabled(True)
-            self._file_back_btn.setEnabled(True)
-            self._stats_timer.start(5000)
-            # ファイルツリー初期表示
-            self._refresh_file_tree()
+
+            # Capability に応じてボタン有効化
+            if BackendCapability.SCREENSHOT in caps:
+                self._screenshot_btn.setEnabled(True)
+            if BackendCapability.FILE_BROWSE in caps:
+                self._file_refresh_btn.setEnabled(True)
+                self._file_back_btn.setEnabled(True)
+                self._refresh_file_tree()
+
+            if BackendCapability.STATS in caps:
+                self._stats_timer.start(5000)
         else:
             self._start_btn.setEnabled(True)
 
     def _on_stop(self):
         """sandbox 停止"""
-        if self._sandbox_manager:
-            self._sandbox_manager.destroy()
+        if self._backend:
+            self._backend.destroy()
         self._hide_vnc()
         self._start_btn.setEnabled(True)
         self._stop_btn.setEnabled(False)
@@ -758,9 +819,9 @@ class VirtualDesktopTab(QWidget):
 
     def _on_screenshot(self):
         """スクリーンショット取得"""
-        if not self._sandbox_manager:
+        if not self._backend:
             return
-        data = self._sandbox_manager.screenshot()
+        data = self._backend.screenshot()
         if data:
             save_path, _ = QFileDialog.getSaveFileName(
                 self, "Save Screenshot", "sandbox_screenshot.png", "PNG (*.png)")
@@ -770,10 +831,10 @@ class VirtualDesktopTab(QWidget):
 
     def _on_promote(self):
         """本番適用パネルを表示"""
-        if not self._promotion_engine or not self._sandbox_manager:
+        if not self._promotion_engine or not self._backend:
             return
 
-        diff = self._promotion_engine.generate_diff(self._sandbox_manager)
+        diff = self._promotion_engine.generate_diff(self._backend)
         changes = self._promotion_engine.preview_changes(diff)
 
         self._changes_tree.clear()
@@ -810,10 +871,10 @@ class VirtualDesktopTab(QWidget):
 
     def _on_diff_preview(self):
         """差分プレビューダイアログ"""
-        if not self._promotion_engine or not self._sandbox_manager:
+        if not self._promotion_engine or not self._backend:
             return
 
-        diff = self._promotion_engine.generate_diff(self._sandbox_manager)
+        diff = self._promotion_engine.generate_diff(self._backend)
         dialog = QDialog(self)
         dialog.setWindowTitle(t("desktop.virtualDesktop.diffPreviewBtn"))
         dialog.resize(700, 500)
@@ -833,7 +894,7 @@ class VirtualDesktopTab(QWidget):
 
     def _on_apply(self):
         """選択ファイルをホストに適用"""
-        if not self._promotion_engine or not self._sandbox_manager:
+        if not self._promotion_engine or not self._backend:
             return
 
         # 選択ファイル取得
@@ -858,7 +919,7 @@ class VirtualDesktopTab(QWidget):
             return
 
         target = self._workspace_edit.text() or "."
-        result = self._promotion_engine.apply(self._sandbox_manager, target, selected)
+        result = self._promotion_engine.apply(self._backend, target, selected)
 
         if result.success:
             msg = t("desktop.virtualDesktop.promoteSuccess").replace("{count}", str(len(result.applied_files)))
@@ -871,23 +932,23 @@ class VirtualDesktopTab(QWidget):
 
     def _on_open_browser(self):
         """ブラウザで NoVNC を開く"""
-        if self._sandbox_manager:
-            url = self._sandbox_manager.get_vnc_url()
+        if self._backend:
+            url = self._backend.get_vnc_url()
             if url:
                 webbrowser.open(url)
 
     def _on_build_image(self):
         """Docker イメージビルド"""
-        if not self._sandbox_manager:
+        if not self._backend or not hasattr(self._backend, 'build_image'):
             return
         self._build_image_btn.setEnabled(False)
         self._build_image_btn.setText("Building...")
-        success = self._sandbox_manager.build_image(
+        success = self._backend.build_image(
             progress_callback=lambda msg: logger.info(f"[Build] {msg}")
         )
         self._build_image_btn.setEnabled(True)
         self._build_image_btn.setText(t("desktop.virtualDesktop.buildImageBtn"))
-        self._update_docker_status()
+        self._update_backend_status()
         if success:
             QMessageBox.information(self, "Build", "Image built successfully")
         else:
@@ -895,7 +956,7 @@ class VirtualDesktopTab(QWidget):
 
     def _on_delete_image(self):
         """Docker イメージ削除"""
-        if not self._sandbox_manager or not self._sandbox_manager.is_docker_available():
+        if not self._backend or not self._backend.is_available():
             return
         reply = QMessageBox.question(
             self, "Delete Image",
@@ -903,9 +964,9 @@ class VirtualDesktopTab(QWidget):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
-            if not self._sandbox_manager.remove_image():
+            if not self._backend.remove_image():
                 QMessageBox.critical(self, "Error", "Failed to remove image")
-            self._update_docker_status()
+            self._update_backend_status()
 
     def _browse_workspace(self):
         """ワークスペースパス選択"""
@@ -932,23 +993,28 @@ class VirtualDesktopTab(QWidget):
 
     def _refresh_file_tree(self):
         """ファイルツリーを更新"""
-        if not self._sandbox_manager:
+        if not self._backend:
+            return
+        from ..sandbox.backend_base import BackendCapability
+        if BackendCapability.FILE_BROWSE not in self._backend.capabilities():
             return
 
         self._file_tree.clear()
-        result = self._sandbox_manager.list_dir(self._current_browse_path)
 
-        if "error" in result:
-            item = QTreeWidgetItem([f"Error: {result['error']}", ""])
-            self._file_tree.addTopLevelItem(item)
-            return
-
-        entries = result.get("entries", [])
-        if not entries and "listing" in result:
-            # フォールバック: 生テキストから簡易パース
-            item = QTreeWidgetItem([result["listing"][:100], ""])
-            self._file_tree.addTopLevelItem(item)
-            return
+        # SandboxBackend.list_files はリスト、SandboxManager.list_dir は dict
+        if self._sandbox_manager and hasattr(self._sandbox_manager, 'list_dir'):
+            result = self._sandbox_manager.list_dir(self._current_browse_path)
+            if "error" in result:
+                item = QTreeWidgetItem([f"Error: {result['error']}", ""])
+                self._file_tree.addTopLevelItem(item)
+                return
+            entries = result.get("entries", [])
+            if not entries and "listing" in result:
+                item = QTreeWidgetItem([result["listing"][:100], ""])
+                self._file_tree.addTopLevelItem(item)
+                return
+        else:
+            entries = self._backend.list_files(self._current_browse_path)
 
         for entry in entries:
             name = entry.get("name", "")
@@ -1031,9 +1097,9 @@ class VirtualDesktopTab(QWidget):
 
     def _update_stats(self):
         """コンテナリソース統計を更新"""
-        if not self._sandbox_manager:
+        if not self._backend:
             return
-        stats = self._sandbox_manager.get_container_stats()
+        stats = self._backend.get_container_stats()
         if stats:
             self._stats_label.setText(
                 f"CPU: {stats['cpu_percent']}% | "
@@ -1042,55 +1108,74 @@ class VirtualDesktopTab(QWidget):
         else:
             self._stats_label.setText("")
 
-    def _update_docker_status(self):
-        """Docker 接続状態を更新（呼び出し毎にキャッシュリセットして再検出）"""
-        # Guacamole モード時は Docker チェックをスキップして Guacamole 状態を更新
-        backend = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "docker"
-        if backend == "guacamole":
+    def _update_backend_status(self):
+        """バックエンド接続状態を更新"""
+        # Guacamole モード時はスキップ
+        backend_type = self._backend_combo.currentData() if hasattr(self, '_backend_combo') else "auto"
+        if backend_type == "guacamole":
             self._update_guacamole_status()
             return
 
-        if not self._sandbox_manager:
-            self._docker_status_label.setText("Docker: N/A (SandboxManager not set)")
+        if not self._backend:
+            self._docker_status_label.setText("Backend: N/A")
             self._docker_status_label.setStyleSheet(SS.muted())
-            self._image_status_label.setText("Image: N/A")
+            self._image_status_label.setText("")
             self._image_status_label.setStyleSheet(SS.muted())
             self._docker_missing_label.setVisible(True)
+            self._docker_missing_label.setText(
+                t("desktop.virtualDesktop.placeholderWinSandboxMissing")
+            )
             self._start_btn.setEnabled(False)
             return
 
-        # 毎回クライアントキャッシュをリセットして再接続を試みる
-        self._sandbox_manager.reset_connection()
+        # キャッシュリセット
+        self._backend.reset_connection()
 
-        _avail = self._sandbox_manager.is_docker_available()
+        bt = self._backend.backend_type()
+        _avail = self._backend.is_available()
+
         if _avail:
-            self._docker_status_label.setText("Docker: ● Connected")
+            if bt == "docker":
+                self._docker_status_label.setText("Docker: ● Connected")
+            elif bt == "windows_sandbox":
+                self._docker_status_label.setText("Windows Sandbox: ● Ready")
+            else:
+                self._docker_status_label.setText(f"{bt}: ● Available")
             self._docker_status_label.setStyleSheet(SS.ok())
             self._docker_missing_label.setVisible(False)
             self._start_btn.setEnabled(True)
 
-            if self._sandbox_manager.check_image_exists():
-                self._image_status_label.setText("Image: ● helix-sandbox:latest")
-                self._image_status_label.setStyleSheet(SS.ok())
-                self._docker_missing_label.setVisible(False)
+            # Docker 固有: イメージ存在チェック
+            if bt == "docker":
+                if self._backend.check_image_exists():
+                    self._image_status_label.setText("Image: ● helix-sandbox:latest")
+                    self._image_status_label.setStyleSheet(SS.ok())
+                else:
+                    self._image_status_label.setText("Image: ✗ Not built")
+                    self._image_status_label.setStyleSheet(SS.warn())
+                    self._docker_missing_label.setText(t("desktop.virtualDesktop.imageMissingBuild"))
+                    self._docker_missing_label.setVisible(True)
+                    self._start_btn.setEnabled(False)
             else:
-                self._image_status_label.setText("Image: ✗ Not built")
-                self._image_status_label.setStyleSheet(SS.warn())
-                self._docker_missing_label.setText(t("desktop.virtualDesktop.imageMissingBuild"))
-                self._docker_missing_label.setVisible(True)
-                self._start_btn.setEnabled(False)
+                self._image_status_label.setText("")
         else:
-            reason = self._sandbox_manager.get_docker_unavailable_reason()
-            self._docker_status_label.setText("Docker: ✗ Not detected")
+            reason = self._backend.get_unavailable_reason()
+            if bt == "docker":
+                self._docker_status_label.setText("Docker: ✗ Not detected")
+            elif bt == "windows_sandbox":
+                self._docker_status_label.setText("Windows Sandbox: ✗ Not enabled")
+            else:
+                self._docker_status_label.setText(f"{bt}: ✗ Not available")
             self._docker_status_label.setToolTip(reason)
             self._docker_status_label.setStyleSheet(SS.err())
-            self._image_status_label.setText("Image: N/A")
+            self._image_status_label.setText("")
             self._image_status_label.setStyleSheet(SS.muted())
-            self._docker_missing_label.setText(
-                t("desktop.virtualDesktop.placeholderDockerMissing") + f"\n\n{reason}"
-            )
+            self._docker_missing_label.setText(reason)
             self._docker_missing_label.setVisible(True)
             self._start_btn.setEnabled(False)
+
+    # 後方互換エイリアス
+    _update_docker_status = _update_backend_status
 
     # ─── 設定 I/O ───
 
@@ -1118,6 +1203,9 @@ class VirtualDesktopTab(QWidget):
                     data = json.load(f)
 
             data["sandbox"] = {
+                # バックエンド選択
+                "backend": self._backend_combo.currentData(),
+                # Docker 設定
                 "image_name": self._image_combo.currentText(),
                 "cpu_limit": self._cpu_spin.value(),
                 "memory_limit": self._memory_spin.value(),
@@ -1128,7 +1216,6 @@ class VirtualDesktopTab(QWidget):
                 "network_mode": "none" if self._net_isolated_radio.isChecked() else "bridge",
                 "exclude_patterns": self._exclude_edit.text(),
                 # Guacamole 設定
-                "backend": self._backend_combo.currentData(),
                 "guacamole_url": self._guac_url_edit.text(),
                 "guacamole_user": self._guac_user_edit.text(),
                 "guacamole_connection": self._guac_conn_combo.currentText(),

@@ -18,7 +18,7 @@ class SandboxStatus(Enum):
 
 @dataclass
 class SandboxConfig:
-    """Sandbox コンテナの設定"""
+    """Docker Sandbox コンテナの設定"""
     image_name: str = "helix-sandbox:latest"
     cpu_limit: float = 2.0          # CPUs
     memory_limit: str = "2g"        # RAM
@@ -33,11 +33,25 @@ class SandboxConfig:
 
 
 @dataclass
+class WindowsSandboxConfig:
+    """Windows Sandbox 固有の設定"""
+    workspace_path: str = ""        # ホスト側プロジェクトパス
+    memory_mb: int = 2048           # メモリ (MB)
+    networking: str = "Default"     # Default (有効) / Disable (隔離)
+    vgpu: str = "Enable"            # Enable / Disable
+    clipboard: str = "Enable"       # Enable / Disable
+    mount_readonly: bool = False    # True=安全(読取専用), False=直接編集
+    logon_command: str = ""         # 起動時コマンド（空=explorer C:\workspace）
+    timeout_minutes: int = 60       # 自動タイムアウト
+
+
+@dataclass
 class SandboxInfo:
-    """稼働中の Sandbox コンテナ情報"""
-    sandbox_id: str                 # Docker コンテナ ID（短縮形）
-    container_name: str             # helix-sandbox-{timestamp}
+    """稼働中の Sandbox 情報"""
+    sandbox_id: str                 # Docker コンテナ ID / WSB PID
+    container_name: str             # helix-sandbox-{timestamp} / WindowsSandbox
     status: SandboxStatus = SandboxStatus.NONE
+    backend_type: str = "docker"    # "docker" / "windows_sandbox"
     vnc_url: str = ""               # http://localhost:{port}/vnc.html
     vnc_port: int = 0               # 動的割り当て
     novnc_port: int = 0             # NoVNC ポート

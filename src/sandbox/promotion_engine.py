@@ -2,6 +2,8 @@
 
 sandbox 内の変更をホストに安全に適用する。
 差分生成、プレビュー、選択適用、バックアップ、ロールバック機能を提供。
+
+SandboxBackend / SandboxManager のどちらも引数として受け付ける（後方互換）。
 """
 
 import logging
@@ -65,11 +67,15 @@ class PromotionEngine:
     def __init__(self):
         pass
 
-    def generate_diff(self, sandbox_manager) -> str:
-        """sandbox 内の変更を unified diff 形式で取得"""
-        if not sandbox_manager or sandbox_manager.get_status().value != "running":
+    def generate_diff(self, backend) -> str:
+        """sandbox 内の変更を unified diff 形式で取得
+
+        Args:
+            backend: SandboxBackend または SandboxManager インスタンス
+        """
+        if not backend or backend.get_status().value != "running":
             return ""
-        return sandbox_manager.get_diff()
+        return backend.get_diff()
 
     def preview_changes(self, diff: str) -> list:
         """diff を解析して変更ファイル一覧を返す"""
@@ -124,12 +130,16 @@ class PromotionEngine:
 
     def apply(
         self,
-        sandbox_manager,
+        backend,
         target_path: str,
         selected_files: Optional[list] = None,
     ) -> PromotionResult:
-        """sandbox の変更をホストに適用"""
-        if not sandbox_manager or sandbox_manager.get_status().value != "running":
+        """sandbox の変更をホストに適用
+
+        Args:
+            backend: SandboxBackend または SandboxManager インスタンス
+        """
+        if not backend or backend.get_status().value != "running":
             return PromotionResult(success=False, error="Sandbox not running")
 
         target = Path(target_path)
@@ -148,7 +158,7 @@ class PromotionEngine:
 
         try:
             # 2. 差分取得
-            diff = self.generate_diff(sandbox_manager)
+            diff = self.generate_diff(backend)
             changes = self.preview_changes(diff)
 
             if not changes:
@@ -188,14 +198,28 @@ class PromotionEngine:
                     shutil.copy2(host_file, backup_file)
 
                 # sandbox からファイルを取得
-                result = sandbox_manager.read_file(f"/workspace/{file_path}")
-                if "error" in result:
+                # SandboxBackend: read_file returns bytes
+                # SandboxManager: read_file returns dict {"content": ..., "error": ...}
+                raw = backend.read_file(f"/workspace/{file_path}")
+                if isinstance(raw, dict):
+                    # SandboxManager 互換
+                    if "error" in raw:
+                        skipped.append(file_path)
+                        continue
+                    content = raw.get("content", "")
+                elif isinstance(raw, bytes):
+                    # SandboxBackend
+                    if not raw:
+                        skipped.append(file_path)
+                        continue
+                    content = raw.decode("utf-8", errors="replace")
+                else:
                     skipped.append(file_path)
                     continue
 
                 # ホストに書き込み
                 host_file.parent.mkdir(parents=True, exist_ok=True)
-                host_file.write_text(result["content"], encoding="utf-8")
+                host_file.write_text(content, encoding="utf-8")
                 applied.append(file_path)
 
             return PromotionResult(

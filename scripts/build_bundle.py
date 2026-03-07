@@ -143,6 +143,10 @@ files = [
 
     # --- src/sandbox ---
     'src/sandbox/__init__.py',
+    'src/sandbox/backend_base.py',
+    'src/sandbox/backend_factory.py',
+    'src/sandbox/windows_sandbox_backend.py',
+    'src/sandbox/docker_backend.py',
     'src/sandbox/sandbox_config.py',
     'src/sandbox/sandbox_manager.py',
     'src/sandbox/promotion_engine.py',
