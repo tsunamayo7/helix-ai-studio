@@ -1013,6 +1013,13 @@
       "errorPrefix": "❌ Error:\n\n{error}",
       "errorStatus": "Error: {error}",
       "errorStatusBrief": "mixAI execution error (check logs for details)",
+      "roleHint": {
+        "coding": "Select an AI suited for code generation, modification, test creation, and multi-file consistency. Sufficient context length and structured output are required.",
+        "research": "Select an AI suited for organizing information, comparison, evidence extraction, and integrating search results. Ability to accurately summarize large texts is important.",
+        "reasoning": "Select an AI suited for clarifying ambiguous requirements, comparing hypotheses, and step-by-step judgment. Models that can articulate their thinking process are advantageous.",
+        "translation": "Select an AI suited for multi-language conversion, meaning preservation, and tone adjustment. Maintaining the nuance of the original text is important.",
+        "vision": "Only AI models capable of interpreting image input can be selected. Models without image support cannot be used for this role."
+      },
       "ollamaStandby": "Standby",
       "ollamaNotDL": "Not DL",
       "ollamaResident": "Resident",

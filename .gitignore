@@ -26,6 +26,7 @@ venv/
 # Config (contains API keys — exclude all except example files)
 config/*
 !config/*.example.json
+!config/model_capabilities.json
 data/web_execution_lock.json
 
 # Runtime data

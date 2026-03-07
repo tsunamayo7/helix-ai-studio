@@ -69,3 +69,84 @@ def invalidate_cache():
     """キャッシュを破棄して次回読み込み時に再取得させる（設定変更後に呼ぶ）。"""
     global _cache
     _cache = None
+
+
+# =========================================================================
+# v12.7.2: ロール適性判定 (Phase 2 role-based filtering)
+# =========================================================================
+
+def get_model_capabilities(model_id: str) -> dict:
+    """モデルの全能力値を辞書で返す。
+
+    解決順序:
+    1. models に完全一致
+    2. models にプレフィックス一致（既存ロジック互換）
+    3. ollama_prefix_rules にプレフィックス一致
+    4. default_capabilities（全 false → 「参考」グループ）
+    """
+    data = _load()
+    models = data.get("models", {})
+    defaults = data.get("default_capabilities", {})
+    result = dict(defaults)  # ベースはデフォルト
+
+    # 1. 完全一致
+    if model_id in models:
+        result.update(models[model_id])
+        return result
+
+    # 2. プレフィックス一致（models 内のキーとの既存ロジック互換）
+    for registered_id, caps in models.items():
+        if model_id.startswith(registered_id) or registered_id.startswith(model_id.split("-20")[0]):
+            result.update(caps)
+            return result
+
+    # 3. ollama_prefix_rules
+    prefix_rules = data.get("ollama_prefix_rules", {})
+    # 最長一致を優先（deepseek-coder > deepseek）
+    matched_prefix = ""
+    matched_caps = {}
+    for prefix, caps in prefix_rules.items():
+        if prefix.startswith("_"):
+            continue
+        if model_id.startswith(prefix) and len(prefix) > len(matched_prefix):
+            matched_prefix = prefix
+            matched_caps = caps
+    if matched_caps:
+        result.update(matched_caps)
+
+    return result
+
+
+def supports_role(model_id: str, role: str) -> bool:
+    """モデルが指定ロールに「推奨」かどうかを判定する。
+
+    判定ルール（明示的・曖昧さなし）:
+    - coding:      supports_coding AND context_tier in (medium, large)
+    - research:    supports_research AND context_tier in (medium, large)
+    - reasoning:   supports_reasoning AND (supports_thinking OR context_tier == large)
+    - translation: supports_translation
+    - vision:      supports_vision （厳格）
+    """
+    caps = get_model_capabilities(model_id)
+    ctx = caps.get("context_tier", "small")
+    sufficient_ctx = ctx in ("medium", "large")
+
+    if role == "coding":
+        return bool(caps.get("supports_coding")) and sufficient_ctx
+    elif role == "research":
+        return bool(caps.get("supports_research")) and sufficient_ctx
+    elif role == "reasoning":
+        return (bool(caps.get("supports_reasoning"))
+                and (bool(caps.get("supports_thinking")) or ctx == "large"))
+    elif role == "translation":
+        return bool(caps.get("supports_translation"))
+    elif role == "vision":
+        return bool(caps.get("supports_vision"))
+    else:
+        return False
+
+
+def get_role_suitability(model_id: str) -> dict[str, bool]:
+    """全ロールの適性を一括で返す。"""
+    roles = ("coding", "research", "reasoning", "translation", "vision")
+    return {r: supports_role(model_id, r) for r in roles}
