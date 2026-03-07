@@ -1,6 +1,7 @@
 """Helix AI Studio — Sandbox パッケージ
 
-Windows Sandbox / Docker コンテナベースの隔離実行環境を提供する。
+Virtual Desktop 用バックエンド群。
+BackendFactory が Windows Sandbox (標準) → Docker 互換ランタイム (任意) の順に自動選択する。
 """
 
 from .sandbox_config import SandboxConfig, SandboxInfo, SandboxStatus, WindowsSandboxConfig
