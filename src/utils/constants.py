@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "12.6.0"
-APP_CODENAME = "Multi-Provider Refactor"
+APP_VERSION = "12.7.0"
+APP_CODENAME = "Windows Sandbox Default"
 APP_DESCRIPTION = (
-    "Helix AI Studio v12.6.0 'Multi-Provider Refactor' - "
-    "OpenAI/Gemini/Claude multi-provider + model_id passthrough + BIBLE snippet migration"
+    "Helix AI Studio v12.7.0 'Windows Sandbox Default' - "
+    "Backend abstraction layer + Windows Sandbox default + DockerBackend adapter + Capability-based UI"
 )
 
 # v8.5.0: 情報収集フォルダ

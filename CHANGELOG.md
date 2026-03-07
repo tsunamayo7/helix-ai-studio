@@ -5,6 +5,38 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [12.7.0] - 2026-03-07 "Windows Sandbox Default"
+
+### Added
+
+- **Backend abstraction layer** (`src/sandbox/backend_base.py`)
+  - `SandboxBackend` abstract base class with `BackendCapability` flags
+  - Capability-based UI control — buttons/panels show/hide dynamically per backend
+- **Windows Sandbox backend** (`src/sandbox/windows_sandbox_backend.py`)
+  - `.wsb` XML config generation, process launch & monitoring
+  - Default backend — no Docker Desktop required for normal users
+- **DockerBackend adapter** (`src/sandbox/docker_backend.py`)
+  - Wraps existing `SandboxManager` via Adapter pattern — zero breaking changes
+- **BackendFactory** (`src/sandbox/backend_factory.py`)
+  - `auto_select()`: Windows Sandbox → Docker → None priority chain
+- **WindowsSandboxConfig** dataclass in `src/sandbox/sandbox_config.py`
+  - Memory, networking, GPU, clipboard, mount mode settings
+- ~12 new i18n keys for Windows Sandbox UI (`ja.json` / `en.json`)
+
+### Changed
+
+- `src/tabs/virtual_desktop_tab.py`: Backend-agnostic with `set_backend()` + 4-option backend ComboBox (Auto / Windows Sandbox / Docker / Guacamole)
+- `src/main_window.py`: `BackendFactory.auto_select()` integration
+- `src/sandbox/promotion_engine.py`: Accepts both `SandboxBackend` and `SandboxManager`
+- `src/sandbox/__init__.py`: New exports (WindowsSandboxConfig, BackendCapability, SandboxBackend, BackendFactory)
+- `src/utils/constants.py`: `APP_VERSION` → "12.7.0", `APP_CODENAME` → "Windows Sandbox Default"
+
+### Notes
+
+- `SandboxManager` is **not modified** — wrapped by DockerBackend for backward compatibility
+- Windows Sandbox requires Windows 11 Pro/Enterprise with the feature enabled
+- Auto mode falls back to Docker if Windows Sandbox is unavailable
+
 ## [12.5.0] - 2026-03-06 "CrewAI Integration"
 
 ### Added

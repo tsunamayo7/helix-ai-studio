@@ -31,6 +31,7 @@ from .tabs.local_ai_tab import LocalAITab
 from .tabs.history_tab import HistoryTab
 # v12.0.0: Virtual Desktop タブ追加
 from .tabs.virtual_desktop_tab import VirtualDesktopTab
+from .sandbox.backend_factory import BackendFactory
 from .sandbox.sandbox_manager import SandboxManager
 from .utils.constants import APP_NAME, APP_VERSION
 from .utils.i18n import t, set_language, get_language
@@ -196,8 +197,14 @@ class MainWindow(QMainWindow):
         self.tab_widget.setDocumentMode(True)
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
 
-        # v12.0.0: SandboxManager を先に生成（各タブに参照を渡す）
-        self._sandbox_manager = SandboxManager(parent=self)
+        # v12.7.0: バックエンドを自動選択（Windows Sandbox → Docker）
+        self._sandbox_backend = BackendFactory.auto_select(parent=self)
+        # 後方互換: SandboxManager 参照を保持
+        self._sandbox_manager = (
+            self._sandbox_backend.manager
+            if self._sandbox_backend and hasattr(self._sandbox_backend, 'manager')
+            else SandboxManager(parent=self)
+        )
 
         # タブを追加（workflow_stateを渡す）
         # v12.0.0: タブ順序: mixAI → cloudAI → localAI → History → RAG → VirtualDesktop → 一般設定
@@ -228,9 +235,13 @@ class MainWindow(QMainWindow):
         self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.ragTab'))
         self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
 
-        # 6. Virtual Desktop タブ (v12.0.0: Docker Sandbox)
+        # 6. Virtual Desktop タブ (v12.7.0: Windows Sandbox / Docker)
         self.virtual_desktop_tab = VirtualDesktopTab()
-        self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
+        if self._sandbox_backend:
+            self.virtual_desktop_tab.set_backend(self._sandbox_backend)
+        else:
+            # どちらも利用不可の場合、SandboxManager をフォールバックで渡す
+            self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
         self.tab_widget.addTab(self.virtual_desktop_tab, t('desktop.mainWindow.virtualDesktopTab'))
         self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
 

@@ -467,7 +467,7 @@
       "historyTab": "📜 History",
       "historyTip": "<b>History - Unified Chat History</b><br><br>Search, view, and quote chat history from all tabs via JSONL.<br><br><b>Features:</b><br>・Tab filter (cloudAI / mixAI / localAI / All)<br>・Full-text search & date grouping<br>・Copy messages & quote to other tabs",
       "virtualDesktopTab": "🖥️ Virtual Desktop",
-      "virtualDesktopTip": "<b>Virtual Desktop - Docker Sandbox</b><br><br>Safely execute code in a Docker container virtual desktop.<br><br><b>Features:</b><br>・NoVNC remote desktop<br>・Sandbox file writing<br>・Diff preview & promote to host<br>・Rollback support",
+      "virtualDesktopTip": "<b>Virtual Desktop</b><br><br>Safely execute code in Windows Sandbox / Docker.<br><br><b>Features:</b><br>・Virtual desktop environment<br>・Sandbox file editing<br>・Diff preview & promote to host<br>・Rollback support",
       "settingsTab": "⚙️ Settings",
       "settingsTip": "<b>General Settings - App-wide Configuration</b><br><br>Display settings, automation options, etc.<br><br><b>Key Features:</b><br>・Theme & font settings<br>・Auto-save settings<br>・Knowledge/Encyclopedia"
     },
@@ -1933,6 +1933,9 @@
       "fileColSize": "Size",
       "backendGroup": "Backend",
       "backendLabel": "Connection mode:",
+      "backendAuto": "Auto (Recommended)",
+      "backendWindowsSandbox": "Windows Sandbox",
+      "backendDockerLabel": "Docker (Advanced)",
       "backendDocker": "Docker Sandbox (NoVNC)",
       "backendGuacamole": "Guacamole Remote (RDP/VNC/SSH)",
       "guacamoleGroup": "Guacamole Settings",
@@ -1946,7 +1949,16 @@
       "guacamoleUnavailable": "Guacamole: ✗ Not detected",
       "guacamoleAuthFailed": "Authentication failed. Check your username and password.",
       "guacamoleNoConnection": "Please select a connection.",
-      "guacamoleHint": "To start Guacamole with Docker:\ndocker run -d -p 8080:8080 guacamole/guacamole\n(guacd + DB setup required)"
+      "guacamoleHint": "To start Guacamole with Docker:\ndocker run -d -p 8080:8080 guacamole/guacamole\n(guacd + DB setup required)",
+      "placeholderWinSandboxMissing": "⚠️ Windows Sandbox is not enabled.\n\n[How to enable]\n1. Settings → Apps → Optional features → More Windows features\n2. Check \"Windows Sandbox\"\n3. Restart your PC\n\n※ Requires Windows 11 Pro / Enterprise / Education.",
+      "placeholderWinSandboxRunning": "🖥️ The virtual desktop is running in an external window.\n\nWindows Sandbox runs in a separate window.\nClick the Windows Sandbox icon in the taskbar to interact.",
+      "winSandboxNetworking": "Networking:",
+      "winSandboxNetworkDefault": "Enabled (Default)",
+      "winSandboxNetworkDisabled": "Disabled (Isolated)",
+      "winSandboxVGpu": "GPU Acceleration:",
+      "winSandboxMemory": "Memory (MB):",
+      "winSandboxClipboard": "Clipboard Sharing",
+      "enableInstructions": "Enable: Settings → Apps → Optional features → Windows Sandbox"
     },
     "localAI": {
       "attachBtn": "📎 Attach",
