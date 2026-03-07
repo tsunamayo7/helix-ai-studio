@@ -285,7 +285,7 @@ class VirtualDesktopTab(QWidget):
         self._ph_text.setWordWrap(True)
         ph_layout.addWidget(self._ph_text)
 
-        # Docker未検出メッセージ
+        # バックエンド未検出メッセージ
         self._docker_missing_label = QLabel(t("desktop.virtualDesktop.placeholderDockerMissing"))
         self._docker_missing_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._docker_missing_label.setStyleSheet(SS.warn())
