@@ -176,6 +176,108 @@ def get_phase2_vision_candidates(ollama_url: str = None,
     return items
 
 
+def get_phase2_role_candidates(
+    role: str,
+    ollama_url: str = None,
+    skip_label: str = "(未選択 - スキップ)"
+) -> list[str]:
+    """v12.7.2: Phase 2 role-based 候補取得。
+
+    各モデルを supports_role() で判定し、推奨/参考に分類する。
+    vision ロールは非対応モデルを一切表示しない（厳格フィルタ）。
+    Cloud AI も Ollama も同一の supports_role() で判定する。
+    """
+    from src.utils.model_capabilities import supports_role as _supports_role
+
+    url = ollama_url or OLLAMA_DEFAULT_URL
+    items = [skip_label]
+
+    # --- Ollama モデル ---
+    local_recommended = []
+    local_reference = []
+
+    try:
+        import httpx
+        resp = httpx.get(f"{url}/api/tags", timeout=3)
+        if resp.status_code == 200:
+            models = [m.get("name", "") for m in resp.json().get("models", []) if m.get("name")]
+        else:
+            models = []
+    except Exception:
+        models = []
+
+    if role == "vision":
+        # vision: Ollama /api/show で capabilities を確認（既存互換）
+        for name in models:
+            try:
+                import httpx as _httpx
+                show_resp = _httpx.post(f"{url}/api/show", json={"name": name}, timeout=2)
+                if show_resp.status_code == 200:
+                    caps = show_resp.json().get("capabilities", [])
+                    if "vision" in caps:
+                        local_recommended.append(name)
+                    # vision 非対応は表示しない（厳格）
+            except Exception:
+                pass
+    else:
+        # vision 以外: model_capabilities で判定
+        for name in models:
+            # Ollama /api/show で vision capability を取得して上書き
+            ollama_vision = False
+            if role == "vision":  # ここには到達しないが安全のため
+                try:
+                    import httpx as _httpx
+                    show_resp = _httpx.post(f"{url}/api/show", json={"name": name}, timeout=2)
+                    if show_resp.status_code == 200:
+                        ollama_vision = "vision" in show_resp.json().get("capabilities", [])
+                except Exception:
+                    pass
+
+            if _supports_role(name, role):
+                local_recommended.append(name)
+            else:
+                local_reference.append(name)
+
+    # --- Cloud モデル（同一の supports_role で判定）---
+    cloud_recommended = []
+    cloud_reference = []
+
+    for m in get_cloud_models():
+        model_id = normalize_model_id(m.get("model_id", ""))
+        display = m.get("name", model_id)
+        if not model_id:
+            continue
+        if _supports_role(model_id, role):
+            cloud_recommended.append(display)
+        elif role != "vision":
+            # vision 非対応 Cloud モデルは表示しない（厳格）
+            cloud_reference.append(display)
+
+    # --- リスト構築 ---
+    if role == "vision":
+        if local_recommended:
+            items.append("── 対応モデル（ローカル）──")
+            items.extend(local_recommended)
+        if cloud_recommended:
+            items.append("── 対応モデル（Cloud AI・コスト発生）──")
+            items.extend(cloud_recommended)
+    else:
+        if local_recommended:
+            items.append("── 推奨（ローカル）──")
+            items.extend(local_recommended)
+        if local_reference:
+            items.append("── 参考（ローカル）──")
+            items.extend(local_reference)
+        if cloud_recommended:
+            items.append("── 推奨（Cloud AI・コスト発生）──")
+            items.extend(cloud_recommended)
+        if cloud_reference:
+            items.append("── 参考（Cloud AI）──")
+            items.extend(cloud_reference)
+
+    return items
+
+
 def get_phase35_candidates(skip_label: str = "（未選択 - スキップ）") -> list[str]:
     """Phase 3.5: [スキップ] + cloudAI登録済みモデル全て"""
     items = [skip_label]

@@ -1396,6 +1396,9 @@ class HelixOrchestratorTab(QWidget):
         self.phase_group.setTitle(t('desktop.mixAI.phase2GroupLabel'))
         self.phase_desc_label.setText(t('desktop.mixAI.phaseDesc'))
         self.category_label.setText(t('desktop.mixAI.categoryLabel'))
+        # v12.7.2: ロールヒント tooltip 再設定
+        for cat, combo in self._phase2_combos.items():
+            combo.setToolTip(t(f'desktop.mixAI.roleHint.{cat}'))
         self.retry_label.setText(t('desktop.mixAI.retryLabel'))
         self.max_retries_label.setText(t('desktop.mixAI.maxRetries'))
         self.max_retries_spin.setToolTip(t('desktop.mixAI.maxRetriesTip'))
@@ -1926,6 +1929,7 @@ class HelixOrchestratorTab(QWidget):
         # === v11.0.0: Phase 2設定 — 説明文ツールチップ化、候補は動的、editable=False ===
         from ..utils.model_catalog import (
             get_phase2_candidates, get_phase2_vision_candidates,
+            get_phase2_role_candidates,
             populate_combo as _populate,
         )
         self.phase_group = QGroupBox(t('desktop.mixAI.phase2GroupLabel'))
@@ -1941,8 +1945,7 @@ class HelixOrchestratorTab(QWidget):
         phase_layout.addWidget(self.category_label)
 
         # v11.0.0: 全Phase2コンボを動的候補で生成（固定addItems全廃）
-        _p2_candidates = get_phase2_candidates(
-            skip_label=t('desktop.mixAI.unselected'))
+        # v12.7.2: role-based filtering — 各ロールごとに推奨/参考を分類
         _defaults = {
             "coding": "devstral-2:123b",
             "research": "command-a:latest",
@@ -1950,18 +1953,17 @@ class HelixOrchestratorTab(QWidget):
             "translation": "translategemma:27b",
             "vision": "gemma3:27b",
         }
-        # v11.6.0: vision カテゴリは vision capability フィルタ付き候補を使用
-        _vision_candidates = get_phase2_vision_candidates(
-            skip_label=t('desktop.mixAI.unselected'))
         self._phase2_combos = {}
         for cat, default in _defaults.items():
             row = QHBoxLayout()
             row.addWidget(QLabel(f"{cat}:"))
             combo = NoScrollComboBox()
-            if cat == "vision":
-                _populate(combo, _vision_candidates, current_value=default)
-            else:
-                _populate(combo, _p2_candidates, current_value=default)
+            # v12.7.2: ロール別候補を取得（vision含め全ロール統一API）
+            _candidates = get_phase2_role_candidates(
+                role=cat, skip_label=t('desktop.mixAI.unselected'))
+            _populate(combo, _candidates, current_value=default)
+            # v12.7.2: ロールヒント tooltip
+            combo.setToolTip(t(f'desktop.mixAI.roleHint.{cat}'))
             row.addWidget(combo)
             phase_layout.addLayout(row)
             self._phase2_combos[cat] = combo
@@ -2303,20 +2305,17 @@ class HelixOrchestratorTab(QWidget):
     def _refresh_all_phase_combos(self):
         """v11.6.0: cloudAI/localAI変更時に全Phaseコンボを再読み込み"""
         from ..utils.model_catalog import (
-            get_phase2_candidates, get_phase2_vision_candidates,
+            get_phase2_role_candidates,
             get_phase35_candidates, get_phase4_candidates, populate_combo
         )
         # Phase 1/3
         self._populate_engine_combo()
-        # Phase 2
-        p2_items = get_phase2_candidates(skip_label=t('desktop.mixAI.unselected'))
-        vision_items = get_phase2_vision_candidates(skip_label=t('desktop.mixAI.unselected'))
+        # Phase 2 (v12.7.2: role-based candidates)
         for cat, combo in self._phase2_combos.items():
             current = combo.currentText()
-            if cat == "vision":
-                populate_combo(combo, vision_items, current_value=current)
-            else:
-                populate_combo(combo, p2_items, current_value=current)
+            role_items = get_phase2_role_candidates(
+                role=cat, skip_label=t('desktop.mixAI.unselected'))
+            populate_combo(combo, role_items, current_value=current)
         # Phase 3.5
         p35_items = get_phase35_candidates(skip_label=t('desktop.mixAI.phase35None'))
         current_35 = self.phase35_model_combo.currentText()

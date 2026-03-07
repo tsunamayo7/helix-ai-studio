@@ -1,0 +1,246 @@
+{
+  "_comment": "Helix AI Studio モデル能力レジストリ。新モデル追加・仕様変更時はこのファイルのみ更新する。",
+  "_version": "2.0.0",
+  "models": {
+    "claude-opus-4-6": {
+      "supports_adaptive_thinking": true,
+      "adaptive_thinking_env_var": "CLAUDE_CODE_EFFORT_LEVEL",
+      "adaptive_thinking_levels": ["low", "medium", "high"],
+      "supports_vision": true,
+      "context_window_k": 200,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "slow",
+      "cost_tier": "high"
+    },
+    "claude-sonnet-4-6": {
+      "supports_adaptive_thinking": false,
+      "supports_vision": true,
+      "context_window_k": 200,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "claude-opus-4-5-20250929": {
+      "supports_adaptive_thinking": false,
+      "supports_vision": true,
+      "context_window_k": 200,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "slow",
+      "cost_tier": "high"
+    },
+    "claude-sonnet-4-5-20250929": {
+      "supports_adaptive_thinking": false,
+      "supports_vision": true,
+      "context_window_k": 200,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "gpt-4o": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "gpt-4.1": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "o3": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "slow",
+      "cost_tier": "high"
+    },
+    "o4-mini": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "gemini-2.5-pro": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": true,
+      "context_tier": "large",
+      "latency_tier": "medium",
+      "cost_tier": "medium"
+    },
+    "gemini-2.5-flash": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": false,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large",
+      "latency_tier": "fast",
+      "cost_tier": "low"
+    },
+    "gemini-2.0-flash": {
+      "supports_vision": true,
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": false,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large",
+      "latency_tier": "fast",
+      "cost_tier": "low"
+    }
+  },
+  "ollama_prefix_rules": {
+    "_comment": "Ollama モデルのプレフィックス一致ルール。完全一致が models にない場合に使用。",
+    "llama3": {
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": false,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "codellama": {
+      "supports_coding": true,
+      "supports_research": false,
+      "supports_reasoning": false,
+      "supports_translation": false,
+      "supports_tools": false,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "gemma": {
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": false,
+      "supports_translation": true,
+      "supports_tools": false,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "qwen": {
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "deepseek-coder": {
+      "supports_coding": true,
+      "supports_research": false,
+      "supports_reasoning": false,
+      "supports_translation": false,
+      "supports_tools": false,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "deepseek": {
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": true,
+      "supports_translation": false,
+      "supports_tools": false,
+      "supports_thinking": true,
+      "context_tier": "medium"
+    },
+    "mistral": {
+      "supports_coding": true,
+      "supports_research": true,
+      "supports_reasoning": false,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "medium"
+    },
+    "phi": {
+      "supports_coding": true,
+      "supports_research": false,
+      "supports_reasoning": false,
+      "supports_translation": false,
+      "supports_tools": false,
+      "supports_thinking": false,
+      "context_tier": "small"
+    },
+    "command-r": {
+      "supports_coding": false,
+      "supports_research": true,
+      "supports_reasoning": false,
+      "supports_translation": true,
+      "supports_tools": true,
+      "supports_thinking": false,
+      "context_tier": "large"
+    }
+  },
+  "default_capabilities": {
+    "supports_adaptive_thinking": false,
+    "supports_vision": false,
+    "context_window_k": 200,
+    "supports_coding": false,
+    "supports_research": false,
+    "supports_reasoning": false,
+    "supports_translation": false,
+    "supports_tools": false,
+    "supports_thinking": false,
+    "context_tier": "small",
+    "latency_tier": "medium",
+    "cost_tier": "free"
+  }
+}
