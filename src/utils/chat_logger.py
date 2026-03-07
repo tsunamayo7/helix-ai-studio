@@ -1,8 +1,10 @@
-"""v11.0.0: 全タブ共通のJSONLチャットログ記録
+"""v12.8.0: 全タブ共通のJSONLチャットログ記録
 
-全てのAIチャット（cloudAI/mixAI/localAI/RAG）の送受信を
+全てのAIチャット（soloAI/mixAI/RAG）の送受信を
 追記専用のJSONLファイルに記録する。
 Historyタブはこのファイルを読み込んで表示する。
+
+v12.8.0: soloAI フィルタは旧 cloudAI / localAI のログも包含する。
 """
 import json
 import logging
@@ -80,7 +82,7 @@ class ChatLogger:
         """メッセージを1行のJSONとしてログファイルに追記
 
         Args:
-            tab: タブ名 ("cloudAI" / "mixAI" / "localAI" / "rag")
+            tab: タブ名 ("soloAI" / "mixAI" / "rag")
             model: 使用モデル名
             role: "user" / "assistant" / "system"
             content: メッセージ内容
@@ -120,7 +122,8 @@ class ChatLogger:
 
         Args:
             query: 検索キーワード（部分一致、大文字小文字無視）
-            tab: タブフィルタ ("cloudAI" / "mixAI" / "localAI" / "rag" / None=全て)
+            tab: タブフィルタ ("soloAI" / "mixAI" / "rag" / None=全て)
+                 v12.8.0: "soloAI" は旧 "cloudAI" / "localAI" のログも包含
             limit: 返却件数上限
             offset: スキップ件数
 
@@ -152,6 +155,12 @@ class ChatLogger:
                     continue
             return results[offset:offset + limit]
 
+        # v12.8.0: soloAI エイリアス解決
+        _tab_aliases = {
+            "soloAI": ("soloAI", "cloudAI", "localAI"),
+        }
+        tab_match_set = _tab_aliases.get(tab, (tab,)) if tab else None
+
         # フィルタあり → 全件スキャン（既存動作を維持）
         results = []
         try:
@@ -162,7 +171,7 @@ class ChatLogger:
                         continue
                     try:
                         entry = json.loads(line)
-                        if tab and tab != "all" and entry.get("tab") != tab:
+                        if tab_match_set and entry.get("tab") not in tab_match_set:
                             continue
                         if query and query.lower() not in entry.get("content", "").lower():
                             continue

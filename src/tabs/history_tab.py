@@ -1,13 +1,14 @@
 """
-Helix AI Studio - History Tab (v11.0.0 "Smart History")
+Helix AI Studio - History Tab (v12.8.0 "SoloAI Unification")
 全タブのチャット履歴をJSONLから検索・表示・引用する統合Historyタブ。
 
 Features:
   - JSONL (data/chat_history_log.jsonl) からの全文検索
-  - タブフィルタ (cloudAI / mixAI / localAI / RAG / All)
+  - タブフィルタ (soloAI / mixAI / RAG / All)
   - 日付グルーピング
   - ソート (新しい順 / 古い順)
   - メッセージコピー・他タブ引用
+  - v12.8.0: soloAI フィルタは旧 cloudAI / localAI のログも包含
 """
 
 import logging
@@ -29,6 +30,11 @@ from ..utils.styles import COLORS, SCROLLBAR_STYLE
 from ..widgets.no_scroll_widgets import NoScrollComboBox
 
 logger = logging.getLogger(__name__)
+
+# v12.8.0: soloAI は旧 cloudAI / localAI のログも含む
+_TAB_ALIASES = {
+    "soloAI": ["soloAI", "cloudAI", "localAI"],
+}
 
 
 class HistoryTab(QWidget):
@@ -83,9 +89,8 @@ class HistoryTab(QWidget):
         # タブフィルタ
         self.tab_filter = NoScrollComboBox()
         self.tab_filter.addItem(t('desktop.history.filterAll'), "all")
-        self.tab_filter.addItem("☁️ cloudAI", "cloudAI")
+        self.tab_filter.addItem("🤖 soloAI", "soloAI")
         self.tab_filter.addItem("🔀 mixAI", "mixAI")
-        self.tab_filter.addItem("🖥️ localAI", "localAI")
         self.tab_filter.addItem("🧠 RAG", "rag")
         self.tab_filter.setStyleSheet(f"""
             QComboBox {{
@@ -203,9 +208,11 @@ class HistoryTab(QWidget):
         tab = self.tab_filter.currentData() or "all"
         sort_order = self.sort_combo.currentData() or "desc"
 
+        # v12.8.0: エイリアス解決（soloAI → soloAI/cloudAI/localAI）
+        tab_filter_value = tab if tab != "all" else None
         entries = self._chat_logger.search(
             query=query,
-            tab=tab if tab != "all" else None,
+            tab=tab_filter_value,
             limit=200
         )
 
@@ -279,7 +286,7 @@ class HistoryTab(QWidget):
         header = QHBoxLayout()
         tab_name = entry.get("tab", "unknown")
         tab_icons = {
-            "cloudAI": "☁️", "mixAI": "🔀",
+            "soloAI": "🤖", "cloudAI": "☁️", "mixAI": "🔀",
             "localAI": "🖥️", "rag": "🧠"
         }
         tab_icon = tab_icons.get(tab_name, "💬")
@@ -371,7 +378,10 @@ class HistoryTab(QWidget):
         entry = getattr(self, '_selected_entry', None)
         if entry:
             content = entry.get("content", "")[:500]
-            tab = entry.get("tab", "cloudAI")
+            tab = entry.get("tab", "soloAI")
+            # v12.8.0: 旧タブ名を soloAI にマッピング
+            if tab in ("cloudAI", "localAI"):
+                tab = "soloAI"
             self.quoteRequested.emit(tab, content)
             self.statusChanged.emit(t('desktop.history.quoteToTab') + " ✓")
 
@@ -379,6 +389,7 @@ class HistoryTab(QWidget):
         """言語切替時のUI更新"""
         self.search_input.setPlaceholderText(t('desktop.history.searchPlaceholder'))
         self.tab_filter.setItemText(0, t('desktop.history.filterAll'))
+        # v12.8.0: index 1=soloAI, 2=mixAI, 3=RAG（固定ラベルのため再設定不要）
         self.sort_combo.setItemText(0, t('desktop.history.sortNewest'))
         self.sort_combo.setItemText(1, t('desktop.history.sortOldest'))
         self.copy_btn.setText("📋 " + t('desktop.history.copyMessage'))
