@@ -94,6 +94,8 @@ docker/sandbox/tmp/
 .helix-backup-*/
 data/sandbox_snapshots/
 .backup/
+backup.bat
+scripts/backup_tool.py
 
 # Playwright MCP
 .playwright-mcp/
