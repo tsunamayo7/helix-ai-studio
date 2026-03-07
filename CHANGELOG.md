@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [12.0.0] - 2026-03-03 "Sandbox First"
 
 ### Added
-- **Docker Sandbox Virtual Desktop** (7th tab): Isolated Docker container with Xvfb + x11vnc + NoVNC for safe code execution
+- **Virtual Desktop** (7th tab): Isolated sandbox environment (Docker container with Xvfb + x11vnc + NoVNC) for safe code execution
   - `docker/sandbox/Dockerfile` + `entrypoint.sh`: Ubuntu 24.04 sandbox image (non-root, 1280x720)
   - `src/sandbox/sandbox_config.py`: `SandboxConfig`, `SandboxInfo`, `SandboxStatus` dataclasses/enum
   - `src/sandbox/sandbox_manager.py`: Docker SDK wrapper — create/destroy/execute/write_file/read_file/screenshot/get_diff

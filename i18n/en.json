@@ -1885,7 +1885,7 @@
       "statusStopped": "Sandbox: Stopped",
       "statusCreating": "Sandbox: Creating...",
       "statusRunning": "Sandbox: Running",
-      "placeholder": "Start a Sandbox to display the virtual desktop here.\n\nClick the \"▶ Start\" button in the toolbar to create a container.",
+      "placeholder": "Start a Sandbox to display the virtual desktop here.\n\nClick the \"▶ Start\" button in the toolbar to begin.",
       "placeholderDockerMissing": "⚠️ Docker not detected. Please start Docker Desktop.",
       "dockerMissingDialog": "Docker is not detected.\n\n[Steps to fix]\n1. Install Docker Desktop (https://www.docker.com/products/docker-desktop)\n2. Start Docker Desktop\n3. Wait for the Docker icon to appear in the taskbar\n4. Click '🔄 Refresh' to re-check the status\n\n[If the image is not built]\nGo to Settings tab → click '🔨 Build Image'.",
       "imageMissingBuild": "⚠️ Sandbox image is not built.\nGo to Settings tab → click '🔨 Build Image'.",

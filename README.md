@@ -16,7 +16,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v12.5.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v12.7.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 [Japanese](README_ja.md) · [Setup Guide](SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
@@ -35,7 +35,7 @@ Most AI tools let you chat with **one model at a time**. Helix is different:
 
 💰 **Free with local LLMs** — Run Ollama models with zero API cost, fully offline. Mix local + cloud when you want more power.
 
-🐳 **Virtual Desktop** — AI writes and runs code inside a Docker sandbox. Your machine stays clean. Preview apps instantly.
+🖥️ **Virtual Desktop** — AI writes and runs code inside an isolated sandbox (Windows Sandbox or Docker). Your machine stays clean. Preview apps instantly.
 
 📱 **Desktop + Web** — PyQt6 desktop app + React web UI. Access from your phone on LAN.
 
@@ -95,7 +95,7 @@ If anything fails, the installer keeps going. Failed items show as `[WARN]`.
 | **mixAI Pipeline** | Multiple AIs auto-collaborate: plan → execute → validate → refine → one answer |
 | **cloudAI Chat** | Chat with Claude, GPT, or Gemini. Switch models mid-conversation — context carries over |
 | **localAI Chat** | Fully offline with any Ollama model. Zero API cost |
-| **Virtual Desktop** | AI writes and runs code inside a Docker sandbox. Your machine stays clean |
+| **Virtual Desktop** | AI writes and runs code inside an isolated sandbox (Windows Sandbox / Docker). Your machine stays clean |
 | **RAG** | Load PDFs and documents into a shared knowledge base for every AI |
 | **Web UI** | Access from phones and tablets on your LAN |
 | **MCP Support** | External tool integration via Model Context Protocol |
@@ -125,7 +125,7 @@ Ollama's qwen3.5 (122B) writes Python code. No internet, zero API cost.
 
 ### Preview AI-built apps instantly (Virtual Desktop)
 
-Apps run inside a Docker Virtual Desktop. Your actual machine stays untouched.
+Apps run inside an isolated Virtual Desktop (Windows Sandbox or Docker). Your actual machine stays untouched.
 
 ![Virtual Desktop](docs/demo/virtual_desktop.png)
 
@@ -221,7 +221,7 @@ Enter keys in the Settings tab after launch.
 | CLI | Claude Code CLI / Codex CLI |
 | Local LLM | Ollama |
 | Multi-Agent | CrewAI (Sequential / Hierarchical) |
-| Sandbox | Docker + Xvfb + NoVNC (optional) |
+| Sandbox | Windows Sandbox (default) / Docker + NoVNC (optional) |
 | Memory | SQLite + vector embeddings |
 | Tools | MCP (Model Context Protocol) |
 
@@ -253,8 +253,9 @@ git pull && pip install -r requirements.txt && python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
+| **v12.7.0** | Windows Sandbox default backend, backend abstraction layer |
 | **v12.5.0** | CrewAI integration, MCP across all tabs, 5-phase pipeline |
-| **v12.0.0** | Docker Virtual Desktop, 7-tab layout |
+| **v12.0.0** | Virtual Desktop (sandbox), 7-tab layout |
 | v11.9.4 | Helix Pilot v2.0 — autonomous Vision LLM GUI agent |
 | v11.5.0 | Multi-provider API |
 | v9.0.0 | Web UI (React + FastAPI) |

@@ -1885,7 +1885,7 @@
       "statusStopped": "Sandbox: 停止中",
       "statusCreating": "Sandbox: 作成中...",
       "statusRunning": "Sandbox: 稼働中",
-      "placeholder": "Sandbox を起動すると、ここに仮想デスクトップが表示されます。\n\nツールバーの「▶ 起動」ボタンでコンテナを作成してください。",
+      "placeholder": "Sandbox を起動すると、ここに仮想デスクトップが表示されます。\n\nツールバーの「▶ 起動」ボタンで開始してください。",
       "placeholderDockerMissing": "⚠️ Docker が検出されません。Docker Desktop を起動してください。",
       "dockerMissingDialog": "Docker が検出されません。\n\n【対処手順】\n1. Docker Desktop をインストール (https://www.docker.com/products/docker-desktop)\n2. Docker Desktop を起動する\n3. タスクバーに Docker アイコンが表示されるまで待つ\n4. 「🔄 更新」ボタンで状態を再確認する\n\n【イメージ未ビルドの場合】\n設定タブ → 「🔨 イメージビルド」ボタンをクリックしてください。",
       "imageMissingBuild": "⚠️ Sandbox イメージが未ビルドです。\n設定タブ → 「🔨 イメージビルド」をクリックしてビルドしてください。",

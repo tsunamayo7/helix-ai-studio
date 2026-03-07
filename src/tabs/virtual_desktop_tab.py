@@ -67,7 +67,7 @@ _SETTINGS_PATH = Path("config/general_settings.json")
 
 
 class VirtualDesktopTab(QWidget):
-    """Virtual Desktop タブ — sandbox 仮想デスクトップ"""
+    """Virtual Desktop タブ — Windows Sandbox / Docker 互換ランタイムによる仮想実行環境"""
 
     statusChanged = pyqtSignal(str)
 
