@@ -41,7 +41,7 @@ def _find_free_port(start: int = 6080, end: int = 6180) -> int:
 
 
 class SandboxManager(QObject):
-    """Docker Sandbox コンテナの管理"""
+    """Docker コンテナの CRUD・ファイル操作・コマンド実行を管理"""
 
     statusChanged = pyqtSignal(str)
     outputReceived = pyqtSignal(str)

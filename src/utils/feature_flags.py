@@ -38,6 +38,6 @@ def is_pilot_enabled() -> bool:
 
 
 def is_sandbox_enabled() -> bool:
-    """Docker Sandbox (Virtual Desktop) が有効かどうか"""
+    """Virtual Desktop (Windows Sandbox / Docker) が有効かどうか"""
     data = _load_app_settings()
     return bool(data.get("sandbox", {}).get("enabled", True))

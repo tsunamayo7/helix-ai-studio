@@ -1,8 +1,11 @@
 """Helix AI Studio — Virtual Desktop タブ
 
-Windows Sandbox / Docker Sandbox の仮想デスクトップを表示・操作する第7タブ。
-バックエンド抽象化により、BackendCapability に応じて UI を動的に切り替える。
-NoVNC ビューア（Docker） / 外部ウィンドウ（Windows Sandbox）+ 設定 の2サブタブ構成。
+Windows Sandbox または Docker 互換ランタイムを使った仮想実行環境を起動・制御するタブ。
+バックエンド抽象化 (SandboxBackend + BackendCapability) により、
+backend capability に応じて埋め込みビュー、差分反映、状態表示などを動的に切り替える。
+
+標準バックエンド: Windows Sandbox（追加ランタイム不要）
+任意バックエンド: Docker Desktop / Rancher Desktop（上級者向け、全 capability 対応）
 """
 
 import json
@@ -261,7 +264,7 @@ class VirtualDesktopTab(QWidget):
         file_panel.setMaximumWidth(400)
         self._main_splitter.addWidget(file_panel)
 
-        # ── 右パネル: NoVNC ビューア / プレースホルダー ──
+        # ── 右パネル: 埋め込みビュー (Docker時) / プレースホルダー ──
         self._viewer_stack = QWidget()
         viewer_layout = QVBoxLayout(self._viewer_stack)
         viewer_layout.setContentsMargins(0, 0, 0, 0)
@@ -1068,10 +1071,10 @@ class VirtualDesktopTab(QWidget):
         """SandboxManager からのエラー通知"""
         QMessageBox.critical(self, "Sandbox Error", error)
 
-    # ─── VNC ビューア ───
+    # ─── 埋め込みビュー (NoVNC) ───
 
     def _show_vnc(self, url: str):
-        """NoVNC ビューアを表示"""
+        """埋め込みビューを表示（Docker backend の NoVNC URL を読み込む）"""
         if self._web_view and HAS_WEBENGINE:
             from PyQt6.QtCore import QUrl
             self._placeholder.setVisible(False)
@@ -1084,7 +1087,7 @@ class VirtualDesktopTab(QWidget):
             webbrowser.open(url)
 
     def _hide_vnc(self):
-        """NoVNC ビューアを非表示"""
+        """埋め込みビューを非表示"""
         if self._web_view and HAS_WEBENGINE:
             self._web_view.setVisible(False)
             from PyQt6.QtCore import QUrl
