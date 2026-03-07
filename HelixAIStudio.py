@@ -34,7 +34,7 @@ if os.name == 'nt':
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(_APP_USER_MODEL_ID)
-        # v12.0.1: アイコンキャッシュをリフレッシュ（git pull後もアイコンが反映されるように）
+        # アイコンキャッシュをリフレッシュ（git pull後もアイコンが反映されるように）
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
     except Exception as _e:
         import logging as _logging
@@ -42,7 +42,7 @@ if os.name == 'nt':
 
 
 def _refresh_icon_cache_win32():
-    """v12.0.1: Windowsアイコンキャッシュをリフレッシュ（更新後も反映されるように）"""
+    """Windowsアイコンキャッシュをリフレッシュ（更新後も反映されるように）"""
     if os.name != 'nt':
         return
     try:

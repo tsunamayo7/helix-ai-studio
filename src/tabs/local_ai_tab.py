@@ -147,7 +147,7 @@ class OllamaWorkerThread(QThread):
         elif name == "search_files":
             return runner._tool_search_files(args.get("query", ""), args.get("search_content", False))
         elif name in ("write_file", "create_file"):
-            # v12.0.0: sandbox 起動中は sandbox 内に書き込み可能
+            # sandbox 起動中は sandbox 内に書き込み可能
             if self._sandbox_manager:
                 from ..sandbox.sandbox_config import SandboxStatus
                 if self._sandbox_manager.get_status() == SandboxStatus.RUNNING:
@@ -206,7 +206,7 @@ class LocalAITab(QWidget):
         self.main_window = main_window
 
         self._ollama_host = OLLAMA_HOST
-        self._sandbox_manager = None  # v12.0.0: sandbox 連携
+        self._sandbox_manager = None  # sandbox 連携（Virtual Desktop タブと共有）
         self._messages = []  # チャット履歴
         # v11.3.1: browser_use 有効時はツール使い分けガイドをシステムメッセージとして注入
         try:
@@ -241,7 +241,7 @@ class LocalAITab(QWidget):
         QTimer.singleShot(500, self._refresh_models)
 
     def set_sandbox_manager(self, manager):
-        """v12.0.0: SandboxManager の参照を設定"""
+        """SandboxManager の参照を設定（Virtual Desktop タブと共有）"""
         self._sandbox_manager = manager
 
     def _setup_ui(self):

@@ -674,7 +674,7 @@ class ClaudeTab(QWidget):
         except Exception as e:
             logger.warning(f"ChatStore init failed for cloudAI: {e}")
 
-        # v12.0.0: Sandbox Manager (VirtualDesktop タブから共有)
+        # Sandbox Manager (Virtual Desktop タブから共有)
         self._sandbox_manager = None
 
         # v8.1.0: メモリマネージャー
@@ -712,7 +712,6 @@ class ClaudeTab(QWidget):
                 return True  # イベントを消費（無効化）
         return super().eventFilter(obj, event)
 
-    # v12.0.0: Sandbox Manager
     def set_sandbox_manager(self, manager):
         """VirtualDesktop タブから SandboxManager 参照を受け取る"""
         self._sandbox_manager = manager

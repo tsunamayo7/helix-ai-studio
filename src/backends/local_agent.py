@@ -202,7 +202,7 @@ BROWSER_USE_TOOL = {
     }
 }
 
-# v12.0.0: Sandbox ツール定義（sandbox 起動中のみ有効）
+# Sandbox ツール定義（sandbox 起動中のみ有効）
 SANDBOX_TOOLS = [
     {
         "type": "function",
@@ -322,7 +322,7 @@ class LocalAgentRunner:
         self.ollama_host = ollama_host
         self.timeout = timeout
 
-        # v12.0.0: Sandbox Manager 参照
+        # Sandbox Manager 参照（Virtual Desktop タブと共有）
         self._sandbox_manager = sandbox_manager
 
         # コールバック
@@ -354,13 +354,13 @@ class LocalAgentRunner:
         # v11.1.0: Browser Use ツールを条件付きで追加
         if self._is_browser_use_enabled():
             active.append(BROWSER_USE_TOOL)
-        # v12.0.0: Sandbox ツールを条件付きで追加
+        # Sandbox ツールを条件付きで追加
         if self._is_sandbox_running():
             active.extend(SANDBOX_TOOLS)
         return active
 
     def _is_sandbox_running(self) -> bool:
-        """v12.0.0: sandbox が起動中か確認"""
+        """sandbox が起動中か確認"""
         if not self._sandbox_manager:
             return False
         try:
@@ -525,7 +525,7 @@ class LocalAgentRunner:
 
     def _execute_tool(self, name: str, args: dict) -> dict:
         """ツールを実行して結果を返す"""
-        # v12.0.0: Sandbox ツールはパス検証をスキップ（sandbox 内部パス）
+        # Sandbox ツールはパス検証をスキップ（sandbox 内部パス）
         if name in SANDBOX_TOOL_NAMES:
             return self._execute_sandbox_tool(name, args)
 
@@ -567,7 +567,7 @@ class LocalAgentRunner:
             return {"error": str(e)}
 
     def _execute_sandbox_tool(self, name: str, args: dict) -> dict:
-        """v12.0.0: Sandbox ツールのディスパッチ"""
+        """Sandbox ツールのディスパッチ"""
         if not self._is_sandbox_running():
             return {"error": "Sandbox が起動していません。Virtual Desktop タブから起動してください。"}
         try:

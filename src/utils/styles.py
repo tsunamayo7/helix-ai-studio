@@ -1,6 +1,7 @@
 """
-Helix AI Studio v11.8.0 "Refined Obsidian" — UI Style System
-全UIスタイルの中央集権的な定義。各タブ/ウィジェットからimportして使用する。
+Helix AI Studio — UI Style System (theme: Refined Obsidian)
+
+全 UI スタイルの中央集権的な定義。各タブ / ウィジェットから import して使用する。
 """
 import os as _os
 
@@ -10,7 +11,7 @@ _ARROW_UP = _os.path.normpath(_os.path.join(_ICONS_DIR, 'arrow_up.png')).replace
 _ARROW_DOWN = _os.path.normpath(_os.path.join(_ICONS_DIR, 'arrow_down.png')).replace('\\', '/')
 
 # =============================================================================
-# v11.8.0: "Refined Obsidian" カラーシステム
+# "Refined Obsidian" カラーシステム
 #
 # 設計原則:
 #   - 4層の深度 (base → surface → card → elevated)
@@ -107,7 +108,7 @@ FONT_WEIGHT = {
 
 GLOBAL_APP_STYLESHEET = f"""
 /* ═══════════════════════════════════════════════════════════════════
-   Helix AI Studio v11.8.0 "Refined Obsidian" — Global Stylesheet
+   Helix AI Studio "Refined Obsidian" — Global Stylesheet
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ─── ベースリセット ─────────────────────────────────────────────── */

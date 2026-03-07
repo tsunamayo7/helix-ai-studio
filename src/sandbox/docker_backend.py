@@ -1,7 +1,7 @@
-"""Helix AI Studio — Docker バックエンド（アダプター）
+"""Helix AI Studio — Docker バックエンド（任意 / アダプター）
 
+Docker 互換ランタイム (Docker Desktop / Rancher Desktop) 用のバックエンド。
 既存の SandboxManager をラップして SandboxBackend インターフェースに適合させる。
-SandboxManager 自体は変更せず、後方互換性を維持する。
 """
 
 import logging
@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 class DockerBackend(SandboxBackend):
     """SandboxManager ラッパー — SandboxBackend インターフェースに適合
 
-    全機能（NoVNC 埋め込み、ファイル閲覧、コマンド実行、スクリーンショット、
+    Docker 互換ランタイム (Docker Desktop / Rancher Desktop) 向けの任意バックエンド。
+    全 capability（埋め込みビュー、ファイル閲覧、コマンド実行、スクリーンショット、
     Promotion、リソース統計、ネットワーク設定）を提供する。
     """
 
