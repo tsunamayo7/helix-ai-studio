@@ -102,6 +102,18 @@ _CLAUDE_PATTERNS = [
      "common.errors.claude.exitCode",
      lambda m: {"code": m.group(1)}),
 
+    # v12.7.1: 日本語エラーメッセージパターン (mix_orchestrator が生成する形式)
+    (re.compile(r"Claude\s+CLI\s+の実行に失敗しました\s*\(code\s+(\d+)\)", re.IGNORECASE),
+     "common.errors.claude.exitCode",
+     lambda m: {"code": m.group(1)}),
+
+    (re.compile(r"Claude\s+CLI\s*(?:終了コード|exit\s*code)\s*(\d+)", re.IGNORECASE),
+     "common.errors.claude.exitCode",
+     lambda m: {"code": m.group(1)}),
+
+    (re.compile(r"Claude\s+CLI\s+API\s+エラー", re.IGNORECASE),
+     "common.errors.claude.apiError", None),
+
     (re.compile(r"(?:credit|billing|usage).?(?:limit|exceeded|quota)",
                 re.IGNORECASE),
      "common.errors.claude.quotaExceeded", None),

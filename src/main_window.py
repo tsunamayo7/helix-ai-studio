@@ -329,6 +329,13 @@ class MainWindow(QMainWindow):
         # 設定変更の反映
         self.settings_tab.settingsChanged.connect(self._on_settings_changed)
 
+        # v12.7.1: タブ切替時にステータスバーをリセット（古いエラーが残らないように）
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
+    def _on_tab_changed(self, index: int):
+        """v12.7.1: タブ切替時にステータスバーを準備完了に戻す"""
+        self.status_label.setText(t('desktop.mainWindow.ready'))
+
     def _update_status(self, message: str):
         """ステータスを更新"""
         self.status_label.setText(message)

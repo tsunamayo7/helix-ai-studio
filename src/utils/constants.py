@@ -7,10 +7,10 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "12.7.0"
+APP_VERSION = "12.7.1"
 APP_CODENAME = "Windows Sandbox Default"
 APP_DESCRIPTION = (
-    "Helix AI Studio v12.7.0 'Windows Sandbox Default' - "
+    "Helix AI Studio v12.7.1 'Windows Sandbox Default' - "
     "Backend abstraction layer + Windows Sandbox default + DockerBackend adapter + Capability-based UI"
 )
 

@@ -51,7 +51,8 @@
         "actionRequired": "Claude CLI is waiting for user input. Run 'claude' in a terminal to review the terms of service.",
         "notFound": "Claude CLI not found. Please install Claude Code.",
         "timeout": "Claude CLI timed out ({seconds}s). Please increase the timeout setting.",
-        "exitCode": "Claude CLI exited with error (code: {code})",
+        "exitCode": "Claude CLI execution failed (check logs for details)",
+        "apiError": "Claude API returned an error (check logs for details)",
         "quotaExceeded": "Claude API usage limit reached. Please check your plan."
       },
       "ollama": {
@@ -1011,6 +1012,7 @@
       "snippetFileDelete": "File Delete",
       "errorPrefix": "❌ Error:\n\n{error}",
       "errorStatus": "Error: {error}",
+      "errorStatusBrief": "mixAI execution error (check logs for details)",
       "ollamaStandby": "Standby",
       "ollamaNotDL": "Not DL",
       "ollamaResident": "Resident",

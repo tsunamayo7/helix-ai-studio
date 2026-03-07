@@ -51,7 +51,8 @@
         "actionRequired": "Claude CLIがユーザー入力を待機しています。ターミナルで 'claude' を実行して利用規約を確認してください。",
         "notFound": "Claude CLIが見つかりません。Claude Codeをインストールしてください。",
         "timeout": "Claude CLIがタイムアウトしました ({seconds}秒)。タイムアウト設定を延長してください。",
-        "exitCode": "Claude CLIがエラーで終了しました (コード: {code})",
+        "exitCode": "Claude CLIの実行に失敗しました（詳細はログを確認）",
+        "apiError": "Claude APIからエラーが返されました（詳細はログを確認）",
         "quotaExceeded": "Claude APIの利用上限に達しました。プランを確認してください。"
       },
       "ollama": {
@@ -450,7 +451,7 @@
       "deleteConfirm": "このチャットを削除しますか？"
     },
     "mainWindow": {
-      "ready": "Ready",
+      "ready": "準備完了",
       "settingsSaved": "⚙️ 設定を保存しました。(一部設定は再起動後に反映されます)",
       "webExecuting": "Web UI実行中: {tab} - {preview}",
       "webLockMsg": "Web UIから実行中 ({tab})\n端末: {client}\n内容: {preview}",
@@ -1016,6 +1017,7 @@
       "snippetFileDelete": "ファイル削除",
       "errorPrefix": "❌ エラー:\n\n{error}",
       "errorStatus": "エラー: {error}",
+      "errorStatusBrief": "mixAI 実行エラー（詳細はログを確認）",
       "ollamaStandby": "待機中",
       "ollamaNotDL": "未DL",
       "ollamaResident": "常時",

@@ -2971,7 +2971,10 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_continue_btn.setEnabled(False)  # v9.7.1
         self.progress_bar.setVisible(False)
 
-        # v10.1.0: エラーバブルをchat_displayに追加
+        # v12.7.1: エラー詳細をログに記録
+        logger.error(f"[mixAI] Orchestrator error: {error}")
+
+        # v10.1.0: エラーバブルをchat_displayに追加（翻訳済みメッセージ）
         translated = translate_error(error)
         if hasattr(self, 'chat_display'):
             self.chat_display.append(
@@ -2980,7 +2983,8 @@ class HelixOrchestratorTab(QWidget):
                 f"<b style='color:{COLORS['error']};'>{t('common.error')}:</b> {translated}"
                 f"</div>"
             )
-        self.statusChanged.emit(t('desktop.mixAI.errorStatus', error=translated[:50]))
+        # v12.7.1: ステータスバーには短い要約のみ表示（内部詳細を出さない）
+        self.statusChanged.emit(t('desktop.mixAI.errorStatusBrief'))
         self.worker = None
 
     # =========================================================================
