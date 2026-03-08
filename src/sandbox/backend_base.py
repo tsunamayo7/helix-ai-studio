@@ -112,7 +112,7 @@ class SandboxBackend(QObject):
         """キャッシュ済み接続をリセット（再接続用）"""
         pass
 
-    # ─── Docker 互換メソッド（localAI/cloudAI タブとの後方互換）───
+    # ─── Docker 互換メソッド（soloAI タブとの後方互換）───
 
     def check_image_exists(self) -> bool:
         """Docker イメージ存在チェック（Docker バックエンドのみ有効）"""

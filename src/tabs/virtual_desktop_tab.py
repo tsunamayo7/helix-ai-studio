@@ -515,16 +515,16 @@ class VirtualDesktopTab(QWidget):
 
         docker_settings_layout.addWidget(net_group)
 
-        # --- Docker 状態 ---
+        # --- バックエンド状態 ---
         docker_group = QGroupBox(t("desktop.virtualDesktop.dockerStatusGroup"))
         docker_group.setStyleSheet(SECTION_CARD_STYLE)
         docker_layout = QVBoxLayout(docker_group)
 
-        self._docker_status_label = QLabel("Docker: ...")
+        self._docker_status_label = QLabel("Backend: ...")
         self._docker_status_label.setStyleSheet(SS.muted())
         docker_layout.addWidget(self._docker_status_label)
 
-        self._image_status_label = QLabel("Image: ...")
+        self._image_status_label = QLabel("")
         self._image_status_label.setStyleSheet(SS.muted())
         docker_layout.addWidget(self._image_status_label)
 

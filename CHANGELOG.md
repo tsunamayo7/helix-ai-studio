@@ -5,6 +5,33 @@ All notable changes to Helix AI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [12.8.0] - 2026-03-08 "SoloAI Unification"
+
+### Added
+
+- soloAI タブ: cloudAI + localAI を統合した単一チャットタブ (Cloud AI + Ollama 統合モデルセレクタ)
+- CloudAI設定タブ: クラウドモデル管理・認証方式・実行オプション・MCP設定を独立タブ化
+- Ollama設定タブ: Ollama接続管理・モデル管理・MCP設定・Browser Use を独立タブ化
+- model_catalog.py: get_solo_candidates() / populate_solo_combo() 統合コンボ関数
+- History: soloAI フィルタ + 旧 cloudAI/localAI エイリアス対応 (_TAB_ALIASES)
+- chat_logger: soloAI 検索互換 (cloudAI/localAI ログも soloAI フィルタで表示)
+- i18n: soloAI / cloudSettings / ollamaSettings キー追加 (ja/en 同期)
+
+### Changed
+
+- タブ構成: 7タブ → 8タブ (mixAI / soloAI / CloudAI設定 / Ollama設定 / History / RAG / Virtual Desktop / 一般設定)
+- claude_tab.py: 後方互換ラッパー (ClaudeTab = SoloAITab エイリアス) に縮小
+- local_ai_tab.py: 後方互換ラッパー (LocalAITab = SoloAITab エイリアス) に縮小
+- main_window.py: 8タブ構成 + settingsChanged シグナル連携
+- constants.py: APP_VERSION=12.8.0, APP_CODENAME="SoloAI Unification"
+
+### Maintained
+
+- v12.7.2 P2 role hints / role-based filtering 維持
+- APIキーは一般設定 (SettingsCortexTab) に据え置き
+- History / quote / continue / session restore 後方互換性
+- Web UI 互換性 (soloAI WebSocket エンドポイント)
+
 ## [12.7.0] - 2026-03-07 "Windows Sandbox Default"
 
 ### Added
@@ -85,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt`: Added `docker>=7.0.0` as optional dependency
 - `.gitignore`: Added `docker/sandbox/tmp/`, `.helix-backup-*/`, `data/sandbox_snapshots/`, `.backup/`
 - `scripts/build_bundle.py`: Added sandbox files to bundle list
-- `README.md` / `README_ja.md`: Version badge v12.0.0, Docker Sandbox in Features + Tech Stack + Version History
+- `README.md` / `README_ja.md`: Version badge v12.0.0, Virtual Desktop (sandbox) in Features + Tech Stack + Version History
 
 ### Notes
 - Docker SDK is **optional** — app starts normally without Docker (graceful degradation)

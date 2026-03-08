@@ -1,8 +1,8 @@
 """
 Helix AI Studio - Main Window
 
-7タブ構成のメインウィンドウ。
-タブ順序: mixAI → cloudAI → localAI → History → RAG → Virtual Desktop → Settings
+8タブ構成のメインウィンドウ (v12.8.0)。
+タブ順序: mixAI → soloAI → CloudAI設定 → Ollama設定 → History → RAG → Virtual Desktop → Settings
 """
 
 import sys
@@ -17,11 +17,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, QSettings, QByteArray, QTimer
 from PyQt6.QtGui import QFont, QIcon, QAction
 
-from .tabs.claude_tab import ClaudeTab
+from .tabs.solo_ai_tab import SoloAITab
 from .tabs.settings_cortex_tab import SettingsCortexTab
 from .tabs.helix_orchestrator_tab import HelixOrchestratorTab
 from .tabs.information_collection_tab import InformationCollectionTab
-from .tabs.local_ai_tab import LocalAITab
+from .tabs.cloud_settings_tab import CloudSettingsTab
+from .tabs.ollama_settings_tab import OllamaSettingsTab
 from .tabs.history_tab import HistoryTab
 from .tabs.virtual_desktop_tab import VirtualDesktopTab
 from .sandbox.backend_factory import BackendFactory
@@ -32,15 +33,16 @@ from .utils.i18n import t, set_language, get_language
 
 class MainWindow(QMainWindow):
     """
-    Helix AI Studio メインウィンドウ — 7タブ構成
+    Helix AI Studio メインウィンドウ — 8タブ構成 (v12.8.0)
 
     1. mixAI — 3+1 Phase パイプライン (Cloud AI → Local LLM → Cloud AI → Apply)
-    2. cloudAI — クラウド AI 単体チャット (Anthropic / OpenAI / Google API)
-    3. localAI — ローカル LLM チャット (Ollama 直接実行)
-    4. History — 全タブ統合チャット履歴 (JSONL 検索・引用)
-    5. RAG — AI 知識ベース管理・RAG コンテキスト構築
-    6. Virtual Desktop — Windows Sandbox (標準) / Docker 互換ランタイム (任意)
-    7. Settings — API キー、モデルカタログ、Ollama、MCP、メモリ、表示設定
+    2. soloAI — 統合 AI チャット (Cloud + Local を1タブに統合)
+    3. CloudAI設定 — クラウド AI 設定 (Anthropic / OpenAI / Google API)
+    4. Ollama設定 — ローカル LLM 設定 (Ollama 接続・モデル管理)
+    5. History — 全タブ統合チャット履歴 (JSONL 検索・引用)
+    6. RAG — AI 知識ベース管理・RAG コンテキスト構築
+    7. Virtual Desktop — Windows Sandbox (標準) / Docker 互換ランタイム (任意)
+    8. Settings — MCP、メモリ、表示設定
     """
 
     VERSION = APP_VERSION
@@ -197,35 +199,44 @@ class MainWindow(QMainWindow):
         )
 
         # タブを追加（workflow_stateを渡す）
-        # タブ順序: mixAI → cloudAI → localAI → History → RAG → VirtualDesktop → 一般設定
+        # v12.8.0 タブ順序: mixAI → soloAI → CloudAI設定 → Ollama設定 → History → RAG → VirtualDesktop → 一般設定
 
-        # 1. mixAI タブ (3Phase実行アーキテクチャ)
+        # Tab 0: mixAI タブ (3Phase実行アーキテクチャ)
         self.llmmix_tab = HelixOrchestratorTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.llmmix_tab, t('desktop.mainWindow.mixAITab'))
         self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
 
-        # 2. cloudAI タブ
-        self.claude_tab = ClaudeTab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.claude_tab, t('desktop.mainWindow.cloudAITab'))
-        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.cloudAITip'))
+        # Tab 1: soloAI (旧 cloudAI + localAI 統合)
+        self.solo_ai_tab = SoloAITab(workflow_state=self.workflow_state, main_window=self)
+        self.tab_widget.addTab(self.solo_ai_tab, t('desktop.mainWindow.soloAITab'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
 
-        # 3. localAI タブ
-        self.local_ai_tab = LocalAITab(workflow_state=self.workflow_state, main_window=self)
-        self.tab_widget.addTab(self.local_ai_tab, t('desktop.mainWindow.localAITab'))
-        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.localAITip'))
+        # Tab 2: CloudAI設定
+        self.cloud_settings_tab = CloudSettingsTab(main_window=self)
+        self.tab_widget.addTab(self.cloud_settings_tab, t('desktop.mainWindow.cloudSettingsTab'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.cloudSettingsTip'))
 
-        # 4. History タブ
+        # Tab 3: Ollama設定
+        self.ollama_settings_tab = OllamaSettingsTab(main_window=self)
+        self.tab_widget.addTab(self.ollama_settings_tab, t('desktop.mainWindow.ollamaSettingsTab'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.ollamaSettingsTip'))
+
+        # 後方互換エイリアス
+        self.claude_tab = self.solo_ai_tab
+        self.local_ai_tab = self.solo_ai_tab
+
+        # Tab 4: History タブ
         self.history_tab = HistoryTab()
         self.history_tab.statusChanged.connect(self._update_status)
         self.tab_widget.addTab(self.history_tab, t('desktop.mainWindow.historyTab'))
-        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
+        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.historyTip'))
 
-        # 5. RAG タブ
+        # Tab 5: RAG タブ
         self.info_tab = InformationCollectionTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.info_tab, t('desktop.mainWindow.ragTab'))
-        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.ragTip'))
 
-        # 6. Virtual Desktop タブ (v12.7.0: Windows Sandbox / Docker)
+        # Tab 6: Virtual Desktop タブ (v12.7.0: Windows Sandbox / Docker)
         self.virtual_desktop_tab = VirtualDesktopTab()
         if self._sandbox_backend:
             self.virtual_desktop_tab.set_backend(self._sandbox_backend)
@@ -233,18 +244,16 @@ class MainWindow(QMainWindow):
             # どちらも利用不可の場合、SandboxManager をフォールバックで渡す
             self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
         self.tab_widget.addTab(self.virtual_desktop_tab, t('desktop.mainWindow.virtualDesktopTab'))
-        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
+        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.virtualDesktopTip'))
 
-        # SandboxManager を localAI / cloudAI タブに渡す（sandbox ツール連携用）
-        if hasattr(self.local_ai_tab, 'set_sandbox_manager'):
-            self.local_ai_tab.set_sandbox_manager(self._sandbox_manager)
-        if hasattr(self.claude_tab, 'set_sandbox_manager'):
-            self.claude_tab.set_sandbox_manager(self._sandbox_manager)
+        # SandboxManager を soloAI タブに渡す（sandbox ツール連携用）
+        if hasattr(self.solo_ai_tab, 'set_sandbox_manager'):
+            self.solo_ai_tab.set_sandbox_manager(self._sandbox_manager)
 
-        # 7. Settings タブ
+        # Tab 7: Settings タブ
         self.settings_tab = SettingsCortexTab(workflow_state=self.workflow_state, main_window=self)
         self.tab_widget.addTab(self.settings_tab, t('desktop.mainWindow.settingsTab'))
-        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(7, t('desktop.mainWindow.settingsTip'))
 
         # v10.1.0: 言語切替ボタン（タブバー右端に常時表示）
         corner_widget = QWidget()
@@ -319,9 +328,15 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self):
         """シグナルを接続"""
-        self.claude_tab.statusChanged.connect(self._update_status)
+        self.solo_ai_tab.statusChanged.connect(self._update_status)
         self.llmmix_tab.statusChanged.connect(self._update_status)
         self.info_tab.statusChanged.connect(self._update_status)
+
+        # v12.8.0: CloudAI設定 / Ollama設定タブのシグナル
+        self.cloud_settings_tab.statusChanged.connect(self._update_status)
+        self.cloud_settings_tab.settingsChanged.connect(self._on_cloud_settings_changed)
+        self.ollama_settings_tab.statusChanged.connect(self._update_status)
+        self.ollama_settings_tab.settingsChanged.connect(self._on_ollama_settings_changed)
 
         # Virtual Desktop タブのステータス
         self.virtual_desktop_tab.statusChanged.connect(self._update_status)
@@ -344,6 +359,16 @@ class MainWindow(QMainWindow):
         """設定変更時 - フォントサイズ・テーマを即時反映"""
         self._update_status(t('desktop.mainWindow.settingsSaved'))
         self._apply_font_and_theme()
+
+    def _on_cloud_settings_changed(self):
+        """v12.8.0: CloudAI設定変更時 → soloAI のモデルコンボを更新"""
+        if hasattr(self, 'solo_ai_tab') and hasattr(self.solo_ai_tab, 'refresh_model_combo'):
+            self.solo_ai_tab.refresh_model_combo()
+
+    def _on_ollama_settings_changed(self):
+        """v12.8.0: Ollama設定変更時 → soloAI のモデルコンボを更新"""
+        if hasattr(self, 'solo_ai_tab') and hasattr(self.solo_ai_tab, 'refresh_model_combo'):
+            self.solo_ai_tab.refresh_model_combo()
 
     def _apply_font_and_theme(self):
         """設定ファイルからフォントサイズ・ダークモードを読み込んでアプリ全体に反映"""
@@ -411,7 +436,7 @@ class MainWindow(QMainWindow):
         client = lock_data.get("client_info", "")
         preview = lock_data.get("prompt_preview", "")
 
-        for tab_widget in [self.llmmix_tab, self.claude_tab]:
+        for tab_widget in [self.llmmix_tab, self.solo_ai_tab]:
             if hasattr(tab_widget, 'web_lock_overlay'):
                 tab_widget.web_lock_overlay.show_lock(
                     t('desktop.mainWindow.webLockMsg', tab=tab, client=client, preview=preview)
@@ -421,7 +446,7 @@ class MainWindow(QMainWindow):
     def _deactivate_web_lock(self):
         """Webロック解除"""
         self._web_locked = False
-        for tab_widget in [self.llmmix_tab, self.claude_tab]:
+        for tab_widget in [self.llmmix_tab, self.solo_ai_tab]:
             if hasattr(tab_widget, 'web_lock_overlay'):
                 tab_widget.web_lock_overlay.hide_lock()
         self.status_label.setText(t('desktop.mainWindow.ready'))
@@ -433,31 +458,37 @@ class MainWindow(QMainWindow):
             self.tab_widget.setCurrentWidget(self.history_tab)
 
     def retranslateUi(self):
-        """v9.6.0: 言語切替時にUIテキストを更新"""
+        """v12.8.0: 言語切替時にUIテキストを更新（8タブ構成）"""
         # タブ名
         self.tab_widget.setTabText(0, t('desktop.mainWindow.mixAITab'))
-        self.tab_widget.setTabText(1, t('desktop.mainWindow.cloudAITab'))
-        self.tab_widget.setTabText(2, t('desktop.mainWindow.localAITab'))
-        self.tab_widget.setTabText(3, t('desktop.mainWindow.historyTab'))
-        self.tab_widget.setTabText(4, t('desktop.mainWindow.ragTab'))
-        self.tab_widget.setTabText(5, t('desktop.mainWindow.virtualDesktopTab'))
-        self.tab_widget.setTabText(6, t('desktop.mainWindow.settingsTab'))
+        self.tab_widget.setTabText(1, t('desktop.mainWindow.soloAITab'))
+        self.tab_widget.setTabText(2, t('desktop.mainWindow.cloudSettingsTab'))
+        self.tab_widget.setTabText(3, t('desktop.mainWindow.ollamaSettingsTab'))
+        self.tab_widget.setTabText(4, t('desktop.mainWindow.historyTab'))
+        self.tab_widget.setTabText(5, t('desktop.mainWindow.ragTab'))
+        self.tab_widget.setTabText(6, t('desktop.mainWindow.virtualDesktopTab'))
+        self.tab_widget.setTabText(7, t('desktop.mainWindow.settingsTab'))
         # タブツールチップ
         self.tab_widget.setTabToolTip(0, t('desktop.mainWindow.mixAITip'))
-        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.cloudAITip'))
-        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.localAITip'))
-        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.historyTip'))
-        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.ragTip'))
-        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.virtualDesktopTip'))
-        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.settingsTip'))
+        self.tab_widget.setTabToolTip(1, t('desktop.mainWindow.soloAITip'))
+        self.tab_widget.setTabToolTip(2, t('desktop.mainWindow.cloudSettingsTip'))
+        self.tab_widget.setTabToolTip(3, t('desktop.mainWindow.ollamaSettingsTip'))
+        self.tab_widget.setTabToolTip(4, t('desktop.mainWindow.historyTip'))
+        self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.ragTip'))
+        self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.virtualDesktopTip'))
+        self.tab_widget.setTabToolTip(7, t('desktop.mainWindow.settingsTip'))
         # ステータスバー（_init_statusbar() 完了前は属性未存在）
         if hasattr(self, 'status_label') and not self._web_locked:
             self.status_label.setText(t('desktop.mainWindow.ready'))
 
         # 子タブにも通知
-        for tab in [self.llmmix_tab, self.claude_tab, self.local_ai_tab, self.history_tab, self.info_tab, self.virtual_desktop_tab, self.settings_tab]:
+        for tab in [self.llmmix_tab, self.solo_ai_tab, self.history_tab, self.info_tab, self.virtual_desktop_tab, self.settings_tab]:
             if hasattr(tab, 'retranslateUi'):
                 tab.retranslateUi()
+        if hasattr(self, 'cloud_settings_tab'):
+            self.cloud_settings_tab.retranslateUi()
+        if hasattr(self, 'ollama_settings_tab'):
+            self.ollama_settings_tab.retranslateUi()
 
         # セクション保存ボタンのテキストを一括更新
         from .widgets.section_save_button import retranslate_section_save_buttons
@@ -561,11 +592,11 @@ class MainWindow(QMainWindow):
                     worker.terminate()
                     worker.wait(1000)
 
-        # cloudAI (Claude) タブのワーカーを停止
-        if hasattr(self, 'claude_tab'):
-            # claude_tabに_workerがある場合
-            if hasattr(self.claude_tab, '_worker'):
-                worker = self.claude_tab._worker
+        # soloAI (旧 cloudAI) タブのワーカーを停止
+        if hasattr(self, 'solo_ai_tab'):
+            # solo_ai_tabに_workerがある場合
+            if hasattr(self.solo_ai_tab, '_worker'):
+                worker = self.solo_ai_tab._worker
                 if worker and worker.isRunning():
                     logger.info("[MainWindow] Stopping cloudAI worker...")
                     if hasattr(worker, 'stop'):

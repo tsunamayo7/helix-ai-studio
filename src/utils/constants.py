@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "12.7.2"
-APP_CODENAME = "Windows Sandbox Default"
+APP_VERSION = "12.8.0"
+APP_CODENAME = "SoloAI Unification"
 APP_DESCRIPTION = (
-    "Helix AI Studio v12.7.2 'Windows Sandbox Default' - "
-    "Backend abstraction layer + Windows Sandbox default + DockerBackend adapter + Capability-based UI"
+    "Helix AI Studio v12.8.0 'SoloAI Unification' - "
+    "Unified soloAI chat + CloudAI/Ollama settings separation + capability-aware UI"
 )
 
 # v8.5.0: 情報収集フォルダ

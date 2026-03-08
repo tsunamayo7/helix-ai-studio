@@ -302,6 +302,87 @@ def get_rag_local_candidates(ollama_url: str = None) -> list[str]:
     return get_ollama_installed_models(ollama_url)
 
 
+def get_solo_candidates(ollama_url: str = None) -> list[dict]:
+    """v12.8.0: soloAI タブ用の統合モデルリストを返す。
+
+    Cloud AI と Ollama ローカルモデルを統合した候補リスト。
+    各要素は dict: {"display": str, "model_id": str, "provider": str,
+                     "backend_type": "cloud"|"ollama", "separator": bool}
+
+    separator=True の項目はセクション区切り用（選択不可）。
+    """
+    items: list[dict] = []
+
+    # --- Cloud AI ---
+    cloud_models = get_cloud_models()
+    if cloud_models:
+        items.append({"display": "── Cloud AI ──", "separator": True,
+                       "model_id": "", "provider": "", "backend_type": "cloud"})
+        badge_map = {
+            "anthropic_api": "API", "openai_api": "OAI", "google_api": "Gemini",
+            "anthropic_cli": "CLI", "openai_cli": "Codex", "google_cli": "G-CLI",
+        }
+        for m in cloud_models:
+            provider = m.get("provider", "?")
+            badge = badge_map.get(provider, provider)
+            items.append({
+                "display": f"{m.get('name', '')} [{badge}]",
+                "model_id": m.get("model_id", ""),
+                "provider": provider,
+                "backend_type": "cloud",
+                "separator": False,
+            })
+
+    # --- Ollama Local ---
+    local_models = get_ollama_installed_models(ollama_url)
+    if local_models:
+        items.append({"display": "── Ollama Local ──", "separator": True,
+                       "model_id": "", "provider": "ollama", "backend_type": "ollama"})
+        for name in local_models:
+            items.append({
+                "display": name,
+                "model_id": name,
+                "provider": "ollama",
+                "backend_type": "ollama",
+                "separator": False,
+            })
+
+    return items
+
+
+def populate_solo_combo(combo, items: list[dict], current_model_id: str = None):
+    """v12.8.0: soloAI 統合コンボに候補をセット。
+
+    各項目の userData に dict を格納。セパレーター項目は選択不可。
+    """
+    combo.blockSignals(True)
+    combo.clear()
+    for item in items:
+        combo.addItem(item["display"], item)
+        if item.get("separator"):
+            model = combo.model()
+            idx = combo.count() - 1
+            entry = model.item(idx)
+            if entry:
+                from PyQt6.QtCore import Qt
+                entry.setFlags(entry.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+    # 前回選択を復元
+    if current_model_id:
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and not data.get("separator") and data.get("model_id") == current_model_id:
+                combo.setCurrentIndex(i)
+                break
+    else:
+        # 最初の選択可能アイテムを選択
+        for i in range(combo.count()):
+            data = combo.itemData(i)
+            if data and not data.get("separator"):
+                combo.setCurrentIndex(i)
+                break
+    combo.blockSignals(False)
+
+
 def populate_combo(combo, items: list[str], current_value: str = None):
     """v11.6.0: コンボボックスに候補をセットし、セパレーター（"──"始まり）を選択不可にする"""
     combo.blockSignals(True)

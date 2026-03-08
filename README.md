@@ -16,12 +16,12 @@
 [![GitHub stars](https://img.shields.io/github/stars/tsunamayo7/helix-ai-studio?style=social)](https://github.com/tsunamayo7/helix-ai-studio/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Version](https://img.shields.io/badge/version-v12.7.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Version](https://img.shields.io/badge/version-v12.8.0-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 [Japanese](README_ja.md) · [Setup Guide](SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
-![Helix AI Studio Screenshot](docs/demo/cloudai_chat.png)
+![Helix AI Studio Screenshot](docs/demo/best/README/readme_01_mixai_main.png)
 
 </div>
 
@@ -35,7 +35,7 @@ Most AI tools let you chat with **one model at a time**. Helix is different:
 
 💰 **Free with local LLMs** — Run Ollama models with zero API cost, fully offline. Mix local + cloud when you want more power.
 
-🖥️ **Virtual Desktop** — AI writes and runs code inside an isolated sandbox (Windows Sandbox or Docker). Your machine stays clean. Preview apps instantly.
+🖥️ **Virtual Desktop** — AI writes and runs code inside an isolated sandbox (Windows Sandbox by default, Docker optional). Your machine stays clean. Preview apps instantly.
 
 📱 **Desktop + Web** — PyQt6 desktop app + React web UI. Access from your phone on LAN.
 
@@ -93,10 +93,10 @@ If anything fails, the installer keeps going. Failed items show as `[WARN]`.
 | Feature | What it does |
 |---------|-------------|
 | **mixAI Pipeline** | Multiple AIs auto-collaborate: plan → execute → validate → refine → one answer |
-| **cloudAI Chat** | Chat with Claude, GPT, or Gemini. Switch models mid-conversation — context carries over |
-| **localAI Chat** | Fully offline with any Ollama model. Zero API cost |
-| **Virtual Desktop** | AI writes and runs code inside an isolated sandbox (Windows Sandbox / Docker). Your machine stays clean |
+| **soloAI Chat** | Unified chat for Cloud AI (Claude, GPT, Gemini) and local Ollama models in one tab. Switch freely — context carries over |
+| **Virtual Desktop** | AI writes and runs code inside an isolated sandbox (Windows Sandbox by default, Docker optional). Your machine stays clean |
 | **RAG** | Load PDFs and documents into a shared knowledge base for every AI |
+| **History** | Unified chat history across all sessions (supports legacy cloudAI/localAI logs) |
 | **Web UI** | Access from phones and tablets on your LAN |
 | **MCP Support** | External tool integration via Model Context Protocol |
 | **i18n** | Japanese and English UI, switchable with one click |
@@ -109,25 +109,25 @@ If anything fails, the installer keeps going. Failed items show as `[WARN]`.
 
 Claude plans, Mistral and Gemma execute, then results are merged and validated. One prompt does it all.
 
-![mixAI Pipeline](docs/demo/pipeline_running.png)
+![mixAI Pipeline](docs/demo/best/README/readme_01_mixai_main.png)
 
-### Pick any model and chat (cloudAI)
+### Chat with any model — cloud or local (soloAI)
 
-Switch between Claude, GPT, and Gemini from a dropdown. Change models — your conversation continues.
+Cloud AI (Claude, GPT, Gemini) and local Ollama models are unified into a single soloAI tab. Switch models freely — your conversation continues.
 
-![cloudAI Chat](docs/demo/cloudai_chat.png)
+![soloAI Chat](docs/demo/best/README/readme_02_soloai_unified_cloud.png)
 
-### Generate code with local LLMs (localAI)
+### Run local LLMs offline, zero cost (soloAI + Ollama)
 
-Ollama's qwen3.5 (122B) writes Python code. No internet, zero API cost.
+Select an Ollama model from the same soloAI tab. No internet, zero API cost.
 
-![localAI Chat](docs/demo/localai_chat.png)
+![soloAI Local](docs/demo/best/README/readme_03_soloai_unified_ollama.png)
 
 ### Preview AI-built apps instantly (Virtual Desktop)
 
-Apps run inside an isolated Virtual Desktop (Windows Sandbox or Docker). Your actual machine stays untouched.
+Apps run inside an isolated Virtual Desktop (Windows Sandbox by default, Docker optional). Your actual machine stays untouched.
 
-![Virtual Desktop](docs/demo/virtual_desktop.png)
+![Virtual Desktop](docs/demo/best/README/readme_08_virtual_desktop.png)
 
 ---
 
@@ -191,7 +191,7 @@ For cloud AIs:
 | Anthropic | [console.anthropic.com](https://console.anthropic.com) | Claude |
 | OpenAI | [platform.openai.com](https://platform.openai.com) | GPT |
 
-Enter keys in the Settings tab after launch.
+Enter keys in the **General Settings (一般設定)** tab after launch.
 
 ---
 
@@ -200,12 +200,15 @@ Enter keys in the Settings tab after launch.
 
 | View | Screenshot |
 |------|-----------|
-| Pipeline Running | ![Pipeline Running](docs/demo/pipeline_running.png) |
-| Pipeline Complete | ![Pipeline Complete](docs/demo/pipeline_complete.png) |
-| Local AI Chat | ![Local AI](docs/demo/localai_chat.png) |
-| RAG Knowledge Base | ![RAG](docs/demo/rag.png) |
-| Settings | ![Settings](docs/demo/settings.png) |
-| Web UI | ![Web UI](docs/demo/webui.png) |
+| mixAI Pipeline | ![mixAI](docs/demo/best/README/readme_01_mixai_main.png) |
+| soloAI (Cloud) | ![soloAI Cloud](docs/demo/best/README/readme_02_soloai_unified_cloud.png) |
+| soloAI (Ollama) | ![soloAI Ollama](docs/demo/best/README/readme_03_soloai_unified_ollama.png) |
+| CloudAI Settings | ![Cloud Settings](docs/demo/best/README/readme_04_cloud_settings.png) |
+| Ollama Settings | ![Ollama Settings](docs/demo/best/README/readme_05_ollama_settings.png) |
+| History | ![History](docs/demo/best/README/readme_06_history.png) |
+| RAG Knowledge Base | ![RAG](docs/demo/best/README/readme_07_rag.png) |
+| Virtual Desktop | ![Virtual Desktop](docs/demo/best/README/readme_08_virtual_desktop.png) |
+| General Settings | ![Settings](docs/demo/best/README/readme_09_general_settings.png) |
 
 </details>
 
@@ -221,7 +224,7 @@ Enter keys in the Settings tab after launch.
 | CLI | Claude Code CLI / Codex CLI |
 | Local LLM | Ollama |
 | Multi-Agent | CrewAI (Sequential / Hierarchical) |
-| Sandbox | Windows Sandbox (default) / Docker + NoVNC (optional) |
+| Sandbox | Windows Sandbox (default) / Docker + noVNC (optional) |
 | Memory | SQLite + vector embeddings |
 | Tools | MCP (Model Context Protocol) |
 
@@ -253,9 +256,10 @@ git pull && pip install -r requirements.txt && python HelixAIStudio.py
 
 | Version | Highlights |
 |---------|-----------|
+| **v12.8.0** | soloAI Unification — cloudAI + localAI merged into a single soloAI tab, 8-tab layout, unified chat history |
 | **v12.7.0** | Windows Sandbox default backend, backend abstraction layer |
-| **v12.5.0** | CrewAI integration, MCP across all tabs, 5-phase pipeline |
-| **v12.0.0** | Virtual Desktop (sandbox), 7-tab layout |
+| **v12.5.0** | CrewAI integration, MCP across all tabs, 3+1 Phase pipeline |
+| **v12.0.0** | Virtual Desktop (sandbox), initial multi-tab layout |
 | v11.9.4 | Helix Pilot v2.0 — autonomous Vision LLM GUI agent |
 | v11.5.0 | Multi-provider API |
 | v9.0.0 | Web UI (React + FastAPI) |
