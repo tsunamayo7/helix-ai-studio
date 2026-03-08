@@ -112,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `requirements.txt`: Added `docker>=7.0.0` as optional dependency
 - `.gitignore`: Added `docker/sandbox/tmp/`, `.helix-backup-*/`, `data/sandbox_snapshots/`, `.backup/`
 - `scripts/build_bundle.py`: Added sandbox files to bundle list
-- `README.md` / `README_ja.md`: Version badge v12.0.0, Docker Sandbox in Features + Tech Stack + Version History
+- `README.md` / `README_ja.md`: Version badge v12.0.0, Virtual Desktop (sandbox) in Features + Tech Stack + Version History
 
 ### Notes
 - Docker SDK is **optional** — app starts normally without Docker (graceful degradation)
