@@ -55,7 +55,7 @@ class CloudSettingsTab(QWidget):
         # スクロールエリア
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet(f"QScrollArea {{ border: none; background: {COLORS['bg_primary']}; }}")
+        scroll.setStyleSheet(f"QScrollArea {{ border: none; background: {COLORS['bg_surface']}; }}")
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setSpacing(12)

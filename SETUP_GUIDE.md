@@ -1,6 +1,6 @@
 # Helix AI Studio — セットアップガイド
 
-> **Version**: v12.7.0
+> **Version**: v12.8.0
 > **対象 OS**: Windows 10/11, macOS 12+ (Apple Silicon & Intel), Linux (Ubuntu 22.04+)
 
 **はじめに**: このガイドでは Helix AI Studio のインストールから起動までを説明します。
@@ -49,6 +49,22 @@ python HelixAIStudio.py   # macOS: python3 HelixAIStudio.py
 ```
 
 Web UI: `http://localhost:8500`
+
+---
+
+## 初回セットアップの流れ
+
+起動後、以下の順番で設定すると最短で動作確認できます。
+
+| 順序 | タブ | やること |
+|------|------|---------|
+| 1 | **一般設定** | API キーを設定（Anthropic / OpenAI / Google） |
+| 2 | **CloudAI設定** | クラウドモデルの登録・認証方式・実行オプション・MCP設定 |
+| 3 | **Ollama設定** | Ollama 接続管理・モデル管理・MCP設定・Browser Use |
+| 4 | **soloAI** | チャットで動作確認（クラウド / ローカル統合モデルセレクタ） |
+| 5 | **mixAI / RAG / Virtual Desktop** | パイプライン・ナレッジ・仮想環境は必要に応じて |
+
+> **Ollama のみ（API キー不要）でも soloAI タブからローカルモデルで即チャットできます。**
 
 ---
 
@@ -190,14 +206,14 @@ ollama list                            # インストール済みモデル一覧
 
 ## Virtual Desktop のセットアップ
 
-> **Windows Sandbox（標準）**: Windows 11 Pro/Enterprise なら追加インストール不要。設定 → アプリ → オプション機能 で有効化するだけ。
-> **Docker（上級者向け）**: Docker Desktop をインストールすると、埋め込みビューやファイル閲覧など全機能が使えます。
+> **Windows Sandbox（デフォルト）**: Windows 11 Pro/Enterprise なら追加インストール不要。設定 → アプリ → オプション機能 で有効化するだけ。Auto モード選択時は Windows Sandbox が最優先で使用されます。
+> **Docker（上級者向け）**: Docker Desktop をインストールすると、埋め込みビューやファイル閲覧など全機能が使えます。Windows Sandbox が利用できない環境では Docker にフォールバックします。
 
-### Docker Desktop のインストール
+### Docker Desktop のインストール（上級者向け・任意）
 
 1. [docker.com](https://www.docker.com/products/docker-desktop/) からダウンロード
-2. インストール後、Docker Desktop を起動
-3. Helix AI Studio を起動 → Virtual Desktop タブが有効に
+2. インストールを完了させ、Docker サービスを起動した状態にする
+3. Helix AI Studio を起動 → Virtual Desktop タブで Docker ランタイムが選択可能に
 
 ### Sandbox イメージのビルド
 
@@ -337,10 +353,10 @@ claude --version                   # バージョン確認
 # Web UI 再ビルド
 cd frontend && npm run build && cd ..
 
-# Docker Sandbox
+# Virtual Desktop (Docker backend)
 docker build -t helix-sandbox -f docker/sandbox/Dockerfile docker/sandbox/
 ```
 
 ---
 
-*Helix AI Studio v12.7.0 — Setup Guide*
+*Helix AI Studio v12.8.0 — Setup Guide*

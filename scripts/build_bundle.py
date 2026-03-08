@@ -168,6 +168,9 @@ files = [
     # --- src/tabs ---
     'src/tabs/__init__.py',
     'src/tabs/helix_orchestrator_tab.py',
+    'src/tabs/solo_ai_tab.py',
+    'src/tabs/cloud_settings_tab.py',
+    'src/tabs/ollama_settings_tab.py',
     'src/tabs/claude_tab.py',
     'src/tabs/local_ai_tab.py',
     'src/tabs/history_tab.py',

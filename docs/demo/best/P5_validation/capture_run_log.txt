@@ -1,0 +1,67 @@
+============================================================
+P5 Capture Run Log
+============================================================
+Date: 2026-03-07
+Tool: pyautogui + win32gui (DPI-aware)
+Window: "Helix AI Studio v12.6.0"
+Window Rect: (-11, -10, 3848, 2172)
+Screen: 3840x2160
+
+============================================================
+Capture Sequence
+============================================================
+
+[05:10:00] Session start
+[05:10:01] Helix AI Studio window found: hwnd=123148864
+[05:10:02] Window brought to foreground
+
+[05:10:03] Tab bar coordinate calibration:
+  - Tab bar Y (physical): wy + 50
+  - mixAI center X: wx + 75
+  - cloudAI center X: wx + 200
+  - localAI center X: wx + 335
+  - History center X: wx + 480
+  - RAG center X: wx + 620
+  - Virtual Desktop center X: wx + 770
+  - 一般設定 center X: wx + 960
+
+[05:10:05] Click mixAI tab -> wait 1.5s -> capture
+  Result: p5_tab_01_mixai.png (98,639 bytes) OK
+
+[05:10:07] Click cloudAI tab -> wait 1.5s -> capture
+  Result: p5_tab_02_cloudai.png (95,781 bytes) OK
+
+[05:10:09] Click localAI tab -> wait 1.5s -> capture
+  Result: p5_tab_03_localai.png (96,158 bytes) OK
+
+[05:10:11] Click History tab -> wait 1.5s -> capture
+  Result: p5_tab_04_history.png (200,005 bytes) OK
+
+[05:10:13] Click RAG tab -> wait 1.5s -> capture
+  Result: p5_tab_05_rag.png (88,781 bytes) OK
+
+[05:10:15] Click Virtual Desktop tab -> wait 1.5s -> capture
+  Result: p5_tab_06_vdesktop.png (89,436 bytes) OK
+
+[05:10:17] Click 一般設定 tab -> wait 1.5s -> capture
+  Result: p5_tab_07_settings.png (161,999 bytes) OK
+
+[05:10:20] All 7 tabs captured successfully
+[05:10:21] Debug/temp files cleaned up
+[05:10:22] Validation report generated
+
+============================================================
+Files Produced (7 screenshots + 2 reports)
+============================================================
+p5_tab_01_mixai.png        98,639 bytes
+p5_tab_02_cloudai.png      95,781 bytes
+p5_tab_03_localai.png      96,158 bytes
+p5_tab_04_history.png     200,005 bytes
+p5_tab_05_rag.png          88,781 bytes
+p5_tab_06_vdesktop.png     89,436 bytes
+p5_tab_07_settings.png    161,999 bytes
+capture_validation_report.txt
+capture_run_log.txt
+
+Total image size: 830,799 bytes (~811 KB)
+============================================================

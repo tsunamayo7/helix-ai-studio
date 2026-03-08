@@ -1,0 +1,9 @@
+file 'C:/Users/tomot/Desktop/開発環境/生成AIアプリ/Helix AI Studio/docs/demo/20260303/keyframes/kf_000_3000ms.png'
+duration 3.0
+file 'C:/Users/tomot/Desktop/開発環境/生成AIアプリ/Helix AI Studio/docs/demo/20260303/keyframes/kf_002_2000ms.png'
+duration 2.0
+file 'C:/Users/tomot/Desktop/開発環境/生成AIアプリ/Helix AI Studio/docs/demo/20260303/keyframes/kf_005_2000ms.png'
+duration 2.0
+file 'C:/Users/tomot/Desktop/開発環境/生成AIアプリ/Helix AI Studio/docs/demo/20260303/keyframes/kf_009_4000ms.png'
+duration 4.0
+file 'C:/Users/tomot/Desktop/開発環境/生成AIアプリ/Helix AI Studio/docs/demo/20260303/keyframes/kf_009_4000ms.png'

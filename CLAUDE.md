@@ -1,13 +1,13 @@
 # CLAUDE.md — Helix AI Studio
 
 > Claude Code がこのプロジェクトで作業する際に必ず読むファイルです。
-> 詳細な仕様は `BIBLE/BIBLE_Helix_AI_Studio_12.7.0.md` を参照してください。
+> 詳細な仕様は `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` を参照してください。
 
 ---
 
 ## プロジェクト概要
 
-**Helix AI Studio v12.7.0 "Windows Sandbox Default"**
+**Helix AI Studio v12.8.0 "SoloAI Unification"**
 
 PyQt6製のAIオーケストレーションデスクトップアプリ + FastAPI製Web UI。
 Claude CLI / Anthropic API / OpenAI API / Google Gemini API / Ollama（ローカルLLM）を
@@ -26,8 +26,11 @@ Claude CLI / Anthropic API / OpenAI API / Google Gemini API / Ollama（ローカ
 HelixAIStudio.py          # エントリポイント
 src/
   tabs/
-    claude_tab.py         # cloudAI タブ（Claude CLI/API チャット）
-    local_ai_tab.py       # localAI タブ（Ollama チャット）
+    solo_ai_tab.py        # soloAI タブ（Cloud AI + Ollama 統合チャット）
+    cloud_settings_tab.py # CloudAI設定タブ
+    ollama_settings_tab.py # Ollama設定タブ
+    claude_tab.py         # 後方互換ラッパー（→ SoloAITab）
+    local_ai_tab.py       # 後方互換ラッパー（→ SoloAITab）
     helix_orchestrator_tab.py  # mixAI タブ（5Phase パイプライン）
     settings_cortex_tab.py     # 一般設定タブ
   web/
@@ -87,7 +90,7 @@ config/
 
 - バージョン変更時は必ず2箇所を同時に更新する:
   1. `src/utils/constants.py` — `APP_VERSION`, `APP_CODENAME`
-  2. `BIBLE_Helix_AI_Studio_11_5_3.md` — Changelogセクション
+  2. `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` — Changelogセクション
 
 ### i18n ルール
 
@@ -101,12 +104,12 @@ config/
 - 全タブの送信ボタンは `PRIMARY_BTN` スタイル + `setFixedHeight(32)`
 - 入力フィールド: `background: #252526`, `border: none`, `font: Yu Gothic UI 11`
 - 会話継続パネル: `background: #1a1a2e`, `border: 1px solid #2a2a3e`
-- 新しいタブを追加する場合は cloudAI/localAI のパターンに揃える
+- 新しいタブを追加する場合は soloAI のパターンに揃える
 
 ### Discord通知ルール
 
 ```python
-# 全 WebSocket ハンドラ（cloudAI/mixAI/localAI）に以下3点を必ず実装する
+# 全 WebSocket ハンドラ（soloAI/mixAI）に以下3点を必ず実装する
 _notify_discord(tab, "started",   prompt[:200])          # 実行開始時
 _notify_discord(tab, "completed", response[:500], elapsed=elapsed)  # 完了時
 _notify_discord(tab, "error",     prompt[:200], error=str(e))       # エラー時
@@ -179,6 +182,12 @@ python scripts/helix_pilot.py status
 # スクリーンショット撮影
 python scripts/helix_pilot.py screenshot --window "Helix AI Studio" --name shot1
 
+# 既存画像のリサイズ（Claude API 多画像制限 2000px 対策）
+# 4K スクリーンショットを Read ツールで読む前に必ずリサイズすること
+python scripts/helix_pilot.py resize docs/demo/v12.8.0/p4/p4_01_mixai.png --max-dim 1800
+# --output で出力先指定 / デフォルトは元ファイル名 + _preview サフィックス
+python scripts/helix_pilot.py resize path/to/4k.png --max-dim 1800 --output path/to/small.png
+
 # Vision LLM で画面を説明（キャッシュ機能付き: 画面未変更時はLLM呼び出し省略）
 python scripts/helix_pilot.py describe --window "Helix AI Studio"
 
@@ -207,7 +216,7 @@ python scripts/helix_pilot.py run-scenario demo_captures/scenarios/test.json
 
 ```bash
 # ★ 複数ステップ操作 → auto コマンド1回で完了
-python scripts/helix_pilot.py auto "cloudAIタブを開き、テスト入力して送信" --window "Helix AI Studio" --compact
+python scripts/helix_pilot.py auto "soloAIタブを開き、テスト入力して送信" --window "Helix AI Studio" --compact
 
 # ★ ブラウザ操作 → browse コマンド1回で完了
 python scripts/helix_pilot.py browse "Zennにログインして新規記事を作成" --window "Google Chrome" --compact
@@ -243,7 +252,7 @@ python scripts/helix_pilot.py auto "設定を変更" --window "Helix AI Studio" 
 
 ```bash
 # Python 構文チェック（変更後は必ず実行）
-python -m py_compile src/web/server.py src/tabs/claude_tab.py
+python -m py_compile src/web/server.py src/tabs/solo_ai_tab.py
 
 # i18n 構文チェック
 python -c "import json; json.load(open('i18n/ja.json')); json.load(open('i18n/en.json')); print('OK')"
@@ -279,10 +288,9 @@ ls BIBLE_Helix_AI_Studio_*.md
 
 ### 新しいデスクトップタブを追加する場合
 
-`src/tabs/local_ai_tab.py` をテンプレートとして:
-- `_create_chat_tab()`: チャット表示 + 入力エリア
+`src/tabs/solo_ai_tab.py` をテンプレートとして:
+- `_create_chat_area()`: チャット表示 + 入力エリア
 - `_create_continue_panel()`: 会話継続パネル
-- `_create_settings_tab()`: 設定サブタブ
 - `retranslateUi()`: i18n対応
 
 ---
@@ -291,9 +299,9 @@ ls BIBLE_Helix_AI_Studio_*.md
 
 | 知りたいこと | 参照先 |
 |---|---|
-| 全体アーキテクチャ | `BIBLE_Helix_AI_Studio_11_5_3.md` §3 |
-| バージョン変遷 | `BIBLE_Helix_AI_Studio_11_5_3.md` §2 |
-| 実装済み機能一覧 | `BIBLE_Helix_AI_Studio_11_5_3.md` §設計哲学 |
-| Changelog | `BIBLE_Helix_AI_Studio_11_5_3.md` §Changelog |
+| 全体アーキテクチャ | `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` §4 |
+| バージョン変遷 | `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` §2 |
+| 実装済み機能一覧 | `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` §1.4 設計哲学 |
+| Changelog | `BIBLE/BIBLE_Helix_AI_Studio_12.8.0.md` §3 |
 | Web APIエンドポイント | `src/web/api_routes.py` の docstring |
 | モデル設定 | `config/cloud_models.example.json` |

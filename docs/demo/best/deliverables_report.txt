@@ -1,0 +1,102 @@
+============================================================
+Helix AI Studio v12.6.0 - Demo Asset Deliverables Report
+============================================================
+Date: 2026-03-07
+Version: v12.6.0 "Multi-Provider Refactor"
+Branch: main (commit d3ab637)
+
+============================================================
+Summary
+============================================================
+Total sets:  5 (P1-P5)
+Total files: 30
+Total size:  2.9 MB
+
+============================================================
+P1: GitHub 公開用セット (6 files, 587 KB)
+============================================================
+Target: GitHub README, Social Preview
+Files:
+  p1_social_preview.png       - Social preview (1280x640)
+  p1_hero_demo.gif            - README hero animation (960x540, ~40s, 8 frames)
+  p1_screenshot_01_mixai.png  - mixAI 統合オーケストレーション
+  p1_screenshot_02_cloudai.png - cloudAI マルチモデル
+  p1_screenshot_03_localai.png - localAI Ollama連携
+  p1_screenshot_04_vdesktop.png - Virtual Desktop サンドボックス
+
+Usage:
+  - social_preview.png → GitHub repo Settings > Social preview
+  - hero_demo.gif → README.md のトップに埋め込み
+  - screenshot_01-04 → README Features セクション
+
+============================================================
+P2: X (Twitter) 用セット (4 files, 311 KB)
+============================================================
+Target: X/Twitter 投稿
+Files:
+  p2_video_01_tab_tour.gif    - タブツアー (cloudAI→localAI→mixAI, ~21s)
+  p2_video_02_features.gif    - 機能紹介 (Settings→RAG→VDesktop, ~21s)
+  p2_image_01_cloudai.png     - cloudAI ヒーローショット
+  p2_image_02_mixai.png       - mixAI オーケストレーション
+
+Usage:
+  - Video 1 + Image 1 → 1st tweet (メイン告知)
+  - Video 2 + Image 2 → 2nd tweet (スレッド続き)
+
+============================================================
+P3: Reddit/Hacker News 用セット (4 files, 500 KB)
+============================================================
+Target: r/LocalLLaMA, r/MachineLearning, HN Show HN
+Files:
+  p3_video_technical_demo.gif    - フル機能デモ (7タブ全走査, ~38s)
+  p3_screenshot_01_settings.png  - 設定画面 (技術的詳細)
+  p3_screenshot_02_localai.png   - ローカルLLM (Ollama)
+  p3_screenshot_03_rag.png       - RAG パイプライン
+
+Usage:
+  - technical_demo.gif → 投稿本文に埋め込み
+  - screenshot_01-03 → コメント/詳細セクション
+
+============================================================
+P4: Zenn 記事用セット (7 files, 714 KB)
+============================================================
+Target: Zenn.dev 技術記事
+Files:
+  p4_01_mixai_orchestration.png - mixAI 統合オーケストレーション
+  p4_02_cloudai_multimodel.png  - cloudAI マルチモデル対応
+  p4_03_localai_ollama.png      - localAI ローカルLLM
+  p4_04_rag_pipeline.png        - RAG 情報検索拡張
+  p4_05_virtual_desktop.png     - Virtual Desktop サンドボックス
+  p4_06_settings_config.png     - 一般設定 画面
+  p4_walkthrough.gif            - ウォークスルーGIF (~30s)
+
+Usage:
+  - 01-06 → 記事内の各セクション画像
+  - walkthrough.gif → 記事冒頭のデモ
+
+============================================================
+P5: バグ検証兼記録用セット (9 files, 819 KB)
+============================================================
+Target: 内部QA記録
+Files:
+  p5_tab_01_mixai.png          - mixAI タブ検証
+  p5_tab_02_cloudai.png        - cloudAI タブ検証
+  p5_tab_03_localai.png        - localAI タブ検証
+  p5_tab_04_history.png        - History タブ検証
+  p5_tab_05_rag.png            - RAG タブ検証
+  p5_tab_06_vdesktop.png       - Virtual Desktop タブ検証
+  p5_tab_07_settings.png       - 一般設定 タブ検証
+  capture_validation_report.txt - 検証レポート (7/7 PASS)
+  capture_run_log.txt          - キャプチャ実行ログ
+
+Result: ALL 7 TABS PASS - バグなし
+
+============================================================
+Capture Environment
+============================================================
+  OS: Windows 11 (Build 26200.7840)
+  Display: 3840x2160 @ 150% DPI
+  Tool: pyautogui + win32gui (DPI-aware)
+  GIF encoder: Pillow (PIL)
+  App window: maximized (3848x2172 physical)
+============================================================

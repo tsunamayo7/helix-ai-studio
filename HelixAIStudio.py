@@ -5,14 +5,15 @@ Helix AI Studio — Multi-provider AI orchestration platform
 Version / codename は src/utils/constants.py の APP_VERSION / APP_CODENAME が正
 （single source of truth）。
 
-Tabs:
+Tabs (v12.8.0 — 8-tab layout):
 - mixAI: 3+1 Phase Pipeline (Cloud AI plans → Local LLM team → Cloud AI integrates → Apply)
-- cloudAI: Direct cloud model chat (Anthropic / OpenAI / Google API, CLI fallback)
-- localAI: Ollama direct chat with 5 specialized categories
-- History: JSONL chat history with search, date grouping, tab filters
+- soloAI: Unified Cloud AI + Ollama chat (integrated model selector)
+- CloudAI設定: Cloud model management, auth mode, execution options, MCP
+- Ollama設定: Ollama connection, local model management, MCP, Browser Use
+- History: JSONL chat history with search, date grouping, tab filters (soloAI/cloudAI/localAI alias)
 - RAG: Document chunking, vector search, knowledge graph
 - Virtual Desktop: Windows Sandbox (default) / Docker compatible runtime
-- Settings: API keys, model catalog, Ollama, MCP, memory, display
+- 一般設定: API keys, display, memory, Web UI, app-wide settings
 
 Architecture: API-first with CLI fallback, dynamic model catalog (cloud_models.json),
 provider-based routing (anthropic_api / openai_api / google_api / *_cli)
@@ -59,40 +60,80 @@ def _refresh_icon_cache_win32():
 
 
 def _set_taskbar_icon_win32(hwnd: int, ico_path: str):
-    """Win32 API で直接タスクバーアイコンを設定（高DPI対応）"""
+    """Win32 API で直接タスクバーアイコンを設定（高DPI対応、ITaskbarList3含む）
+
+    改善点 (v12.8.0):
+    - LR_DEFAULTSIZE フォールバック: サイズ指定失敗時にOSデフォルトサイズで再試行
+    - ITaskbarList3.HrInit(): タスクバーボタンを確実に初期化し、アイコンを反映
+    """
     if os.name != 'nt':
         return
     try:
         import ctypes
-        from ctypes import wintypes
         user32 = ctypes.windll.user32
-        WM_SETICON = 0x0080
-        ICON_SMALL = 0
-        ICON_BIG = 1
-        IMAGE_ICON = 1
-        LR_LOADFROMFILE = 0x0010
+        WM_SETICON       = 0x0080
+        ICON_SMALL       = 0
+        ICON_BIG         = 1
+        IMAGE_ICON       = 1
+        LR_LOADFROMFILE  = 0x0010
+        LR_DEFAULTSIZE   = 0x0040
+
+        def _load_icon(cx, cy):
+            """指定サイズで LoadImageW → 失敗時は LR_DEFAULTSIZE で再試行"""
+            h = user32.LoadImageW(None, ico_path, IMAGE_ICON, cx, cy, LR_LOADFROMFILE)
+            if not h:
+                h = user32.LoadImageW(None, ico_path, IMAGE_ICON, 0, 0,
+                                      LR_LOADFROMFILE | LR_DEFAULTSIZE)
+            return h
 
         # 大きいアイコン（タスクバー・Alt+Tab用: 通常 32x32 or 高DPI 48x48）
         sm_cxicon = user32.GetSystemMetrics(11)  # SM_CXICON
         sm_cyicon = user32.GetSystemMetrics(12)  # SM_CYICON
-        hicon_big = user32.LoadImageW(
-            None, ico_path, IMAGE_ICON,
-            sm_cxicon, sm_cyicon,
-            LR_LOADFROMFILE,
-        )
+        hicon_big = _load_icon(sm_cxicon, sm_cyicon)
         if hicon_big:
             user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
 
         # 小さいアイコン（タイトルバー用: 通常 16x16 or 高DPI 24x24）
         sm_cxsmicon = user32.GetSystemMetrics(49)  # SM_CXSMICON
         sm_cysmicon = user32.GetSystemMetrics(50)  # SM_CYSMICON
-        hicon_small = user32.LoadImageW(
-            None, ico_path, IMAGE_ICON,
-            sm_cxsmicon, sm_cysmicon,
-            LR_LOADFROMFILE,
-        )
+        hicon_small = _load_icon(sm_cxsmicon, sm_cysmicon)
         if hicon_small:
             user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+
+        # ITaskbarList3.HrInit(): タスクバーボタンを確実に初期化
+        # これにより AUMID が正しく関連付けられ、アイコンがタスクバーに反映される
+        try:
+            CLSCTX_INPROC_SERVER = 1
+            ctypes.windll.ole32.CoInitializeEx(None, 0)  # MTA (0)
+
+            CLSID_str = '{56FDF344-FD6D-11d0-958A-006097C9A090}'
+            IID_str   = '{EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF}'
+            clsid_buf = ctypes.create_string_buffer(16)
+            iid_buf   = ctypes.create_string_buffer(16)
+            ctypes.windll.ole32.CLSIDFromString(CLSID_str, clsid_buf)
+            ctypes.windll.ole32.IIDFromString(IID_str, iid_buf)
+
+            ptr = ctypes.c_void_p()
+            hr = ctypes.windll.ole32.CoCreateInstance(
+                clsid_buf, None, CLSCTX_INPROC_SERVER, iid_buf, ctypes.byref(ptr)
+            )
+            if hr == 0 and ptr.value:
+                # vtable layout: QI(0), AddRef(1), Release(2), HrInit(3)
+                vtbl = ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))
+                vtbl_ptr = ctypes.cast(vtbl[0], ctypes.POINTER(ctypes.c_void_p))
+
+                HrInit = ctypes.WINFUNCTYPE(
+                    ctypes.c_long, ctypes.c_void_p
+                )(vtbl_ptr[3])
+                HrInit(ptr)
+
+                Release = ctypes.WINFUNCTYPE(
+                    ctypes.c_ulong, ctypes.c_void_p
+                )(vtbl_ptr[2])
+                Release(ptr)
+        except Exception:
+            pass  # ITaskbarList3 は補助的。失敗しても WM_SETICON は有効
+
     except Exception:
         pass
 

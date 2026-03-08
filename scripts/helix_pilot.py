@@ -1851,8 +1851,16 @@ class HelixPilot:
     def _now(self) -> str:
         return datetime.now().isoformat(timespec="milliseconds")
 
-    def _with_lock(self, command: str, fn, **kwargs) -> dict:
-        """Wrap an operation with lock + safety checks + indicator."""
+    def _with_lock(self, command: str, fn, *,
+                   require_idle: bool = True, **kwargs) -> dict:
+        """Wrap an operation with lock + safety checks + indicator.
+
+        Args:
+            require_idle: If True (default), wait for user to be idle before
+                executing.  Set to False for read-only / non-destructive
+                commands (e.g. screenshot) so they are never blocked by
+                Claude Code's own mouse/keyboard activity.
+        """
         window_title = kwargs.get("window_title") or kwargs.get("window")
 
         if not self.lock.acquire(command, self.config.operation_timeout):
@@ -1877,8 +1885,8 @@ class HelixPilot:
                     "error_type": "PilotSafetyError",
                 }
 
-            # Wait for user idle
-            if not self.safety.wait_for_user_idle(max_wait=15.0):
+            # Wait for user idle (skip for non-destructive commands)
+            if require_idle and not self.safety.wait_for_user_idle(max_wait=15.0):
                 return {
                     "ok": False, "command": command,
                     "timestamp": self._now(),
@@ -1932,10 +1940,64 @@ class HelixPilot:
 
     def cmd_screenshot(self, window: str = None,
                        name: str = None) -> dict:
+        # require_idle=False: screenshot is non-destructive; never block on
+        # user activity (Claude Code's own mouse/keyboard would cause a 15s
+        # timeout otherwise).
         return self._with_lock(
             "screenshot",
             lambda **kw: self.ops.screenshot(kw.get("window"), kw.get("name")),
+            require_idle=False,
             window=window, name=name)
+
+    def cmd_resize(self, path: str, max_dim: int = 1800,
+                   output: str = None, suffix: str = "_preview") -> dict:
+        """Resize an existing image to fit within max_dim pixels.
+
+        Used to pre-process 4K screenshots before Claude Code reads them.
+        Claude API rejects images >2000px per side in many-image requests.
+
+        Args:
+            path:    Source image file path.
+            max_dim: Maximum dimension in pixels (default: 1800).
+            output:  Output path. Omit to append suffix to source filename.
+            suffix:  Suffix appended when output is omitted (default: _preview).
+
+        Example:
+            python scripts/helix_pilot.py resize docs/demo/shot.png --max-dim 1800
+            python scripts/helix_pilot.py resize docs/demo/shot.png --output /tmp/small.png
+        """
+        from pathlib import Path as _Path
+        src = _Path(path)
+        ts = self._now()
+        if not src.exists():
+            return {"ok": False, "command": "resize", "timestamp": ts,
+                    "error": f"File not found: {path}",
+                    "error_type": "FileNotFoundError"}
+        try:
+            img = Image.open(src)
+            original_size = list(img.size)
+            w, h = img.size
+            if max(w, h) <= max_dim:
+                return {"ok": True, "command": "resize", "timestamp": ts,
+                        "path": str(src), "original_size": original_size,
+                        "new_size": original_size, "resized": False,
+                        "message": f"Already within {max_dim}px — no resize needed"}
+            ratio = max_dim / max(w, h)
+            new_w, new_h = int(w * ratio), int(h * ratio)
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+            if output:
+                out = _Path(output)
+            else:
+                out = src.parent / f"{src.stem}{suffix}{src.suffix}"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            img.save(str(out))
+            return {"ok": True, "command": "resize", "timestamp": ts,
+                    "path": str(out), "original_size": original_size,
+                    "new_size": [new_w, new_h], "resized": True,
+                    "ratio": round(ratio, 3)}
+        except Exception as e:
+            return {"ok": False, "command": "resize", "timestamp": ts,
+                    "error": str(e), "error_type": type(e).__name__}
 
     def cmd_click(self, x: int, y: int, window: str = None,
                   button: str = "left", double: bool = False) -> dict:
@@ -2464,6 +2526,18 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--window", "-w", type=str, default=None)
     p.add_argument("--name", "-n", type=str, default=None)
 
+    # resize — pre-process large images before Claude API reads them
+    p = sub.add_parser("resize",
+                       help="Resize image to fit within max-dim pixels "
+                            "(Claude API limit: 2000px/side for many-image requests)")
+    p.add_argument("path", type=str, help="Source image file path")
+    p.add_argument("--max-dim", type=int, default=1800,
+                   help="Maximum dimension in pixels (default: 1800)")
+    p.add_argument("--output", "-o", type=str, default=None,
+                   help="Output path (default: adds suffix to source filename)")
+    p.add_argument("--suffix", type=str, default="_preview",
+                   help="Suffix appended when --output is omitted (default: _preview)")
+
     # click
     p = sub.add_parser("click", help="Click at coordinates")
     p.add_argument("x", type=int)
@@ -2573,9 +2647,12 @@ def _build_parser() -> argparse.ArgumentParser:
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    # Force UTF-8 stdout on Windows (avoid cp932 encoding errors)
-    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    # Force UTF-8 on stdout/stderr (avoid cp932 encoding errors on Windows)
+    if sys.platform == "win32":
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     parser = _build_parser()
     args = parser.parse_args()
@@ -2598,7 +2675,7 @@ def main():
             "error": "Interrupted by user (Ctrl+C)",
             "error_type": "KeyboardInterrupt",
         }
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
         sys.exit(130)
 
     signal.signal(signal.SIGINT, _sigint_handler)
@@ -2608,6 +2685,11 @@ def main():
             "screenshot": lambda: pilot.cmd_screenshot(
                 getattr(args, "window", None),
                 getattr(args, "name", None)),
+            "resize": lambda: pilot.cmd_resize(
+                args.path,
+                getattr(args, "max_dim", 1800),
+                getattr(args, "output", None),
+                getattr(args, "suffix", "_preview")),
             "click": lambda: pilot.cmd_click(
                 args.x, args.y,
                 getattr(args, "window", None),
@@ -2661,7 +2743,7 @@ def main():
         }
 
         result = dispatch[args.command]()
-        print(json.dumps(result, ensure_ascii=False, indent=2))
+        print(json.dumps(result, ensure_ascii=False, indent=2), flush=True)
 
         exit_code = 0
         if not result.get("ok", False):
@@ -2682,7 +2764,7 @@ def main():
             "error": str(e),
             "error_type": type(e).__name__,
         }
-        print(json.dumps(error_result, ensure_ascii=False, indent=2))
+        print(json.dumps(error_result, ensure_ascii=False, indent=2), flush=True)
         sys.exit(1)
 
 
