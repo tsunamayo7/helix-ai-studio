@@ -109,25 +109,25 @@ If anything fails, the installer keeps going. Failed items show as `[WARN]`.
 
 Claude plans, Mistral and Gemma execute, then results are merged and validated. One prompt does it all.
 
-![mixAI Pipeline](docs/demo/best/README/readme_01_mixai_main.png)
+![mixAI Pipeline](docs/demo/gif/demo_mixai_pipeline.gif)
 
 ### Chat with any model — cloud or local (soloAI)
 
 Cloud AI (Claude, GPT, Gemini) and local Ollama models are unified into a single soloAI tab. Switch models freely — your conversation continues.
 
-![soloAI Chat](docs/demo/best/README/readme_02_soloai_unified_cloud.png)
+![soloAI Chat](docs/demo/gif/demo_cloudai_models.gif)
 
 ### Run local LLMs offline, zero cost (soloAI + Ollama)
 
 Select an Ollama model from the same soloAI tab. No internet, zero API cost.
 
-![soloAI Local](docs/demo/best/README/readme_03_soloai_unified_ollama.png)
+![soloAI Local](docs/demo/gif/demo_localai_chat.gif)
 
 ### Preview AI-built apps instantly (Virtual Desktop)
 
 Apps run inside an isolated Virtual Desktop (Windows Sandbox by default, Docker optional). Your actual machine stays untouched.
 
-![Virtual Desktop](docs/demo/best/README/readme_08_virtual_desktop.png)
+![Virtual Desktop](docs/demo/gif/demo_vd_sandbox.gif)
 
 ---
 
