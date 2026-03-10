@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1280px;
+    height: 640px;
+    background: linear-gradient(135deg, #080c14 0%, #0d1117 40%, #131921 70%, #1a2233 100%);
+    font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
+    color: #e6edf3;
+    overflow: hidden;
+    position: relative;
+  }
+  /* Subtle grid pattern */
+  body::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(56, 189, 248, 0.06) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  .container {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    padding: 48px 56px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-right: 40px;
+  }
+
+  .logo-area {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .logo-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3);
+  }
+  .logo-text {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #e6edf3 60%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .tagline {
+    font-size: 20px;
+    color: #8b949e;
+    line-height: 1.5;
+    margin-bottom: 32px;
+    max-width: 500px;
+  }
+  .tagline strong {
+    color: #38bdf8;
+    font-weight: 600;
+  }
+
+  .badges {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    background: rgba(56, 189, 248, 0.08);
+    color: #58a6ff;
+  }
+  .badge.purple {
+    border-color: rgba(139, 92, 246, 0.2);
+    background: rgba(139, 92, 246, 0.08);
+    color: #a78bfa;
+  }
+  .badge.green {
+    border-color: rgba(52, 211, 153, 0.2);
+    background: rgba(52, 211, 153, 0.08);
+    color: #34d399;
+  }
+  .badge.orange {
+    border-color: rgba(251, 146, 60, 0.2);
+    background: rgba(251, 146, 60, 0.08);
+    color: #fb923c;
+  }
+
+  .right {
+    width: 520px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .screenshot-frame {
+    width: 500px;
+    height: 340px;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    overflow: hidden;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 0 60px rgba(56, 189, 248, 0.08);
+    position: relative;
+  }
+  .screenshot-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top left;
+  }
+
+  /* AI model icons floating */
+  .ai-icons {
+    position: absolute;
+    top: -20px;
+    right: -10px;
+    display: flex;
+    gap: 8px;
+  }
+  .ai-chip {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(13, 17, 23, 0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .ai-chip.claude { color: #d4a574; border-color: rgba(212, 165, 116, 0.3); }
+  .ai-chip.gpt { color: #74aa9c; border-color: rgba(116, 170, 156, 0.3); }
+  .ai-chip.gemini { color: #8b9cf7; border-color: rgba(139, 156, 247, 0.3); }
+  .ai-chip.ollama { color: #e6edf3; border-color: rgba(230, 237, 243, 0.3); }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 24px;
+    left: 56px;
+    right: 56px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+  }
+  .github-url {
+    font-size: 14px;
+    color: #6e7681;
+    font-family: 'Consolas', 'SF Mono', monospace;
+  }
+  .mit-badge {
+    font-size: 12px;
+    color: #8b949e;
+    padding: 4px 12px;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="left">
+      <div class="logo-area">
+        <div class="logo-icon">H</div>
+        <div class="logo-text">Helix AI Studio</div>
+      </div>
+      <div class="tagline">
+        <strong>Multiple AIs collaborate automatically</strong><br>
+        and deliver one refined answer.<br><br>
+        Claude, GPT, Gemini, and local LLMs<br>
+        — all in one app. Free with Ollama.
+      </div>
+      <div class="badges">
+        <span class="badge">Multi-AI Pipeline</span>
+        <span class="badge purple">Desktop + Web UI</span>
+        <span class="badge green">80% Local</span>
+        <span class="badge orange">Docker Sandbox</span>
+      </div>
+    </div>
+    <div class="right">
+      <div class="screenshot-frame">
+        <img src="cloudai_chat.png" alt="Helix AI Studio">
+      </div>
+      <div class="ai-icons">
+        <span class="ai-chip claude">Claude</span>
+        <span class="ai-chip gpt">GPT</span>
+        <span class="ai-chip gemini">Gemini</span>
+        <span class="ai-chip ollama">Ollama</span>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <span class="github-url">github.com/tsunamayo7/helix-ai-studio</span>
+    <span class="mit-badge">MIT License &middot; Python 3.10+</span>
+  </div>
+</body>
+</html>

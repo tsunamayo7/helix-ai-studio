@@ -7,7 +7,7 @@ import sys
 import time
 import os
 
-WINDOW = "Helix AI Studio v12.0.0"
+WINDOW = "Helix AI Studio v12.8.0"
 PILOT = os.path.join(os.path.dirname(__file__), "helix_pilot.py")
 SAVE_DIR = os.path.join(os.path.dirname(__file__), "..", "docs", "demo", "20260303-1")
 os.makedirs(SAVE_DIR, exist_ok=True)
