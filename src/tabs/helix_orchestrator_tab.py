@@ -1744,6 +1744,9 @@ class HelixOrchestratorTab(QWidget):
         panel = QWidget()
         layout = QVBoxLayout(panel)
 
+        # v12.8.1: 設定パネル最上部に共通保存ボタンを配置
+        layout.addWidget(create_section_save_button(self._save_all_settings_section))
+
         # スクロールエリア
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -1938,6 +1941,25 @@ class HelixOrchestratorTab(QWidget):
         # v11.0.0: 説明文QLabel廃止（ツールチップに移行）
         self.phase_desc_label = QLabel("")
         self.phase_desc_label.setVisible(False)
+
+        # v12.8.1: Phase 2 実行エンジン選択（標準 / CrewAI Sequential / CrewAI Hierarchical）
+        engine_row = QHBoxLayout()
+        self.phase2_engine_label = QLabel(t('desktop.mixAI.phase2EngineLabel'))
+        engine_row.addWidget(self.phase2_engine_label)
+        self.phase2_engine_combo = NoScrollComboBox()
+        self.phase2_engine_combo.addItem(t('desktop.mixAI.phase2EngineStandard'), "standard")
+        self.phase2_engine_combo.addItem(t('desktop.mixAI.phase2EngineCrewAISeq'), "crewai_sequential")
+        self.phase2_engine_combo.addItem(t('desktop.mixAI.phase2EngineCrewAIHier'), "crewai_hierarchical")
+        self.phase2_engine_combo.setToolTip(t('desktop.mixAI.phase2EngineTip'))
+        # 保存済み設定を復元
+        _saved_p2_engine = self._load_config_value("phase2_engine", "standard")
+        for _i in range(self.phase2_engine_combo.count()):
+            if self.phase2_engine_combo.itemData(_i) == _saved_p2_engine:
+                self.phase2_engine_combo.setCurrentIndex(_i)
+                break
+        engine_row.addWidget(self.phase2_engine_combo)
+        engine_row.addStretch()
+        phase_layout.addLayout(engine_row)
 
         # カテゴリ別担当モデル
         self.category_label = QLabel(t('desktop.mixAI.categoryLabel'))
@@ -3128,6 +3150,9 @@ class HelixOrchestratorTab(QWidget):
                     config_data = json.load(f)
             config_data["model_assignments"] = new_model_assignments
             config_data["orchestrator_engine"] = engine_id
+            # v12.8.1: Phase 2 実行エンジンを保存
+            phase2_engine_val = self.phase2_engine_combo.currentData() if hasattr(self, 'phase2_engine_combo') else "standard"
+            config_data["phase2_engine"] = phase2_engine_val or "standard"
             config_data["phase35_model"] = phase35_model
             config_data["phase4_model"] = phase4_model
             config_data["mixai_search_mode"] = config_data.get("mixai_search_mode", 0)  # v11.0.0: preserved from existing config
