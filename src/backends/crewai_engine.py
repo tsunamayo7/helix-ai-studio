@@ -36,14 +36,17 @@ from .sequential_executor import SequentialResult, SequentialTask
 logger = logging.getLogger(__name__)
 
 # CrewAI はオプション依存（なくても graceful degradation）
-# pythonw.exe では sys.stdout/stderr が None のため CrewAI インポート時にクラッシュする
+# pythonw.exe では sys.stdout/stderr/stdin が None のため CrewAI インポート時にクラッシュする
 # インポート前後で一時的に StringIO に差し替えて回避する
 _import_orig_stdout = sys.stdout
 _import_orig_stderr = sys.stderr
+_import_orig_stdin  = sys.stdin
 if sys.stdout is None:
     sys.stdout = io.StringIO()
 if sys.stderr is None:
     sys.stderr = io.StringIO()
+if sys.stdin is None:
+    sys.stdin = io.StringIO()
 try:
     from crewai import Agent, Crew, LLM, Process, Task
 
@@ -57,6 +60,7 @@ except ImportError:
 finally:
     sys.stdout = _import_orig_stdout
     sys.stderr = _import_orig_stderr
+    sys.stdin  = _import_orig_stdin
 
 
 # ─── エージェント定義（固定） ───────────────────────────────────────
@@ -310,14 +314,17 @@ class CrewAIPhaseTwoEngine:
             )
 
         start_all = time.time()
-        # pythonw.exe では sys.stdout/stderr が None のため CrewAI がクラッシュする
-        # kickoff() 前後で一時的に StringIO に差し替えて回避する
+        # pythonw.exe では sys.stdout/stderr/stdin が None のため CrewAI がクラッシュする
+        # kickoff() 前後で一時的に StringIO/DevNull に差し替えて回避する
         _orig_stdout = sys.stdout
         _orig_stderr = sys.stderr
+        _orig_stdin  = sys.stdin
         if sys.stdout is None:
             sys.stdout = io.StringIO()
         if sys.stderr is None:
             sys.stderr = io.StringIO()
+        if sys.stdin is None:
+            sys.stdin = io.StringIO()  # input() が呼ばれても EOFError で収束させる
         try:
             crew.kickoff()
         except Exception as e:
@@ -326,6 +333,7 @@ class CrewAIPhaseTwoEngine:
         finally:
             sys.stdout = _orig_stdout
             sys.stderr = _orig_stderr
+            sys.stdin  = _orig_stdin
 
         total_elapsed = time.time() - start_all
         logger.info(f"[CrewAIEngine] Phase 2 完了 ({total_elapsed:.1f}s)")
