@@ -1813,7 +1813,6 @@ class HelixOrchestratorTab(QWidget):
         self.p1p3_timeout_spin.setToolTip(t('common.timeoutTip'))
         self.p1p3_timeout_label = QLabel(t('desktop.mixAI.p1p3TimeoutLabel'))
         claude_layout.addRow(self.p1p3_timeout_label, self.p1p3_timeout_spin)
-        claude_layout.addRow(create_section_save_button(self._save_all_settings_section))
 
         self.claude_group.setLayout(claude_layout)
         scroll_layout.addWidget(self.claude_group)
@@ -1831,7 +1830,6 @@ class HelixOrchestratorTab(QWidget):
                        get_phase35_candidates(skip_label=t('desktop.mixAI.phase35None')))
         self.phase35_model_label = QLabel(t('desktop.mixAI.phase35ModelLabel'))
         phase35_layout.addRow(self.phase35_model_label, self.phase35_model_combo)
-        phase35_layout.addRow(create_section_save_button(self._save_all_settings_section))
         self.phase35_group.setLayout(phase35_layout)
 
         # v11.0.0: Phase 4 (Implementation) — 候補は動的
@@ -1844,7 +1842,6 @@ class HelixOrchestratorTab(QWidget):
                        current_value="")
         self.phase4_label = QLabel(t('desktop.mixAI.phase4Model'))
         phase4_layout.addRow(self.phase4_label, self.phase4_model_combo)
-        phase4_layout.addRow(create_section_save_button(self._save_all_settings_section))
         self.phase4_group.setLayout(phase4_layout)
 
         # 初期エンジン状態に合わせてClaudeモデル/思考モードを有効/無効化
@@ -2012,8 +2009,6 @@ class HelixOrchestratorTab(QWidget):
         # v11.0.0: モデル管理ボタン削除 (後方互換)
         self.manage_models_btn = QPushButton()
         self.manage_models_btn.setVisible(False)
-        phase_layout.addWidget(create_section_save_button(self._save_all_settings_section))
-
         self.phase_group.setLayout(phase_layout)
         scroll_layout.addWidget(self.phase_group)
 
@@ -2055,10 +2050,7 @@ class HelixOrchestratorTab(QWidget):
         self.rag_threshold_combo.setCurrentIndex(1)
         self.rag_threshold_combo.setVisible(False)
 
-        # v11.0.0: Bottom save button removed — per-section save buttons used instead
-
         # === v11.1.0: Browser Use Settings for mixAI search agent ===
-        from ..widgets.section_save_button import create_section_save_button as _csb
         self.mixai_browser_use_group = QGroupBox(t('desktop.mixAI.browserUseGroup'))
         self.mixai_browser_use_group.setStyleSheet(SECTION_CARD_STYLE)
         browser_use_layout = QVBoxLayout()
@@ -2067,7 +2059,6 @@ class HelixOrchestratorTab(QWidget):
         self.mixai_browser_use_cb.setEnabled(True)
         self.mixai_browser_use_cb.setToolTip(t('desktop.mixAI.browserUseTip'))
         browser_use_layout.addWidget(self.mixai_browser_use_cb)
-        browser_use_layout.addWidget(_csb(self._save_all_settings_section))
         self.mixai_browser_use_group.setLayout(browser_use_layout)
         scroll_layout.addWidget(self.mixai_browser_use_group)
         self._load_mixai_browser_use_setting()

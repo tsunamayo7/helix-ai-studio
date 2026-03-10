@@ -2843,7 +2843,14 @@ class SoloAITab(QWidget):
 
         import os
         working_dir = os.getcwd()
-        skip_permissions = self.permission_skip_checkbox.isChecked()
+        # v12.8.0: permission_skip_checkbox は CloudSettingsTab に移行済み
+        if hasattr(self, 'permission_skip_checkbox'):
+            skip_permissions = self.permission_skip_checkbox.isChecked()
+        elif self.main_window and hasattr(self.main_window, 'cloud_settings_tab'):
+            _cst = self.main_window.cloud_settings_tab
+            skip_permissions = _cst.permission_skip_checkbox.isChecked() if hasattr(_cst, 'permission_skip_checkbox') else True
+        else:
+            skip_permissions = True
 
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions, model=selected_model)
 
@@ -4013,7 +4020,14 @@ class SoloAITab(QWidget):
         )
 
         # v3.5.0: 権限スキップ設定を取得
-        skip_permissions = self.permission_skip_checkbox.isChecked()
+        # v12.8.0: permission_skip_checkbox は CloudSettingsTab に移行済み
+        if hasattr(self, 'permission_skip_checkbox'):
+            skip_permissions = self.permission_skip_checkbox.isChecked()
+        elif self.main_window and hasattr(self.main_window, 'cloud_settings_tab'):
+            _cst = self.main_window.cloud_settings_tab
+            skip_permissions = _cst.permission_skip_checkbox.isChecked() if hasattr(_cst, 'permission_skip_checkbox') else True
+        else:
+            skip_permissions = True
 
         # v7.1.0: selected_model は currentData() で取得済み
         logger.info(f"[ClaudeTab._send_via_cli] Starting CLI request: model={selected_model}, working_dir={working_dir}, skip_permissions={skip_permissions}")
@@ -5079,7 +5093,14 @@ class SoloAITab(QWidget):
 
         import os
         working_dir = os.getcwd()
-        skip_permissions = self.permission_skip_checkbox.isChecked()
+        # v12.8.0: permission_skip_checkbox は CloudSettingsTab に移行済み
+        if hasattr(self, 'permission_skip_checkbox'):
+            skip_permissions = self.permission_skip_checkbox.isChecked()
+        elif self.main_window and hasattr(self.main_window, 'cloud_settings_tab'):
+            _cst = self.main_window.cloud_settings_tab
+            skip_permissions = _cst.permission_skip_checkbox.isChecked() if hasattr(_cst, 'permission_skip_checkbox') else True
+        else:
+            skip_permissions = True
 
         self._cli_backend = get_claude_cli_backend(working_dir, skip_permissions=skip_permissions)
 
