@@ -35,6 +35,20 @@ if os.name == 'nt':
     try:
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(_APP_USER_MODEL_ID)
+
+        # v12.8.2: AUMID に DefaultIcon を登録
+        # SetCurrentProcessExplicitAppUserModelID だけではタスクバー/スタートメニューの
+        # グループアイコンが汎用アイコンになる問題を修正。
+        # HKCU\Software\Classes\<AUMID>\DefaultIcon にアイコンパスを書き込むことで
+        # Windows がアプリ起動中・未起動どちらの状態でも正しいアイコンを表示する。
+        import winreg as _winreg
+        _icon_reg_path = str(Path(__file__).parent / "icon.ico")
+        _aumid_key = rf"Software\Classes\{_APP_USER_MODEL_ID}"
+        with _winreg.CreateKey(_winreg.HKEY_CURRENT_USER,
+                               _aumid_key + r"\DefaultIcon") as _k:
+            _winreg.SetValueEx(_k, "", 0, _winreg.REG_SZ,
+                               f"{_icon_reg_path},0")
+
         # アイコンキャッシュをリフレッシュ（git pull後もアイコンが反映されるように）
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0x0000, None, None)
     except Exception as _e:
