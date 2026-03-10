@@ -2602,7 +2602,7 @@ class HelixOrchestratorTab(QWidget):
         """履歴から引用ボタンクリック"""
         try:
             from ..ui.components.history_citation_widget import HistoryCitationDialog
-            dialog = HistoryCitationDialog(storage_key="mixai_history", parent=self)
+            dialog = HistoryCitationDialog(parent=self)
             if dialog.exec():
                 citation = dialog.get_selected_citation()
                 if citation:

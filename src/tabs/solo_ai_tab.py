@@ -3687,7 +3687,15 @@ class SoloAITab(QWidget):
                         f"<div style='color: {COLORS['error']};'><b>Gemini CLI Error:</b> {error}</div>"
                     )
                 elif full_text:
-                    self._display_ai_response(full_text, model_id, "google_cli")
+                    # v12.8.1: _display_ai_response が未定義のためインライン展開
+                    _rendered = markdown_to_html(full_text)
+                    self.chat_display.append(
+                        f"<div style='{AI_MESSAGE_STYLE}'>"
+                        f"<b style='color:{COLORS['success']};'>Gemini CLI ({model_id}):</b><br>"
+                        f"{_rendered}"
+                        f"</div>"
+                    )
+                    self.statusChanged.emit(f"Gemini CLI complete")
 
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, _on_done)
