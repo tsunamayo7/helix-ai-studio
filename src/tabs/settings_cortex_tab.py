@@ -979,9 +979,6 @@ class SettingsCortexTab(QWidget):
         # 初回統計取得
         QTimer.singleShot(500, self._refresh_memory_stats)
 
-        # v11.0.0 C-4: セクション保存ボタン
-        layout.addWidget(create_section_save_button(self._save_memory_settings))
-
         return group
 
     def _refresh_memory_stats(self):
@@ -1140,10 +1137,6 @@ class SettingsCortexTab(QWidget):
         self.bible_enabled_cb.setToolTip(t('desktop.settings.bibleEnabledTooltip'))
         layout.addWidget(self.bible_enabled_cb)
 
-        # 保存ボタン
-        save_btn = create_section_save_button(self._save_bible_settings)
-        layout.addWidget(save_btn)
-
         # 設定を読み込む
         self._load_bible_settings()
 
@@ -1275,10 +1268,6 @@ class SettingsCortexTab(QWidget):
         self.pilot_window_edit.setPlaceholderText("Helix AI Studio")
         win_layout.addWidget(self.pilot_window_edit)
         layout.addLayout(win_layout)
-
-        # 保存ボタン
-        save_btn = create_section_save_button(self._save_pilot_settings)
-        layout.addWidget(save_btn)
 
         # 設定を読み込む
         self._load_pilot_settings()
@@ -1561,9 +1550,6 @@ class SettingsCortexTab(QWidget):
         layout.addWidget(self.discord_notify_error_cb)
 
         self._load_discord_notify_events()
-
-        # v11.0.0 C-4: セクション保存ボタン
-        layout.addWidget(create_section_save_button(self._save_webui_settings))
 
         return group
 

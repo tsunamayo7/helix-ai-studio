@@ -229,8 +229,6 @@ class CloudSettingsTab(QWidget):
         timeout_row.addStretch()
         model_settings_layout.addLayout(timeout_row)
 
-        model_settings_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
-
         self.model_settings_group.setLayout(model_settings_layout)
         parent_layout.addWidget(self.model_settings_group)
 
@@ -270,8 +268,6 @@ class CloudSettingsTab(QWidget):
         self._browser_use_available = True
         self.browser_use_checkbox.setEnabled(True)
         mcp_options_layout.addWidget(self.browser_use_checkbox)
-        mcp_options_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
-
         self.mcp_options_group.setLayout(mcp_options_layout)
         parent_layout.addWidget(self.mcp_options_group)
 
@@ -328,7 +324,6 @@ class CloudSettingsTab(QWidget):
         cloudai_mcp_layout.addWidget(self.cloudai_mcp_filesystem)
         cloudai_mcp_layout.addWidget(self.cloudai_mcp_git)
         cloudai_mcp_layout.addWidget(self.cloudai_mcp_brave)
-        cloudai_mcp_layout.addWidget(create_section_save_button(self._save_cloudai_mcp_settings))
         self.cloudai_mcp_group.setLayout(cloudai_mcp_layout)
         parent_layout.addWidget(self.cloudai_mcp_group)
 
