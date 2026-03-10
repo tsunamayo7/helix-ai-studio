@@ -2837,7 +2837,10 @@ class SoloAITab(QWidget):
         self._pending_user_message = message
 
         # Get model from header combo
-        selected_model = self.cloud_model_combo.currentData() or self.model_combo.currentData() or ""
+        # v12.8.0: model_combo は _create_settings_tab に移行済み。cloud_model_combo を優先
+        selected_model = self.cloud_model_combo.currentData() or (
+            self.model_combo.currentData() if hasattr(self, 'model_combo') else ""
+        ) or ""
         # v11.9.4: 表示名を保存（finish_modelで使用）
         self._cli_selected_model = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else (selected_model or "Claude CLI")
 
@@ -4003,8 +4006,13 @@ class SoloAITab(QWidget):
             selected_model = model_id
             model_text = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else model_id
         else:
-            model_text = self.model_combo.currentText()
-            selected_model = self.model_combo.currentData() or model_text
+            # v12.8.0: model_combo は設定タブに移行済み。cloud_model_combo にフォールバック
+            if hasattr(self, 'model_combo'):
+                model_text = self.model_combo.currentText()
+                selected_model = self.model_combo.currentData() or model_text
+            else:
+                model_text = self.cloud_model_combo.currentText() if hasattr(self, 'cloud_model_combo') else ""
+                selected_model = self.cloud_model_combo.currentData() if hasattr(self, 'cloud_model_combo') else ""
         self._cli_selected_model = model_text  # フォールバック用に保存
         self._cli_prompt = prompt  # フォールバック用に保存
         self._cli_session_id = session_id
@@ -4212,9 +4220,11 @@ class SoloAITab(QWidget):
                 logger.warning("[ClaudeTab._on_cli_response] Haiku error detected, falling back to Sonnet")
 
                 # Sonnetにフォールバック
-                self.model_combo.blockSignals(True)
-                self.model_combo.setCurrentIndex(0)  # Sonnet (推奨)
-                self.model_combo.blockSignals(False)
+                # v12.8.0: model_combo は設定タブに移行済み
+                if hasattr(self, 'model_combo'):
+                    self.model_combo.blockSignals(True)
+                    self.model_combo.setCurrentIndex(0)  # Sonnet (推奨)
+                    self.model_combo.blockSignals(False)
 
                 self.chat_display.append(
                     f"<div style='color: {COLORS['warning']}; margin-top: 10px;'>"
