@@ -3403,7 +3403,15 @@ class SoloAITab(QWidget):
                 pass
 
             # v11.5.0: provider ベースルーティング
-            auth_mode = self.auth_mode_combo.currentIndex()  # 0=Auto, 1=CLI, 2=API, 3=Ollama
+            # v12.8.0: auth_mode_combo は CloudSettingsTab に移行済み（_create_settings_tab 未呼び出し）
+            # SoloAITab に直接ある場合はそちら、なければ CloudSettingsTab から取得、最終フォールバック 0=Auto
+            if hasattr(self, 'auth_mode_combo'):
+                auth_mode = self.auth_mode_combo.currentIndex()
+            elif self.main_window and hasattr(self.main_window, 'cloud_settings_tab'):
+                _cst = self.main_window.cloud_settings_tab
+                auth_mode = _cst.auth_mode_combo.currentIndex() if hasattr(_cst, 'auth_mode_combo') else 0
+            else:
+                auth_mode = 0  # デフォルト: Auto
             model_id, provider = self._get_selected_model_provider()
 
             # v10.1.0: Browser Use 事前収集

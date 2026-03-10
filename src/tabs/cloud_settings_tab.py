@@ -52,6 +52,9 @@ class CloudSettingsTab(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(8, 8, 8, 8)
 
+        # v12.8.1: タブ最上部に共通保存ボタンを配置
+        main_layout.addWidget(create_section_save_button(self._save_all_cloudai_settings))
+
         # スクロールエリア
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

@@ -68,6 +68,7 @@ from .sequential_executor import (
     filter_chain_of_thought,
 )
 from ..utils.constants import DEFAULT_CLAUDE_MODEL_ID, get_default_claude_model
+from ..utils.model_catalog import normalize_model_id
 from ..utils.i18n import t
 
 logger = logging.getLogger(__name__)
@@ -214,40 +215,69 @@ class MixAIOrchestrator(QThread):
             self.all_finished.emit(claude_answer)
             return
 
-        executor = SequentialExecutor()
-        self._phase2_results = []
-        total_tasks = len(tasks)
+        # v12.8.1: Phase 2 エンジン選択（standard / crewai_sequential / crewai_hierarchical）
+        phase2_engine = self.config.get("phase2_engine", "standard")
 
-        for i, task in enumerate(tasks):
-            if self._cancelled:
-                return
-
-            # v8.2.0: Phase 2 RAGコンテキスト注入
-            if self._memory_manager:
-                try:
-                    rag_ctx = self._memory_manager.build_context_for_phase2(
-                        self.user_prompt, task.category
+        if phase2_engine in ("crewai_sequential", "crewai_hierarchical"):
+            # CrewAI エンジンを使用
+            logger.info(f"[Phase 2] CrewAI エンジン使用: {phase2_engine}")
+            try:
+                from .crewai_engine import CrewAIPhaseTwoEngine
+                crewai_engine = CrewAIPhaseTwoEngine()
+                manager_model = None
+                if phase2_engine == "crewai_hierarchical":
+                    _default_m = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
+                    manager_model = normalize_model_id(
+                        self.config.get("claude_model_id") or _default_m
                     )
-                    if rag_ctx:
-                        task.prompt = f"{rag_ctx}\n{task.prompt}"
-                        logger.info(
-                            f"Phase 2 RAG context injected for {task.category}: "
-                            f"{len(rag_ctx)} chars"
+                self._phase2_results = crewai_engine.execute(
+                    tasks,
+                    on_start=lambda cat, mdl: self.local_llm_started.emit(cat, mdl),
+                    on_finish=lambda cat, ok, el: self.local_llm_finished.emit(cat, ok, el),
+                    on_progress=lambda done, total: self.phase2_progress.emit(done, total),
+                    manager_llm_model=manager_model,
+                )
+                self._phase2_results = [self._normalize_phase2_result(r) for r in self._phase2_results]
+            except Exception as e:
+                logger.error(f"[Phase 2] CrewAI 実行エラー、標準エンジンにフォールバック: {e}", exc_info=True)
+                phase2_engine = "standard"  # フォールバック
+
+        if phase2_engine == "standard":
+            # 標準 SequentialExecutor を使用
+            executor = SequentialExecutor()
+            self._phase2_results = []
+            total_tasks = len(tasks)
+
+            for i, task in enumerate(tasks):
+                if self._cancelled:
+                    return
+
+                # v8.2.0: Phase 2 RAGコンテキスト注入
+                if self._memory_manager:
+                    try:
+                        rag_ctx = self._memory_manager.build_context_for_phase2(
+                            self.user_prompt, task.category
                         )
-                except Exception as e:
-                    logger.warning(f"Phase 2 RAG context failed for {task.category}: {e}")
+                        if rag_ctx:
+                            task.prompt = f"{rag_ctx}\n{task.prompt}"
+                            logger.info(
+                                f"Phase 2 RAG context injected for {task.category}: "
+                                f"{len(rag_ctx)} chars"
+                            )
+                    except Exception as e:
+                        logger.warning(f"Phase 2 RAG context failed for {task.category}: {e}")
 
-            self.local_llm_started.emit(task.category, task.model)
-            self.monitor_event.emit("start", task.model, f"Phase 2: {task.category}")  # v10.1.0
-            result = executor.execute_task(task)
+                self.local_llm_started.emit(task.category, task.model)
+                self.monitor_event.emit("start", task.model, f"Phase 2: {task.category}")  # v10.1.0
+                result = executor.execute_task(task)
 
-            # v10.0.0: Phase 2 JSON出力統一
-            result = self._normalize_phase2_result(result)
+                # v10.0.0: Phase 2 JSON出力統一
+                result = self._normalize_phase2_result(result)
 
-            self._phase2_results.append(result)
-            self.local_llm_finished.emit(result.category, result.success, result.elapsed)
-            self.monitor_event.emit("finish" if result.success else "error", task.model, task.category)  # v10.1.0
-            self.phase2_progress.emit(i + 1, total_tasks)
+                self._phase2_results.append(result)
+                self.local_llm_finished.emit(result.category, result.success, result.elapsed)
+                self.monitor_event.emit("finish" if result.success else "error", task.model, task.category)  # v10.1.0
+                self.phase2_progress.emit(i + 1, total_tasks)
 
         self._phase_times["phase2"] = time.time() - phase2_start
 
@@ -1559,8 +1589,11 @@ Phase 3（統合フェーズ）の出力をレビューし、品質を判定し�
         """
         # v7.1.0: model_id → --model に直接渡す
         # v11.5.0: cloud_models.json 動的取得 → config → 定数フォールバック
+        # v12.8.1: normalize_model_id で "claude --model xxx" 形式を "xxx" に正規化
         _default = get_default_claude_model() or DEFAULT_CLAUDE_MODEL_ID
-        effective_model = model_id or self.config.get("claude_model_id") or self.config.get("claude_model", _default)
+        effective_model = normalize_model_id(
+            model_id or self.config.get("claude_model_id") or self.config.get("claude_model", _default)
+        )
 
         # v11.5.0: モデル未設定ガード
         if not effective_model:

@@ -141,10 +141,12 @@ class SettingsCortexTab(QWidget):
         content_layout.addWidget(self.pilot_group)
 
         # v11.0.0 C-4: 画面下部の単一保存ボタンを廃止（各セクション内に移設済み）
+        # v12.8.1: タブ最上部に共通保存ボタンを追加（スクロールエリアの上）
 
         content_layout.addStretch()
 
         scroll_area.setWidget(content_widget)
+        layout.addWidget(create_section_save_button(self._on_save_settings))
         layout.addWidget(scroll_area)
 
     # ========================================
