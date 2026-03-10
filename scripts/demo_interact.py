@@ -21,7 +21,7 @@ import cv2
 # ─────────────────────────────────────────
 # 設定
 # ─────────────────────────────────────────
-WINDOW_TITLE = "Helix AI Studio v12.0.0"
+WINDOW_TITLE = "Helix AI Studio v12.8.0"
 
 SAVE_DIR = os.path.join(os.path.dirname(__file__), "..", "docs", "demo", "20260303-1")
 os.makedirs(SAVE_DIR, exist_ok=True)
