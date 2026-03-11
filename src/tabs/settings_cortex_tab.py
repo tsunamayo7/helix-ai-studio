@@ -71,6 +71,14 @@ class SettingsCortexTab(QWidget):
         except Exception as e:
             logger.warning(f"Memory manager init failed for SettingsCortexTab: {e}")
 
+        # v12.8.3: MCPServerManager
+        self._mcp_manager = None
+        try:
+            from ..mcp_client.server_manager import MCPServerManager
+            self._mcp_manager = MCPServerManager()
+        except Exception as e:
+            logger.warning(f"MCPServerManager init failed: {e}")
+
         self._init_ui()
         self._connect_signals()
         self._load_settings()
@@ -113,7 +121,9 @@ class SettingsCortexTab(QWidget):
         self.api_keys_group = self._create_api_keys_group()
         content_layout.addWidget(self.api_keys_group)
 
-        # v11.0.0: MCP管理はCloudAI設定/Ollama設定タブに移設（Phase 2/5）
+        # v12.8.3: MCP サーバー管理セクション（バックエンド実装済みのUIを再接続）
+        self.mcp_group = self._create_mcp_settings_group()
+        content_layout.addWidget(self.mcp_group)
 
         # 4. 記憶・知識管理 → v11.0.0: RAGタブ設定に移動（非表示化）
         self.memory_group = self._create_memory_knowledge_group()
@@ -916,6 +926,104 @@ class SettingsCortexTab(QWidget):
                 self.google_api_input.setText(data.get("google_api_key", ""))
         except Exception as e:
             logger.debug(f"Google API key load: {e}")
+
+    # ========================================
+    # 3.5. MCP サーバー管理 (v12.8.3: バックエンド実装済み UI を再接続)
+    # ========================================
+
+    def _create_mcp_settings_group(self) -> QGroupBox:
+        """
+        v12.8.3: MCP サーバー管理セクション。
+        MCPServerManager（既存実装）をフロントエンドに接続する。
+        """
+        group = QGroupBox(t('desktop.settings.mcp'))
+        group.setStyleSheet(SECTION_CARD_STYLE)
+        layout = QVBoxLayout(group)
+        layout.setSpacing(6)
+
+        if not self._mcp_manager:
+            warn_label = QLabel("MCPServerManager が初期化できませんでした。")
+            warn_label.setStyleSheet(SS.muted("11px"))
+            layout.addWidget(warn_label)
+            return group
+
+        # サーバーリスト（チェックボックス方式）
+        servers = self._mcp_manager.get_server_list()
+
+        # i18n キーマップ（name → キー名）
+        _name_key = {
+            'filesystem': ('mcpFilesystem', 'mcpFilesystemTip'),
+            'git':        ('mcpGit',        'mcpGitTip'),
+            'brave-search': ('mcpBrave',    'mcpBraveTip'),
+            'github':     ('mcpGithub',     'mcpGithubTip'),
+            'postgres':   ('mcpPostgres',   'mcpPostgresTip'),
+        }
+
+        self._mcp_checkboxes = {}
+        for srv in servers:
+            label_key, tip_key = _name_key.get(srv.name, (None, None))
+            label_text = t(f'desktop.settings.{label_key}') if label_key else srv.name
+            tip_text   = t(f'desktop.settings.{tip_key}')   if tip_key   else srv.description
+
+            cb = QCheckBox(label_text)
+            cb.setChecked(srv.enabled)
+            cb.setToolTip(tip_text)
+            cb.toggled.connect(lambda checked, name=srv.name: self._on_mcp_toggle(name, checked))
+            self._mcp_checkboxes[srv.name] = cb
+            layout.addWidget(cb)
+
+        # 一括ボタン行
+        btn_row = QHBoxLayout()
+        btn_enable_all = QPushButton(t('desktop.settings.mcpEnableAll'))
+        btn_enable_all.setToolTip(t('desktop.settings.mcpEnableAllTip'))
+        btn_enable_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_enable_all.clicked.connect(self._on_mcp_enable_all)
+        btn_disable_all = QPushButton(t('desktop.settings.mcpDisableAll'))
+        btn_disable_all.setToolTip(t('desktop.settings.mcpDisableAllTip'))
+        btn_disable_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_disable_all.clicked.connect(self._on_mcp_disable_all)
+        btn_row.addWidget(btn_enable_all)
+        btn_row.addWidget(btn_disable_all)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        # ステータスラベル
+        self._mcp_status_label = QLabel("")
+        self._mcp_status_label.setStyleSheet(SS.muted("11px"))
+        layout.addWidget(self._mcp_status_label)
+
+        return group
+
+    def _on_mcp_toggle(self, name: str, enabled: bool):
+        """MCP サーバーの有効/無効を切替"""
+        if self._mcp_manager:
+            self._mcp_manager.enable_server(name, enabled)
+            self._mcp_status_label.setText(t('desktop.settings.mcpSaved'))
+            QTimer.singleShot(2000, lambda: self._mcp_status_label.setText(""))
+
+    def _on_mcp_enable_all(self):
+        """全 MCP サーバーを有効化"""
+        if not self._mcp_manager:
+            return
+        for name, cb in self._mcp_checkboxes.items():
+            self._mcp_manager.enable_server(name, True)
+            cb.blockSignals(True)
+            cb.setChecked(True)
+            cb.blockSignals(False)
+        self._mcp_status_label.setText(t('desktop.settings.mcpSaved'))
+        QTimer.singleShot(2000, lambda: self._mcp_status_label.setText(""))
+
+    def _on_mcp_disable_all(self):
+        """全 MCP サーバーを無効化"""
+        if not self._mcp_manager:
+            return
+        for name, cb in self._mcp_checkboxes.items():
+            self._mcp_manager.enable_server(name, False)
+            cb.blockSignals(True)
+            cb.setChecked(False)
+            cb.blockSignals(False)
+        self._mcp_status_label.setText(t('desktop.settings.mcpSaved'))
+        QTimer.singleShot(2000, lambda: self._mcp_status_label.setText(""))
 
     # ========================================
     # 4. 記憶・知識管理

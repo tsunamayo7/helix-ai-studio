@@ -7,11 +7,11 @@ Helix AI Studio - Constants
 # アプリケーション情報
 # =============================================================================
 APP_NAME = "Helix AI Studio"
-APP_VERSION = "12.8.0"
+APP_VERSION = "12.8.3"
 APP_CODENAME = "SoloAI Unification"
 APP_DESCRIPTION = (
-    "Helix AI Studio v12.8.0 'SoloAI Unification' - "
-    "Unified soloAI chat + CloudAI/Ollama settings separation + capability-aware UI"
+    "Helix AI Studio v12.8.3 'SoloAI Unification' - "
+    "Sandbox lazy init + MCP server management UI re-connection"
 )
 
 # v8.5.0: 情報収集フォルダ

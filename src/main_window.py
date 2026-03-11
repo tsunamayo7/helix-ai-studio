@@ -75,6 +75,11 @@ class MainWindow(QMainWindow):
         # v5.0.0: ウィンドウサイズ復元
         self._restore_window_geometry()
 
+        # v12.8.3: サンドボックスバックエンドを UI 表示後に非同期で初期化
+        # BackendFactory.auto_select() は Docker 接続確認で最大 5 秒ブロックするため
+        # QTimer で UI 表示完了後に別スレッドで実行する
+        QTimer.singleShot(300, self._init_sandbox_backend_async)
+
         # v9.3.0: Web UIサーバー自動起動
         self._auto_start_web_server()
 
@@ -168,6 +173,52 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.warning(f"Web UI auto-start failed: {e}")
 
+    # =========================================================================
+    # v12.8.3: サンドボックスバックエンド遅延初期化
+    # =========================================================================
+
+    def _init_sandbox_backend_async(self):
+        """
+        v12.8.3: サンドボックスバックエンドを別スレッドで初期化する。
+
+        BackendFactory.auto_select() は Docker ソケット接続確認で最大 5 秒ブロックするため、
+        QTimer.singleShot で UI 表示後に呼び出し、QThread で実行する。
+        """
+        from PyQt6.QtCore import QThread, pyqtSignal as _pyqtSignal
+
+        class _SandboxInitThread(QThread):
+            finished = _pyqtSignal(object)
+
+            def run(self):
+                try:
+                    backend = BackendFactory.auto_select()
+                except Exception as e:
+                    logger.warning(f"[MainWindow] BackendFactory.auto_select() failed: {e}")
+                    backend = None
+                self.finished.emit(backend)
+
+        self._sandbox_init_thread = _SandboxInitThread(self)
+        self._sandbox_init_thread.finished.connect(self._on_sandbox_backend_ready)
+        self._sandbox_init_thread.start()
+        logger.info("[MainWindow] Sandbox backend initialization started (async)")
+
+    def _on_sandbox_backend_ready(self, backend):
+        """
+        v12.8.3: サンドボックスバックエンド初期化完了コールバック。
+        バックエンドが取得できた場合は VirtualDesktopTab / soloAI タブに接続する。
+        """
+        self._sandbox_backend = backend
+        if backend:
+            logger.info(f"[MainWindow] Sandbox backend ready: {type(backend).__name__}")
+            # SandboxManager を更新（DockerBackend の場合は .manager を利用）
+            if hasattr(backend, 'manager'):
+                self._sandbox_manager = backend.manager
+            self.virtual_desktop_tab.set_backend(backend)
+            if hasattr(self.solo_ai_tab, 'set_sandbox_manager'):
+                self.solo_ai_tab.set_sandbox_manager(self._sandbox_manager)
+        else:
+            logger.info("[MainWindow] No sandbox backend available (Windows Sandbox / Docker not found)")
+
     def _init_ui(self):
         """UIを初期化"""
         self.setWindowTitle(f"{self.APP_NAME} v{self.VERSION}")
@@ -189,14 +240,11 @@ class MainWindow(QMainWindow):
         self.tab_widget.setDocumentMode(True)
         self.tab_widget.setTabPosition(QTabWidget.TabPosition.North)
 
-        # v12.7.0: バックエンドを自動選択（Windows Sandbox → Docker）
-        self._sandbox_backend = BackendFactory.auto_select(parent=self)
-        # 後方互換: SandboxManager 参照を保持
-        self._sandbox_manager = (
-            self._sandbox_backend.manager
-            if self._sandbox_backend and hasattr(self._sandbox_backend, 'manager')
-            else SandboxManager(parent=self)
-        )
+        # v12.8.3: サンドボックスバックエンドは非同期で初期化（起動時のブロック解消）
+        # BackendFactory.auto_select() は _init_sandbox_backend_async() で後から実行する
+        self._sandbox_backend = None
+        self._sandbox_manager = SandboxManager(parent=self)
+        self._sandbox_init_thread = None
 
         # タブを追加（workflow_stateを渡す）
         # v12.8.0 タブ順序: mixAI → soloAI → CloudAI設定 → Ollama設定 → History → RAG → VirtualDesktop → 一般設定
@@ -237,12 +285,10 @@ class MainWindow(QMainWindow):
         self.tab_widget.setTabToolTip(5, t('desktop.mainWindow.ragTip'))
 
         # Tab 6: Virtual Desktop タブ (v12.7.0: Windows Sandbox / Docker)
+        # v12.8.3: バックエンドは非同期初期化後に _on_sandbox_backend_ready() で接続する
+        # 初期状態では SandboxManager フォールバックのみ設定
         self.virtual_desktop_tab = VirtualDesktopTab()
-        if self._sandbox_backend:
-            self.virtual_desktop_tab.set_backend(self._sandbox_backend)
-        else:
-            # どちらも利用不可の場合、SandboxManager をフォールバックで渡す
-            self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
+        self.virtual_desktop_tab.set_sandbox_manager(self._sandbox_manager)
         self.tab_widget.addTab(self.virtual_desktop_tab, t('desktop.mainWindow.virtualDesktopTab'))
         self.tab_widget.setTabToolTip(6, t('desktop.mainWindow.virtualDesktopTip'))
 
