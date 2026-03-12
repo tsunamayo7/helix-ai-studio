@@ -1883,6 +1883,18 @@ class SoloAITab(QWidget):
         self._backend_type = data.get("backend_type", "cloud")
         model_id = data.get("model_id", "")
         provider = data.get("provider", "")
+
+        # v12.8.4: Ollama Local モデル選択時に自動で Ollama モードを有効化
+        if provider == "ollama":
+            self._use_ollama_mode = True
+            self._use_cli_mode = False
+            self._ollama_model = model_id
+            # Ollama URL をデフォルトまたは設定から取得
+            if not getattr(self, '_ollama_url', ''):
+                self._ollama_url = 'http://localhost:11434'
+        else:
+            self._use_ollama_mode = False
+
         logger.info(f"[SoloAITab] Model changed: {model_id} (backend={self._backend_type}, provider={provider})")
 
     # 後方互換
@@ -2336,6 +2348,18 @@ class SoloAITab(QWidget):
             QCheckBox::indicator {{ width: 14px; height: 14px; }}
         """)
         btn_layout.addWidget(self._pilot_checkbox)
+
+        # v12.8.4: URL自動取得チェックボックス（Ollama含む全バックエンド対応）
+        self.browser_use_checkbox = QCheckBox(t('desktop.cloudAI.browserUseLabel'))
+        self.browser_use_checkbox.setFixedHeight(32)
+        self.browser_use_checkbox.setChecked(False)
+        self.browser_use_checkbox.setToolTip(t('desktop.cloudAI.browserUseTip'))
+        self.browser_use_checkbox.setStyleSheet(f"""
+            QCheckBox {{ color: {COLORS['text_secondary']}; font-size: 11px; spacing: 4px; }}
+            QCheckBox:hover {{ color: {COLORS['text_primary']}; }}
+            QCheckBox::indicator {{ width: 14px; height: 14px; }}
+        """)
+        btn_layout.addWidget(self.browser_use_checkbox)
 
         btn_layout.addStretch()
 
@@ -3510,6 +3534,12 @@ class SoloAITab(QWidget):
 
             elif provider == "google_cli":
                 self._send_via_google_cli(processed_message, session_id, model_id=model_id)
+
+            elif provider == "ollama":
+                # v12.8.4: 統合コンボから Ollama Local モデル選択時の直接ルーティング
+                ollama_url = getattr(self, '_ollama_url', 'http://localhost:11434')
+                self._send_via_ollama(processed_message, ollama_url, model_id)
+                return
 
             else:
                 # v11.5.1: unknown provider → ユーザーガイド表示
