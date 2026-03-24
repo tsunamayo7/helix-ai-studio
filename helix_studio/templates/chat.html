@@ -66,14 +66,20 @@
             </select>
 
             <!-- Mem0 トグル -->
-            <label class="flex items-center gap-2 cursor-pointer ml-auto">
-                <span class="text-xs text-slate-400">Mem0</span>
-                <div class="relative">
-                    <input type="checkbox" x-model="$store.app.mem0Enabled" class="sr-only peer">
-                    <div class="w-8 h-4.5 bg-slate-600 rounded-full peer peer-checked:bg-blue-500 transition-colors"></div>
-                    <div class="absolute left-0.5 top-0.5 w-3.5 h-3.5 bg-white rounded-full transition-transform peer-checked:translate-x-3.5"></div>
-                </div>
-            </label>
+            <button @click="$store.app.mem0Enabled = !$store.app.mem0Enabled"
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ml-auto"
+                    :class="$store.app.mem0Enabled
+                        ? 'bg-amber-900/40 text-amber-400 border border-amber-700/50 hover:bg-amber-900/60'
+                        : 'bg-slate-800 text-slate-500 border border-slate-700 hover:bg-slate-700'">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                <span>Mem0</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full"
+                      :class="$store.app.mem0Enabled ? 'bg-amber-700/50 text-amber-300' : 'bg-slate-700 text-slate-500'"
+                      x-text="$store.app.mem0Enabled ? 'ON' : 'OFF'"></span>
+            </button>
 
             <!-- 新規会話ボタン -->
             <button @click="$store.app.newConversation()"
