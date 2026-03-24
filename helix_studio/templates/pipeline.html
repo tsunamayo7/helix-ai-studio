@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}パイプライン — Helix AI Studio{% endblock %}
+{% block nav_pipeline %}bg-slate-700 text-blue-400 font-medium{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto" x-data="{
+    taskInput: '',
+    planModel: '',
+    execModel: '',
+    verifyModel: '',
+    isRunning: false,
+    steps: [
+        { name: '計画', icon: 'cloud', status: 'idle', progress: 0, result: '' },
+        { name: '実行', icon: 'local', status: 'idle', progress: 0, result: '' },
+        { name: '検証', icon: 'cloud', status: 'idle', progress: 0, result: '' },
+    ],
+    history: [],
+
+    async runPipeline() {
+        if (!this.taskInput.trim() || this.isRunning) return;
+        this.isRunning = true;
+        this.steps.forEach(s => { s.status = 'idle'; s.progress = 0; s.result = ''; });
+
+        try {
+            const res = await fetch('/api/pipeline/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task: this.taskInput,
+                    plan_model: this.planModel,
+                    exec_model: this.execModel,
+                    verify_model: this.verifyModel,
+                }),
+            });
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            if (data.step !== undefined && data.step < 3) {
+                                const step = this.steps[data.step];
+                                if (data.status) step.status = data.status;
+                                if (data.progress !== undefined) step.progress = data.progress;
+                                if (data.result) step.result = data.result;
+                            }
+                        } catch (e) {}
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('パイプラインエラー:', e);
+        }
+
+        this.isRunning = false;
+        this.history.unshift({
+            task: this.taskInput,
+            timestamp: new Date().toLocaleString('ja-JP'),
+            steps: JSON.parse(JSON.stringify(this.steps)),
+        });
+    },
+
+    async loadHistory() {
+        try {
+            const res = await fetch('/api/pipeline/history');
+            if (res.ok) {
+                const data = await res.json();
+                this.history = data.history || [];
+            }
+        } catch (e) {}
+    }
+}" x-init="loadHistory()">
+
+    <!-- ヘッダー -->
+    <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-100">AIパイプライン</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Cloud AI で計画 → ローカル LLM で実行 → Cloud AI で検証</p>
+    </div>
+
+    <div class="p-6 max-w-5xl mx-auto space-y-6">
+
+        <!-- 入力エリア -->
+        <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
+            <label class="block text-sm font-medium text-slate-300 mb-2">タスクの説明</label>
+            <textarea x-model="taskInput"
+                      placeholder="実行したいタスクを入力してください..."
+                      rows="3"
+                      class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"></textarea>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">計画モデル (Cloud)</label>
+                    <select x-model="planModel"
+                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="">デフォルト</option>
+                        <template x-for="m in $store.app.availableModels" :key="'p'+m">
+                            <option :value="m" x-text="m"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">実行モデル (ローカル)</label>
+                    <select x-model="execModel"
+                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="">デフォルト</option>
+                        <template x-for="m in $store.app.availableModels" :key="'e'+m">
+                            <option :value="m" x-text="m"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">検証モデル (Cloud)</label>
+                    <select x-model="verifyModel"
+                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                        <option value="">デフォルト</option>
+                        <template x-for="m in $store.app.availableModels" :key="'v'+m">
+                            <option :value="m" x-text="m"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+
+            <button @click="runPipeline()"
+                    :disabled="!taskInput.trim() || isRunning"
+                    :class="taskInput.trim() && !isRunning ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
+                    class="mt-4 px-6 py-2.5 text-white text-sm font-medium rounded-xl transition-all duration-200">
+                <span x-show="!isRunning">パイプライン実行</span>
+                <span x-show="isRunning" class="flex items-center gap-2">
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    実行中...
+                </span>
+            </button>
+        </div>
+
+        <!-- 3ステップカード -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <template x-for="(step, i) in steps" :key="i">
+                <div class="bg-slate-800 rounded-xl p-5 border border-slate-700 transition-all duration-300"
+                     :class="step.status === 'running' ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : step.status === 'done' ? 'border-emerald-500/30' : ''">
+
+                    <!-- ステップヘッダー -->
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+                             :class="step.icon === 'cloud' ? 'bg-blue-500/10 text-blue-400' : 'bg-emerald-500/10 text-emerald-400'">
+                            <!-- Cloud アイコン -->
+                            <template x-if="step.icon === 'cloud'">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                            </template>
+                            <!-- Local アイコン -->
+                            <template x-if="step.icon === 'local'">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            </template>
+                        </div>
+                        <div>
+                            <div class="text-xs text-slate-500" x-text="'Step ' + (i + 1)"></div>
+                            <div class="text-sm font-semibold text-slate-200" x-text="step.name"></div>
+                        </div>
+                        <!-- ステータスバッジ -->
+                        <div class="ml-auto">
+                            <span x-show="step.status === 'idle'" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">待機中</span>
+                            <span x-show="step.status === 'running'" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">実行中</span>
+                            <span x-show="step.status === 'done'" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">完了</span>
+                            <span x-show="step.status === 'error'" class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">エラー</span>
+                        </div>
+                    </div>
+
+                    <!-- 進捗バー -->
+                    <div class="w-full bg-slate-700 rounded-full h-1.5 mb-3">
+                        <div class="h-1.5 rounded-full transition-all duration-500"
+                             :class="step.status === 'done' ? 'bg-emerald-500' : 'bg-blue-500'"
+                             :style="'width: ' + step.progress + '%'"></div>
+                    </div>
+
+                    <!-- 結果テキスト -->
+                    <div class="text-xs text-slate-400 min-h-[60px] max-h-[200px] overflow-y-auto">
+                        <template x-if="step.result">
+                            <div class="markdown-body" x-html="renderMarkdown(step.result)"></div>
+                        </template>
+                        <template x-if="!step.result && step.status === 'idle'">
+                            <span class="text-slate-600">結果がここに表示されます</span>
+                        </template>
+                        <template x-if="!step.result && step.status === 'running'">
+                            <div class="flex gap-1 py-2">
+                                <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
+                                <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                                <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- 実行履歴 -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700">
+            <div class="px-5 py-3 border-b border-slate-700">
+                <h3 class="text-sm font-semibold text-slate-300">実行履歴</h3>
+            </div>
+            <div class="divide-y divide-slate-700">
+                <template x-if="history.length === 0">
+                    <div class="px-5 py-8 text-center text-xs text-slate-500">
+                        まだ実行履歴がありません
+                    </div>
+                </template>
+                <template x-for="(item, idx) in history" :key="idx">
+                    <div class="px-5 py-3 hover:bg-slate-700/30 transition-colors cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-slate-300 truncate" x-text="item.task"></span>
+                            <span class="text-[10px] text-slate-500 shrink-0 ml-3" x-text="item.timestamp"></span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

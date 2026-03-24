@@ -1,0 +1,98 @@
+/* Helix AI Studio — ダークテーマ カスタムCSS */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-primary: #0f172a;
+    --bg-card: #1e293b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --user-bubble: #1e40af;
+    --assistant-bubble: #334155;
+    --code-bg: #0d1117;
+}
+
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+/* コードブロック */
+pre code {
+    background: var(--code-bg) !important;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+}
+pre {
+    background: var(--code-bg) !important;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    position: relative;
+    overflow-x: auto;
+}
+pre .copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: #334155;
+    color: #94a3b8;
+    border: none;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+pre:hover .copy-btn { opacity: 1; }
+pre .copy-btn:hover { background: #475569; color: #e2e8f0; }
+
+/* メッセージアニメーション */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.msg-enter { animation: fadeInUp 0.25s ease-out; }
+
+/* ストリーミングカーソル */
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+.streaming-cursor::after {
+    content: '\25CF';
+    animation: blink 0.8s infinite;
+    margin-left: 2px;
+    color: var(--accent);
+}
+
+/* テキストエリア自動リサイズ */
+textarea { resize: none; }
+
+/* Markdownコンテンツ内のスタイル */
+.markdown-body p { margin-bottom: 0.5rem; }
+.markdown-body ul, .markdown-body ol { margin-left: 1.25rem; margin-bottom: 0.5rem; }
+.markdown-body li { margin-bottom: 0.25rem; }
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+.markdown-body a { color: var(--accent); text-decoration: underline; }
+.markdown-body blockquote {
+    border-left: 3px solid #475569;
+    padding-left: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+.markdown-body code:not(pre code) {
+    background: var(--code-bg);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+}

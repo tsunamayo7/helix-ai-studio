@@ -1,0 +1,304 @@
+"""チャット WebSocket + REST API ルーター"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+import uuid
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.responses import JSONResponse
+
+from helix_studio.config import get_setting
+from helix_studio.db import get_connection
+from helix_studio.models import (
+    ChatRequest,
+    ChatResponse,
+    ConversationCreate,
+    ConversationDetail,
+    ConversationSummary,
+)
+from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0
+
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["chat"])
+
+
+# ── WebSocket チャット ────────────────────────────────
+
+
+@router.websocket("/ws/chat")
+async def ws_chat(ws: WebSocket):
+    """WebSocketでストリーミングチャット。"""
+    await ws.accept()
+    try:
+        while True:
+            raw = await ws.receive_text()
+            data = json.loads(raw)
+
+            provider = data.get("provider", "ollama")
+            model = data.get("model", "")
+            messages = data.get("messages", [])
+            system_prompt = data.get("system_prompt", "")
+            conversation_id = data.get("conversation_id", "")
+
+            # 会話IDがなければ新規作成
+            if not conversation_id:
+                conversation_id = str(uuid.uuid4())
+                await _create_conversation(conversation_id, provider, model, system_prompt)
+
+            # ユーザーメッセージをDB保存
+            user_msg = messages[-1] if messages else {"role": "user", "content": ""}
+            user_msg_id = str(uuid.uuid4())
+            await _save_message(
+                user_msg_id, conversation_id, "user", user_msg.get("content", ""),
+                provider, model,
+            )
+
+            # Mem0自動注入
+            mem0_inject = await get_setting("mem0_auto_inject")
+            if mem0_inject == "true" and user_msg.get("content"):
+                await _inject_mem0_context(messages, user_msg["content"])
+
+            # ストリーミング応答
+            start_ms = time.monotonic_ns() // 1_000_000
+            full_response = ""
+            try:
+                async for chunk in _route_stream(provider, model, messages, system_prompt):
+                    full_response += chunk
+                    await ws.send_text(json.dumps({
+                        "type": "chunk",
+                        "content": chunk,
+                        "conversation_id": conversation_id,
+                    }))
+            except Exception as e:
+                logger.exception("ストリーミングエラー")
+                await ws.send_text(json.dumps({
+                    "type": "error",
+                    "content": f"エラーが発生しました: {e}",
+                    "conversation_id": conversation_id,
+                }))
+                continue
+
+            duration_ms = (time.monotonic_ns() // 1_000_000) - start_ms
+
+            # アシスタントメッセージをDB保存
+            asst_msg_id = str(uuid.uuid4())
+            await _save_message(
+                asst_msg_id, conversation_id, "assistant", full_response,
+                provider, model, duration_ms=duration_ms,
+            )
+
+            # 完了通知
+            await ws.send_text(json.dumps({
+                "type": "done",
+                "conversation_id": conversation_id,
+                "message_id": asst_msg_id,
+                "duration_ms": duration_ms,
+            }))
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket切断")
+    except Exception as e:
+        logger.exception("WebSocketエラー: %s", e)
+
+
+# ── REST API ──────────────────────────────────────────
+
+
+@router.post("/api/chat")
+async def post_chat(req: ChatRequest) -> ChatResponse:
+    """非ストリーミング版チャット（フォールバック）。"""
+    conversation_id = req.conversation_id or str(uuid.uuid4())
+
+    if not req.conversation_id:
+        await _create_conversation(conversation_id, req.provider, req.model, req.system_prompt)
+
+    messages = [{"role": m.role, "content": m.content} for m in req.messages]
+
+    start_ms = time.monotonic_ns() // 1_000_000
+    chunks: list[str] = []
+    async for chunk in _route_stream(req.provider, req.model, messages, req.system_prompt):
+        chunks.append(chunk)
+    content = "".join(chunks)
+    duration_ms = (time.monotonic_ns() // 1_000_000) - start_ms
+
+    msg_id = str(uuid.uuid4())
+    await _save_message(msg_id, conversation_id, "assistant", content, req.provider, req.model, duration_ms=duration_ms)
+
+    return ChatResponse(
+        conversation_id=conversation_id,
+        message_id=msg_id,
+        content=content,
+        provider=req.provider,
+        model=req.model,
+        duration_ms=duration_ms,
+    )
+
+
+@router.post("/api/conversations")
+async def create_conversation(req: ConversationCreate) -> dict:
+    """新規会話を作成。"""
+    conv_id = str(uuid.uuid4())
+    await _create_conversation(conv_id, req.provider, req.model, req.system_prompt, req.title)
+    return {"id": conv_id, "title": req.title}
+
+
+@router.get("/api/conversations")
+async def list_conversations() -> list[dict]:
+    """会話一覧を取得。"""
+    db = await get_connection()
+    try:
+        cursor = await db.execute(
+            "SELECT id, title, provider, model, created_at, updated_at "
+            "FROM conversations ORDER BY updated_at DESC"
+        )
+        rows = await cursor.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        await db.close()
+
+
+@router.get("/api/conversations/{conv_id}")
+async def get_conversation(conv_id: str) -> dict:
+    """会話詳細（メッセージ含む）を取得。"""
+    db = await get_connection()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM conversations WHERE id = ?", (conv_id,)
+        )
+        conv = await cursor.fetchone()
+        if not conv:
+            raise HTTPException(status_code=404, detail="会話が見つかりません")
+
+        cursor = await db.execute(
+            "SELECT id, role, content, provider, model, tokens_in, tokens_out, "
+            "duration_ms, created_at FROM messages "
+            "WHERE conversation_id = ? ORDER BY created_at",
+            (conv_id,),
+        )
+        messages = await cursor.fetchall()
+        return {
+            **dict(conv),
+            "messages": [dict(m) for m in messages],
+        }
+    finally:
+        await db.close()
+
+
+@router.delete("/api/conversations/{conv_id}")
+async def delete_conversation(conv_id: str) -> dict:
+    """会話を削除。"""
+    db = await get_connection()
+    try:
+        await db.execute("DELETE FROM conversations WHERE id = ?", (conv_id,))
+        await db.commit()
+        return {"deleted": conv_id}
+    finally:
+        await db.close()
+
+
+# ── ヘルパー ──────────────────────────────────────────
+
+
+async def _route_stream(
+    provider: str,
+    model: str,
+    messages: list[dict[str, str]],
+    system_prompt: str = "",
+):
+    """プロバイダに応じたストリーミングを返す。"""
+    if provider in ("claude", "openai"):
+        api_key_map = {"claude": "claude_api_key", "openai": "openai_api_key"}
+        api_key = await get_setting(api_key_map[provider]) or ""
+        if not api_key:
+            raise ValueError(f"{provider}のAPIキーが設定されていません。設定画面から入力してください。")
+        async for chunk in cloud_ai.stream_chat(provider, api_key, model, messages, system_prompt):
+            yield chunk
+    elif provider == "openai_compat":
+        url = await get_setting("openai_compat_url") or ""
+        api_key = await get_setting("openai_compat_api_key") or ""
+        if not url:
+            raise ValueError("OpenAI互換APIのURLが設定されていません。")
+        async for chunk in local_ai.stream_chat("openai_compat", url, model, messages, api_key):
+            yield chunk
+    elif provider in ("claude_code", "codex", "gemini_cli"):
+        # CLI経由
+        user_content = messages[-1]["content"] if messages else ""
+        async for chunk in cli_ai.stream_chat_cli(provider, model, user_content, system_prompt):
+            yield chunk
+    else:
+        # デフォルト: Ollama
+        url = await get_setting("ollama_url") or "http://localhost:11434"
+        async for chunk in local_ai.stream_chat("ollama", url, model, messages):
+            yield chunk
+
+
+async def _inject_mem0_context(
+    messages: list[dict[str, str]],
+    query: str,
+) -> None:
+    """Mem0から関連記憶を検索し、systemメッセージとして注入。"""
+    try:
+        mem0_url = await get_setting("mem0_url") or "http://localhost:8080"
+        user_id = await get_setting("mem0_user_id") or "tsunamayo7"
+        memories = await mem0.search(mem0_url, user_id, query, limit=5)
+        if memories:
+            mem_texts = []
+            for m in memories:
+                text = m.get("memory", m.get("text", str(m)))
+                mem_texts.append(f"- {text}")
+            context = "【参考: 過去の記憶】\n" + "\n".join(mem_texts)
+            # 先頭にsystemメッセージとして挿入
+            messages.insert(0, {"role": "system", "content": context})
+    except Exception as e:
+        logger.debug("Mem0注入をスキップ: %s", e)
+
+
+async def _create_conversation(
+    conv_id: str,
+    provider: str,
+    model: str,
+    system_prompt: str = "",
+    title: str = "新しい会話",
+) -> None:
+    """会話レコードをDBに作成。"""
+    db = await get_connection()
+    try:
+        await db.execute(
+            "INSERT INTO conversations (id, title, provider, model, system_prompt) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (conv_id, title, provider, model, system_prompt),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def _save_message(
+    msg_id: str,
+    conversation_id: str,
+    role: str,
+    content: str,
+    provider: str | None = None,
+    model: str | None = None,
+    tokens_in: int | None = None,
+    tokens_out: int | None = None,
+    duration_ms: int | None = None,
+) -> None:
+    """メッセージをDBに保存し、会話のupdated_atを更新。"""
+    db = await get_connection()
+    try:
+        await db.execute(
+            "INSERT INTO messages (id, conversation_id, role, content, provider, model, "
+            "tokens_in, tokens_out, duration_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (msg_id, conversation_id, role, content, provider, model, tokens_in, tokens_out, duration_ms),
+        )
+        await db.execute(
+            "UPDATE conversations SET updated_at = datetime('now') WHERE id = ?",
+            (conversation_id,),
+        )
+        await db.commit()
+    finally:
+        await db.close()

@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block title %}設定 — Helix AI Studio{% endblock %}
+{% block nav_settings %}bg-slate-700 text-blue-400 font-medium{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto" x-data="{
+    settings: {
+        claude_api_key: '',
+        openai_api_key: '',
+        ollama_url: 'http://localhost:11434',
+        openai_compat_url: '',
+        openai_compat_key: '',
+        mem0_url: 'http://localhost:8080',
+        mem0_user_id: 'tsunamayo7',
+        mem0_auto_inject: true,
+        mcp_helix_pilot_cmd: '',
+        mcp_helix_sandbox_cmd: '',
+        default_cloud_model: '',
+        default_local_model: '',
+    },
+    testResults: {},
+    saving: false,
+
+    async loadSettings() {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                const data = await res.json();
+                Object.assign(this.settings, data);
+            }
+        } catch (e) {}
+    },
+
+    async saveSettings() {
+        this.saving = true;
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.settings),
+            });
+            if (res.ok) {
+                this.testResults.save = { ok: true, msg: '保存しました' };
+            } else {
+                this.testResults.save = { ok: false, msg: '保存に失敗しました' };
+            }
+        } catch (e) {
+            this.testResults.save = { ok: false, msg: 'エラー: ' + e.message };
+        }
+        this.saving = false;
+        setTimeout(() => { this.testResults.save = null; }, 3000);
+    },
+
+    async testConnection(service) {
+        this.testResults[service] = { ok: null, msg: 'テスト中...' };
+        try {
+            const res = await fetch('/api/settings/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ service, settings: this.settings }),
+            });
+            const data = await res.json();
+            this.testResults[service] = { ok: data.ok, msg: data.message };
+        } catch (e) {
+            this.testResults[service] = { ok: false, msg: '接続エラー' };
+        }
+        setTimeout(() => { this.testResults[service] = null; }, 5000);
+    },
+}" x-init="loadSettings()">
+
+    <!-- ヘッダー -->
+    <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
+        <h2 class="text-lg font-semibold text-slate-100">設定</h2>
+        <p class="text-xs text-slate-400 mt-0.5">APIキー、接続先、デフォルトモデルの設定</p>
+    </div>
+
+    <div class="p-6 max-w-3xl mx-auto space-y-6">
+
+        <!-- Cloud AI 設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">Cloud AI 設定</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Claude API キー</label>
+                    <input type="password" x-model="settings.claude_api_key"
+                           placeholder="sk-ant-..."
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">OpenAI API キー</label>
+                    <input type="password" x-model="settings.openai_api_key"
+                           placeholder="sk-..."
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="testConnection('claude')"
+                            class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
+                        Claude 接続テスト
+                    </button>
+                    <button @click="testConnection('openai')"
+                            class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
+                        OpenAI 接続テスト
+                    </button>
+                    <template x-if="testResults.claude">
+                        <span :class="testResults.claude.ok ? 'text-emerald-400' : testResults.claude.ok === false ? 'text-red-400' : 'text-slate-400'"
+                              class="text-xs" x-text="testResults.claude.msg"></span>
+                    </template>
+                    <template x-if="testResults.openai">
+                        <span :class="testResults.openai.ok ? 'text-emerald-400' : testResults.openai.ok === false ? 'text-red-400' : 'text-slate-400'"
+                              class="text-xs" x-text="testResults.openai.msg"></span>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- ローカル AI 設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">ローカル AI 設定</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Ollama URL</label>
+                    <input type="text" x-model="settings.ollama_url"
+                           placeholder="http://localhost:11434"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">OpenAI 互換 API URL</label>
+                    <input type="text" x-model="settings.openai_compat_url"
+                           placeholder="http://localhost:1234/v1"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">OpenAI 互換 API キー（任意）</label>
+                    <input type="password" x-model="settings.openai_compat_key"
+                           placeholder="lm-studio-..."
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="testConnection('ollama')"
+                            class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
+                        Ollama 接続テスト
+                    </button>
+                    <button @click="testConnection('openai_compat')"
+                            class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
+                        互換API 接続テスト
+                    </button>
+                    <template x-if="testResults.ollama">
+                        <span :class="testResults.ollama.ok ? 'text-emerald-400' : testResults.ollama.ok === false ? 'text-red-400' : 'text-slate-400'"
+                              class="text-xs" x-text="testResults.ollama.msg"></span>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mem0 設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">Mem0 設定（共有記憶）</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Mem0 HTTP URL</label>
+                    <input type="text" x-model="settings.mem0_url"
+                           placeholder="http://localhost:8080"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ユーザー ID</label>
+                    <input type="text" x-model="settings.mem0_user_id"
+                           placeholder="tsunamayo7"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="settings.mem0_auto_inject"
+                               class="rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500/30">
+                        <span class="text-xs text-slate-300">会話に記憶を自動注入</span>
+                    </label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button @click="testConnection('mem0')"
+                            class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
+                        Mem0 接続テスト
+                    </button>
+                    <template x-if="testResults.mem0">
+                        <span :class="testResults.mem0.ok ? 'text-emerald-400' : testResults.mem0.ok === false ? 'text-red-400' : 'text-slate-400'"
+                              class="text-xs" x-text="testResults.mem0.msg"></span>
+                    </template>
+                </div>
+            </div>
+        </section>
+
+        <!-- MCP 設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">MCP サーバー設定</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">helix-pilot 起動コマンド</label>
+                    <input type="text" x-model="settings.mcp_helix_pilot_cmd"
+                           placeholder="python -m helix_pilot.server"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">helix-sandbox 起動コマンド</label>
+                    <input type="text" x-model="settings.mcp_helix_sandbox_cmd"
+                           placeholder="python -m helix_sandbox.server"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors font-mono">
+                </div>
+            </div>
+        </section>
+
+        <!-- デフォルトモデル設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">デフォルトモデル</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Cloud AI デフォルトモデル</label>
+                    <input type="text" x-model="settings.default_cloud_model"
+                           placeholder="claude-sonnet-4-20250514"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">ローカル AI デフォルトモデル</label>
+                    <input type="text" x-model="settings.default_local_model"
+                           placeholder="qwen3.5:122b"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+            </div>
+        </section>
+
+        <!-- 保存ボタン -->
+        <div class="flex items-center gap-4">
+            <button @click="saveSettings()"
+                    :disabled="saving"
+                    class="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-50">
+                <span x-show="!saving">設定を保存</span>
+                <span x-show="saving">保存中...</span>
+            </button>
+            <template x-if="testResults.save">
+                <span :class="testResults.save.ok ? 'text-emerald-400' : 'text-red-400'"
+                      class="text-sm" x-text="testResults.save.msg"></span>
+            </template>
+        </div>
+
+        <!-- 余白 -->
+        <div class="h-8"></div>
+    </div>
+</div>
+{% endblock %}

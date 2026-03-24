@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}チャット — Helix AI Studio{% endblock %}
+{% block nav_chat %}bg-slate-700 text-blue-400 font-medium{% endblock %}
+
+{% block sidebar %}
+{% include "components/sidebar.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex flex-col overflow-hidden" x-data="{ input: '', providerTab: 'local' }">
+
+    <!-- ヘッダー -->
+    <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-4 py-3">
+        <div class="flex items-center gap-4 flex-wrap">
+
+            <!-- プロバイダ切替タブ -->
+            <div class="flex bg-slate-900 rounded-lg p-0.5">
+                <button @click="providerTab = 'cloud'; $store.app.provider = 'claude'; $store.app.loadModels()"
+                        :class="providerTab === 'cloud' ? 'bg-slate-700 text-blue-400 shadow' : 'text-slate-400 hover:text-slate-300'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
+                    Cloud AI
+                </button>
+                <button @click="providerTab = 'local'; $store.app.provider = 'ollama'; $store.app.loadModels()"
+                        :class="providerTab === 'local' ? 'bg-slate-700 text-emerald-400 shadow' : 'text-slate-400 hover:text-slate-300'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
+                    ローカル AI
+                </button>
+            </div>
+
+            <!-- Cloud 時のプロバイダ選択 -->
+            <template x-if="providerTab === 'cloud'">
+                <select x-model="$store.app.provider"
+                        @change="$store.app.loadModels()"
+                        class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
+                    <option value="claude">Claude</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </template>
+
+            <!-- Local 時のプロバイダ選択 -->
+            <template x-if="providerTab === 'local'">
+                <select x-model="$store.app.provider"
+                        @change="$store.app.loadModels()"
+                        class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
+                    <option value="ollama">Ollama</option>
+                    <option value="openai_compat">OpenAI互換</option>
+                </select>
+            </template>
+
+            <!-- モデル選択 -->
+            <select x-model="$store.app.model"
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[200px]">
+                <template x-if="$store.app.availableModels.length === 0">
+                    <option value="">モデルなし</option>
+                </template>
+                <template x-for="m in $store.app.availableModels" :key="m">
+                    <option :value="m" x-text="m"></option>
+                </template>
+            </select>
+
+            <!-- Mem0 トグル -->
+            <label class="flex items-center gap-2 cursor-pointer ml-auto">
+                <span class="text-xs text-slate-400">Mem0</span>
+                <div class="relative">
+                    <input type="checkbox" x-model="$store.app.mem0Enabled" class="sr-only peer">
+                    <div class="w-8 h-4.5 bg-slate-600 rounded-full peer peer-checked:bg-blue-500 transition-colors"></div>
+                    <div class="absolute left-0.5 top-0.5 w-3.5 h-3.5 bg-white rounded-full transition-transform peer-checked:translate-x-3.5"></div>
+                </div>
+            </label>
+
+            <!-- 新規会話ボタン -->
+            <button @click="$store.app.newConversation()"
+                    class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors duration-200">
+                新規会話
+            </button>
+        </div>
+    </div>
+
+    <!-- メッセージ領域 -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+         x-effect="scrollToBottom('#chat-messages')">
+
+        <!-- 空状態 -->
+        <template x-if="$store.app.messages.length === 0">
+            <div class="flex flex-col items-center justify-center h-full text-center">
+                <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg>
+                </div>
+                <h2 class="text-lg font-semibold text-slate-300 mb-1">AIとの対話を始めましょう</h2>
+                <p class="text-sm text-slate-500 max-w-sm">Cloud AI とローカル LLM を切り替えながら、自由に対話できます。</p>
+            </div>
+        </template>
+
+        <!-- メッセージ一覧 -->
+        <template x-for="(msg, idx) in $store.app.messages" :key="idx">
+            <div class="msg-enter" :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
+
+                <!-- エラーメッセージ -->
+                <template x-if="msg.role === 'error'">
+                    <div class="max-w-2xl px-4 py-3 rounded-xl bg-red-900/30 border border-red-800 text-red-300 text-sm">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                            <span class="font-medium">エラー</span>
+                        </div>
+                        <span x-text="msg.content"></span>
+                    </div>
+                </template>
+
+                <!-- ユーザーメッセージ -->
+                <template x-if="msg.role === 'user'">
+                    <div class="max-w-2xl">
+                        <div class="px-4 py-3 rounded-2xl rounded-br-md text-sm leading-relaxed"
+                             style="background: #1e40af;">
+                            <span x-text="msg.content" class="whitespace-pre-wrap"></span>
+                        </div>
+                        <div class="text-[10px] text-slate-500 mt-1 text-right" x-text="msg.timestamp"></div>
+                    </div>
+                </template>
+
+                <!-- アシスタントメッセージ -->
+                <template x-if="msg.role === 'assistant'">
+                    <div class="max-w-2xl">
+                        <div class="px-4 py-3 rounded-2xl rounded-bl-md text-sm leading-relaxed markdown-body"
+                             style="background: #334155;"
+                             :class="{ 'streaming-cursor': $store.app.isStreaming && idx === $store.app.messages.length - 1 && msg.content }">
+                            <div x-html="renderMarkdown(msg.content)"></div>
+                            <!-- ストリーミング中の空メッセージ -->
+                            <template x-if="$store.app.isStreaming && idx === $store.app.messages.length - 1 && !msg.content">
+                                <div class="flex gap-1 py-1">
+                                    <span class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
+                                    <span class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
+                                    <span class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="text-[10px] text-slate-500 mt-1" x-text="msg.timestamp"></div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- 入力エリア -->
+    <div class="border-t border-slate-700 bg-slate-800/80 backdrop-blur p-4">
+        <div class="max-w-3xl mx-auto flex gap-3 items-end">
+            <textarea x-model="input"
+                      @keydown.enter.prevent="if (!$event.shiftKey) { $store.app.sendMessage(input); input = ''; }"
+                      @input="autoResize($el)"
+                      :disabled="$store.app.isStreaming"
+                      placeholder="メッセージを入力... (Shift+Enter で改行)"
+                      rows="1"
+                      class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200 max-h-[200px] overflow-y-auto"></textarea>
+            <button @click="$store.app.sendMessage(input); input = '';"
+                    :disabled="!input.trim() || $store.app.isStreaming"
+                    :class="input.trim() && !$store.app.isStreaming ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
+                    class="p-3 rounded-xl transition-all duration-200 shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0l-7 7m7-7l7 7" transform="rotate(45 12 12)"/></svg>
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

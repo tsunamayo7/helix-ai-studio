@@ -1,0 +1,24 @@
+[project]
+name = "helix-ai-studio"
+version = "0.1.0"
+description = "All-in-one AI chat studio with local/cloud LLM, Mem0 memory, and multi-step pipeline"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "anthropic>=0.86.0",
+    "fastapi>=0.135.2",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "markdown2>=2.5.5",
+    "openai>=2.29.0",
+    "python-multipart>=0.0.22",
+    "uvicorn>=0.42.0",
+    "websockets>=16.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.15.7",
+]
