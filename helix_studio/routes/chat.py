@@ -39,9 +39,16 @@ async def ws_chat(ws: WebSocket):
 
             provider = data.get("provider", "ollama")
             model = data.get("model", "")
-            messages = data.get("messages", [])
+            content = data.get("content", "")
             system_prompt = data.get("system_prompt", "")
             conversation_id = data.get("conversation_id", "")
+
+            if not content:
+                await ws.send_text(json.dumps({
+                    "type": "error",
+                    "content": "メッセージが空です",
+                }))
+                continue
 
             # 会話IDがなければ新規作成
             if not conversation_id:
@@ -49,17 +56,19 @@ async def ws_chat(ws: WebSocket):
                 await _create_conversation(conversation_id, provider, model, system_prompt)
 
             # ユーザーメッセージをDB保存
-            user_msg = messages[-1] if messages else {"role": "user", "content": ""}
             user_msg_id = str(uuid.uuid4())
             await _save_message(
-                user_msg_id, conversation_id, "user", user_msg.get("content", ""),
+                user_msg_id, conversation_id, "user", content,
                 provider, model,
             )
 
+            # 過去のメッセージを取得して会話履歴を構築
+            messages = await _load_conversation_messages(conversation_id)
+
             # Mem0自動注入
             mem0_inject = await get_setting("mem0_auto_inject")
-            if mem0_inject == "true" and user_msg.get("content"):
-                await _inject_mem0_context(messages, user_msg["content"])
+            if mem0_inject == "true" and content:
+                await _inject_mem0_context(messages, content)
 
             # ストリーミング応答
             start_ms = time.monotonic_ns() // 1_000_000
@@ -254,6 +263,21 @@ async def _inject_mem0_context(
             messages.insert(0, {"role": "system", "content": context})
     except Exception as e:
         logger.debug("Mem0注入をスキップ: %s", e)
+
+
+async def _load_conversation_messages(conversation_id: str) -> list[dict[str, str]]:
+    """会話の全メッセージをDBから取得してLLM用の形式で返す。"""
+    db = await get_connection()
+    try:
+        cursor = await db.execute(
+            "SELECT role, content FROM messages "
+            "WHERE conversation_id = ? ORDER BY created_at ASC",
+            (conversation_id,),
+        )
+        rows = await cursor.fetchall()
+        return [{"role": r["role"], "content": r["content"]} for r in rows]
+    finally:
+        await db.close()
 
 
 async def _create_conversation(
