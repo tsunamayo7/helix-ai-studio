@@ -1,7 +1,9 @@
 [project]
 name = "helix-ai-studio"
-version = "0.1.0"
-description = "All-in-one AI chat studio with local/cloud LLM, Mem0 memory, and multi-step pipeline"
+version = "2.0.0"
+description = "All-in-one AI chat studio — 7 providers, Mem0 memory, CrewAI multi-agent, web search, file ops, pipeline"
+license = {text = "MIT"}
+authors = [{name = "tsunamayo7"}]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
