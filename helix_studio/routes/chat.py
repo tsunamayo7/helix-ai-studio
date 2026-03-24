@@ -19,7 +19,7 @@ from helix_studio.models import (
     ConversationDetail,
     ConversationSummary,
 )
-from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0
+from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0, tools
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -62,8 +62,15 @@ async def ws_chat(ws: WebSocket):
                 provider, model,
             )
 
+            # ツールコマンド処理（@search, @file）
+            tool_context = await _process_tool_commands(content)
+
             # 過去のメッセージを取得して会話履歴を構築
             messages = await _load_conversation_messages(conversation_id)
+
+            # ツール結果をコンテキストに注入
+            if tool_context:
+                messages.insert(0, {"role": "system", "content": tool_context})
 
             # Mem0自動注入
             mem0_inject = await get_setting("mem0_auto_inject")
@@ -257,6 +264,55 @@ async def _route_stream(
         url = await get_setting("ollama_url") or "http://localhost:11434"
         async for chunk in local_ai.stream_chat("ollama", url, model, messages):
             yield chunk
+
+
+async def _process_tool_commands(content: str) -> str:
+    """メッセージ中の @search/@file コマンドを処理し、結果テキストを返す。
+
+    使い方:
+      @search キーワード   → Web検索してLLMにコンテキスト注入
+      @file パス           → ファイル読み取りしてLLMにコンテキスト注入
+      @ls パス             → ディレクトリ一覧を取得
+    """
+    import re
+    parts = []
+
+    # @search コマンド
+    search_matches = re.findall(r'@search\s+(.+?)(?=@\w|$)', content, re.DOTALL)
+    for query in search_matches:
+        query = query.strip()
+        if query:
+            try:
+                results = await tools.web_search(query, max_results=5)
+                parts.append(tools.format_search_results(results))
+            except Exception as e:
+                parts.append(f"[Web検索エラー] {e}")
+
+    # @file コマンド
+    file_matches = re.findall(r'@file\s+([\S]+)', content)
+    for path in file_matches:
+        try:
+            result = await tools.read_file(path.strip())
+            if result.get("error"):
+                parts.append(f"[ファイルエラー] {result['error']}")
+            else:
+                file_content = result.get("content", "")
+                if len(file_content) > 5000:
+                    file_content = file_content[:5000] + "\n...(truncated)"
+                parts.append(f"## ファイル: {path}\n```\n{file_content}\n```")
+        except Exception as e:
+            parts.append(f"[ファイル読み取りエラー] {e}")
+
+    # @ls コマンド
+    ls_matches = re.findall(r'@ls\s+([\S]+)', content)
+    for path in ls_matches:
+        try:
+            result = await tools.list_files(path.strip())
+            parts.append(tools.format_file_listing(result))
+        except Exception as e:
+            parts.append(f"[ディレクトリ一覧エラー] {e}")
+
+    return "\n\n".join(parts) if parts else ""
 
 
 async def _inject_mem0_context(

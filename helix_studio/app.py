@@ -19,6 +19,7 @@ from helix_studio.routes import (
     pages,
     pipeline_api,
     settings_api,
+    tools_api,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(settings_api.router)
     app.include_router(pipeline_api.router)
     app.include_router(crew_api.router)
+    app.include_router(tools_api.router)
 
     return app
 
