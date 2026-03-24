@@ -204,7 +204,7 @@ document.addEventListener('alpine:init', () => {
                 const res = await fetch('/api/conversations');
                 if (res.ok) {
                     const data = await res.json();
-                    this.conversations = data.conversations || [];
+                    this.conversations = Array.isArray(data) ? data : (data.conversations || []);
                 }
             } catch (e) {
                 console.error('会話一覧読み込みエラー:', e);

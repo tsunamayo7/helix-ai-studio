@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import shutil
+import subprocess
 from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,26 @@ def list_cli_models() -> dict[str, list[dict]]:
     return result
 
 
+def _resolve_command(cmd_name: str) -> str:
+    """コマンド名をフルパスに解決する（Windows .cmd/.exe対応）。"""
+    resolved = shutil.which(cmd_name)
+    if resolved:
+        return resolved
+    return cmd_name
+
+
+def _run_subprocess(cmd: list[str], timeout: int = 300) -> subprocess.CompletedProcess:
+    """サブプロセスを同期的に実行する（asyncio.to_thread用）。"""
+    # コマンド名をフルパスに解決（Windows .cmd対応）
+    resolved_cmd = [_resolve_command(cmd[0])] + cmd[1:]
+    return subprocess.run(
+        resolved_cmd,
+        capture_output=True,
+        timeout=timeout,
+        shell=True,  # Windows .cmd ファイルの実行に必要
+    )
+
+
 async def stream_chat_claude_code(
     model: str,
     message: str,
@@ -65,21 +86,14 @@ async def stream_chat_claude_code(
     cmd = ["claude", "-p", message, "--model", model, "--output-format", "json"]
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=300
-        )
+        result = await asyncio.to_thread(_run_subprocess, cmd, 300)
 
-        if proc.returncode != 0:
-            error_text = stderr.decode("utf-8", errors="replace").strip()
+        if result.returncode != 0:
+            error_text = result.stderr.decode("utf-8", errors="replace").strip()
             yield f"[Claude Code エラー] {error_text}"
             return
 
-        output = stdout.decode("utf-8", errors="replace").strip()
+        output = result.stdout.decode("utf-8", errors="replace").strip()
         try:
             data = json.loads(output)
             result_text = data.get("result", output)
@@ -92,12 +106,13 @@ async def stream_chat_claude_code(
             yield result_text[i:i + chunk_size]
             await asyncio.sleep(0.02)
 
-    except asyncio.TimeoutError:
+    except subprocess.TimeoutExpired:
         yield "[Claude Code タイムアウト] 300秒以内に応答がありませんでした"
     except FileNotFoundError:
         yield "[エラー] claude コマンドが見つかりません。Claude Code CLIをインストールしてください。"
     except Exception as e:
-        yield f"[エラー] {e}"
+        logger.exception("Claude Code CLI実行エラー: %s (type=%s)", e, type(e).__name__)
+        yield f"[エラー] {type(e).__name__}: {e}"
 
 
 async def stream_chat_codex(
@@ -108,21 +123,14 @@ async def stream_chat_codex(
     cmd = ["codex", "exec", "-m", model, "--", message]
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=300
-        )
+        result = await asyncio.to_thread(_run_subprocess, cmd, 300)
 
-        if proc.returncode != 0:
-            error_text = stderr.decode("utf-8", errors="replace").strip()
+        if result.returncode != 0:
+            error_text = result.stderr.decode("utf-8", errors="replace").strip()
             yield f"[Codex エラー] {error_text}"
             return
 
-        output = stdout.decode("utf-8", errors="replace").strip()
+        output = result.stdout.decode("utf-8", errors="replace").strip()
 
         # チャンク分割
         chunk_size = 50
@@ -130,12 +138,13 @@ async def stream_chat_codex(
             yield output[i:i + chunk_size]
             await asyncio.sleep(0.02)
 
-    except asyncio.TimeoutError:
+    except subprocess.TimeoutExpired:
         yield "[Codex タイムアウト] 300秒以内に応答がありませんでした"
     except FileNotFoundError:
         yield "[エラー] codex コマンドが見つかりません。Codex CLIをインストールしてください。"
     except Exception as e:
-        yield f"[エラー] {e}"
+        logger.exception("Codex CLI実行エラー: %s (type=%s)", e, type(e).__name__)
+        yield f"[エラー] {type(e).__name__}: {e}"
 
 
 async def stream_chat_gemini_cli(
@@ -146,33 +155,27 @@ async def stream_chat_gemini_cli(
     cmd = ["gemini", "-p", message, "-m", model]
 
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(
-            proc.communicate(), timeout=300
-        )
+        result = await asyncio.to_thread(_run_subprocess, cmd, 300)
 
-        if proc.returncode != 0:
-            error_text = stderr.decode("utf-8", errors="replace").strip()
+        if result.returncode != 0:
+            error_text = result.stderr.decode("utf-8", errors="replace").strip()
             yield f"[Gemini CLI エラー] {error_text}"
             return
 
-        output = stdout.decode("utf-8", errors="replace").strip()
+        output = result.stdout.decode("utf-8", errors="replace").strip()
 
         chunk_size = 50
         for i in range(0, len(output), chunk_size):
             yield output[i:i + chunk_size]
             await asyncio.sleep(0.02)
 
-    except asyncio.TimeoutError:
+    except subprocess.TimeoutExpired:
         yield "[Gemini CLI タイムアウト] 300秒以内に応答がありませんでした"
     except FileNotFoundError:
         yield "[エラー] gemini コマンドが見つかりません。Gemini CLIをインストールしてください。"
     except Exception as e:
-        yield f"[エラー] {e}"
+        logger.exception("Gemini CLI実行エラー: %s (type=%s)", e, type(e).__name__)
+        yield f"[エラー] {type(e).__name__}: {e}"
 
 
 async def stream_chat_cli(
