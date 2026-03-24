@@ -42,36 +42,63 @@
         return Math.round(total * 10) / 10;
     },
 
+    // 追加モデルカテゴリ
+    cliModels: [],
+    compatModels: [],
+
     async loadModels() {
         try {
             const res = await fetch('/api/models');
             if (!res.ok) return;
             const data = await res.json();
 
-            // Cloud（claude + openai）
+            // Cloud API（claude + openai）
             const cloud = [];
             for (const provider of ['claude', 'openai']) {
                 const models = data[provider] || [];
+                const prefix = provider === 'claude' ? '[Claude] ' : '[OpenAI] ';
                 for (const m of models) {
                     const value = typeof m === 'string' ? m : (m.id || m.name || '');
                     let label = typeof m === 'string' ? m : (m.name || m.id || '');
                     if (typeof m !== 'string' && m.description) label += ` — ${m.description}`;
-                    const prefix = provider === 'claude' ? '[Claude] ' : '[OpenAI] ';
                     if (value) cloud.push({ value, label: prefix + label });
                 }
             }
             this.cloudModels = cloud;
 
-            // Ollama（ローカル）
+            // CLI（claude_code + codex + gemini_cli）
+            const cli = [];
+            for (const provider of ['claude_code', 'codex', 'gemini_cli']) {
+                const models = data[provider] || [];
+                const prefixMap = { claude_code: '[Claude Code] ', codex: '[Codex] ', gemini_cli: '[Gemini] ' };
+                for (const m of models) {
+                    const value = typeof m === 'string' ? m : (m.id || m.name || '');
+                    let label = typeof m === 'string' ? m : (m.name || m.id || '');
+                    if (typeof m !== 'string' && m.description) label += ` — ${m.description}`;
+                    if (value) cli.push({ value, label: (prefixMap[provider] || '') + label, provider });
+                }
+            }
+            this.cliModels = cli;
+
+            // Ollama
             const ollama = [];
-            const ollamaList = data['ollama'] || [];
-            for (const m of ollamaList) {
+            for (const m of (data['ollama'] || [])) {
                 const value = typeof m === 'string' ? m : (m.name || m.id || '');
                 let label = typeof m === 'string' ? m : (m.name || m.id || '');
                 if (typeof m !== 'string' && m.size) label += ` (${m.size})`;
                 if (value) ollama.push({ value, label });
             }
             this.ollamaModels = ollama;
+
+            // OpenAI互換
+            const compat = [];
+            for (const m of (data['openai_compat'] || [])) {
+                const value = typeof m === 'string' ? m : (m.name || m.id || '');
+                let label = typeof m === 'string' ? m : (m.name || m.id || '');
+                if (value) compat.push({ value, label: '[互換] ' + label });
+            }
+            this.compatModels = compat;
+
             this.modelsLoaded = true;
         } catch (e) {
             console.error('モデル読み込みエラー:', e);
@@ -223,15 +250,27 @@
                       class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"></textarea>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-                <!-- Step1: 計画モデル (Cloud) -->
+                <!-- Step1: 計画モデル -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Step1 計画モデル (Cloud)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Step1 計画モデル</label>
                     <select x-model="planModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
                         <option value="">デフォルト</option>
-                        <template x-for="m in cloudModels" :key="'p'+m.value">
-                            <option :value="m.value" x-text="m.label"></option>
-                        </template>
+                        <optgroup label="Cloud API" x-show="cloudModels.length > 0">
+                            <template x-for="m in cloudModels" :key="'p-cloud-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="CLI" x-show="cliModels.length > 0">
+                            <template x-for="m in cliModels" :key="'p-cli-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="Ollama" x-show="ollamaModels.length > 0">
+                            <template x-for="m in ollamaModels" :key="'p-ollama-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -255,9 +294,16 @@
                         <select x-model="execModel"
                                 class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                             <option value="">デフォルト</option>
-                            <template x-for="m in ollamaModels" :key="'e'+m.value">
-                                <option :value="m.value" x-text="m.label"></option>
-                            </template>
+                            <optgroup label="Ollama">
+                                <template x-for="m in ollamaModels" :key="'e-ollama-'+m.value">
+                                    <option :value="m.value" x-text="m.label"></option>
+                                </template>
+                            </optgroup>
+                            <optgroup label="OpenAI互換" x-show="compatModels.length > 0">
+                                <template x-for="m in compatModels" :key="'e-compat-'+m.value">
+                                    <option :value="m.value" x-text="m.label"></option>
+                                </template>
+                            </optgroup>
                         </select>
                     </template>
                     <!-- CrewAI チーム選択 -->
@@ -272,15 +318,27 @@
                     </template>
                 </div>
 
-                <!-- Step3: 検証モデル (Cloud) -->
+                <!-- Step3: 検証モデル -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Step3 検証モデル (Cloud)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Step3 検証モデル</label>
                     <select x-model="verifyModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
                         <option value="">デフォルト</option>
-                        <template x-for="m in cloudModels" :key="'v'+m.value">
-                            <option :value="m.value" x-text="m.label"></option>
-                        </template>
+                        <optgroup label="Cloud API" x-show="cloudModels.length > 0">
+                            <template x-for="m in cloudModels" :key="'v-cloud-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="CLI" x-show="cliModels.length > 0">
+                            <template x-for="m in cliModels" :key="'v-cli-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
+                        <optgroup label="Ollama" x-show="ollamaModels.length > 0">
+                            <template x-for="m in ollamaModels" :key="'v-ollama-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
                     </select>
                 </div>
             </div>
