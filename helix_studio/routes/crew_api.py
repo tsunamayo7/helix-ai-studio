@@ -24,9 +24,13 @@ async def list_teams() -> dict:
 
 @router.get("/vram")
 async def vram_status() -> dict:
-    """VRAM使用状況"""
+    """VRAM使用状況（GPU自動検出 + ユーザー設定反映）"""
     ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
     status = await crew_ai.get_vram_status(ollama_url)
+    # VRAM合計を設定から取得
+    total = await crew_ai.get_effective_vram_total()
+    status["total_vram_gb"] = total
+    status["gpu_config"] = await get_setting("gpu_config") or "auto"
     return status
 
 

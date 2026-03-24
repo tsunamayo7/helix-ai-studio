@@ -73,6 +73,8 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "pipeline_step3_model": "claude-sonnet-4-20250514",
     "theme": "dark",
     "language": "ja",
+    "gpu_vram_total": "0",
+    "gpu_config": "auto",
 }
 
 

@@ -28,11 +28,44 @@ logger = logging.getLogger(__name__)
 # ── VRAM管理 ──────────────────────────────────────────
 
 
+async def detect_gpu_vram() -> float:
+    """GPUのVRAM合計を自動検出（nvidia-smi経由）。失敗時は0を返す。"""
+    import subprocess
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            total = sum(int(line.strip()) for line in result.stdout.strip().split("\n") if line.strip())
+            return round(total / 1024, 1)  # MB -> GB
+    except Exception as e:
+        logger.debug("GPU VRAM自動検出失敗: %s", e)
+    return 0
+
+
+async def get_effective_vram_total() -> float:
+    """ユーザー設定またはGPU自動検出からVRAM合計を取得"""
+    try:
+        from helix_studio.config import get_setting
+        user_setting = await get_setting("gpu_vram_total")
+        if user_setting and float(user_setting) > 0:
+            return float(user_setting)
+    except Exception:
+        pass
+    # 自動検出
+    detected = await detect_gpu_vram()
+    if detected > 0:
+        return detected
+    return 24.0  # 検出不可時のフォールバック（一般的なGPU想定）
+
+
 @dataclass
 class VRAMBudget:
     """VRAM使用量管理。同時ロードモデルを制限する。"""
-    total_gb: float = 96.0  # RTX PRO 6000
-    reserved_gb: float = 4.0  # OS/CUDA overhead
+    total_gb: float = 24.0  # detect_gpu_vram()で上書きされる
+    reserved_gb: float = 2.0  # OS/CUDA overhead
     loaded_models: dict[str, float] = field(default_factory=dict)
 
     @property

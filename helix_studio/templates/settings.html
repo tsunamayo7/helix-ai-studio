@@ -198,6 +198,32 @@
             </div>
         </section>
 
+        <!-- GPU / VRAM 設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">GPU / VRAM 設定</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">GPU VRAM 合計 (GB)</label>
+                    <div class="flex items-center gap-3">
+                        <input type="number" x-model="settings.gpu_vram_total"
+                               placeholder="0 = 自動検出"
+                               class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                        <span class="text-xs text-slate-500 whitespace-nowrap">0 = 自動検出 (nvidia-smi)</span>
+                    </div>
+                    <p class="text-[10px] text-slate-600 mt-1">マルチGPU環境の場合は合計値を入力（例: 96GB + 16GB = 112）。CrewAIのVRAM制限に使用されます。</p>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">GPU構成メモ</label>
+                    <input type="text" x-model="settings.gpu_config"
+                           placeholder="auto（例: RTX PRO 6000 96GB + RTX 5070 Ti 16GB）"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+            </div>
+        </section>
+
         <!-- MCP 設定 -->
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
