@@ -56,12 +56,12 @@
 
             <!-- モデル選択 -->
             <select x-model="$store.app.model"
-                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[250px]">
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[300px]">
                 <template x-if="$store.app.availableModels.length === 0">
                     <option value="">モデルなし（設定を確認）</option>
                 </template>
-                <template x-for="m in $store.app.availableModels" :key="m">
-                    <option :value="m" x-text="$store.app.getModelLabel(m)"></option>
+                <template x-for="m in $store.app.availableModels" :key="m.value">
+                    <option :value="m.value" x-text="m.label"></option>
                 </template>
             </select>
 

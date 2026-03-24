@@ -32,7 +32,7 @@ document.addEventListener('alpine:init', () => {
         // ── モデル選択 ──
         provider: 'ollama',
         model: '',
-        availableModels: [],
+        availableModels: [],   // [{value: 'model-id', label: 'Display Name'}, ...]
 
         // ── 会話 ──
         conversations: [],
@@ -166,41 +166,36 @@ document.addEventListener('alpine:init', () => {
         },
 
         // ── モデル一覧読み込み ──
-        _modelMeta: {},  // {id: {name, description}} for CLI models
-
         async loadModels() {
             try {
                 const res = await fetch('/api/models');
                 if (res.ok) {
                     const data = await res.json();
                     const providerModels = data[this.provider] || [];
-                    this._modelMeta = {};
 
-                    // CLI models have id+name, API/Ollama have name only
                     this.availableModels = providerModels.map(m => {
-                        if (typeof m === 'string') return m;
-                        if (m.id) {
-                            // CLI model: store metadata, use id as value
-                            this._modelMeta[m.id] = { name: m.name, description: m.description || '' };
-                            return m.id;
+                        if (typeof m === 'string') {
+                            return { value: m, label: m };
                         }
-                        return m.name || '';
-                    }).filter(n => n);
+                        // CLI models: id + name, Ollama: name + size
+                        const value = m.id || m.name || '';
+                        let label = m.name || m.id || '';
+                        if (m.description) label += ` — ${m.description}`;
+                        else if (m.size) label += ` (${m.size})`;
+                        return { value, label };
+                    }).filter(m => m.value);
 
-                    if (this.availableModels.length > 0 && !this.availableModels.includes(this.model)) {
-                        this.model = this.availableModels[0];
+                    if (this.availableModels.length > 0) {
+                        const values = this.availableModels.map(m => m.value);
+                        if (!values.includes(this.model)) {
+                            this.model = this.availableModels[0].value;
+                        }
                     }
                 }
             } catch (e) {
                 console.error('モデル読み込みエラー:', e);
                 this.availableModels = [];
             }
-        },
-
-        getModelLabel(modelId) {
-            const meta = this._modelMeta[modelId];
-            if (meta) return `${meta.name}`;
-            return modelId;
         },
 
         // ── 会話一覧読み込み ──
