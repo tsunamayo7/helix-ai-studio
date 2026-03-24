@@ -319,7 +319,11 @@ async def _inject_mem0_context(
     messages: list[dict[str, str]],
     query: str,
 ) -> None:
-    """Mem0から関連記憶を検索し、systemメッセージとして注入。"""
+    """Mem0から関連記憶を検索し、最後のユーザーメッセージに参考情報として注入。
+
+    Ollamaの一部モデル（gemma3系など）はsystemロールのメッセージを無視する
+    ことがあるため、systemではなくユーザーメッセージの先頭に埋め込む。
+    """
     try:
         mem0_url = await get_setting("mem0_url") or "http://localhost:8080"
         user_id = await get_setting("mem0_user_id") or "tsunamayo7"
@@ -330,8 +334,17 @@ async def _inject_mem0_context(
                 text = m.get("memory", m.get("text", str(m)))
                 mem_texts.append(f"- {text}")
             context = "【参考: 過去の記憶】\n" + "\n".join(mem_texts)
-            # 先頭にsystemメッセージとして挿入
-            messages.insert(0, {"role": "system", "content": context})
+            # 最後のuserメッセージのcontentの前に参考情報として追加
+            if messages:
+                last_user = None
+                for i in range(len(messages) - 1, -1, -1):
+                    if messages[i]["role"] == "user":
+                        last_user = i
+                        break
+                if last_user is not None:
+                    messages[last_user]["content"] = (
+                        context + "\n\n---\n\n" + messages[last_user]["content"]
+                    )
     except Exception as e:
         logger.debug("Mem0注入をスキップ: %s", e)
 

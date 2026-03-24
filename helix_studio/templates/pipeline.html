@@ -17,21 +17,147 @@
     ],
     history: [],
 
+    // モデル一覧（プロバイダ別）
+    cloudModels: [],
+    ollamaModels: [],
+    modelsLoaded: false,
+
+    // CrewAI関連
+    execMode: 'single',
+    crewTeams: {},
+    selectedTeam: 'dev_team',
+    crewAgents: [],
+    vramStatus: { loaded_models: {}, total_vram_used_gb: 0 },
+
+    get totalEstimatedVram() {
+        if (this.execMode !== 'crew' || !this.crewAgents.length) return 0;
+        const seen = {};
+        let total = 0;
+        for (const a of this.crewAgents) {
+            if (!seen[a.model]) {
+                seen[a.model] = true;
+                total += a.estimated_vram_gb || 0;
+            }
+        }
+        return Math.round(total * 10) / 10;
+    },
+
+    async loadModels() {
+        try {
+            const res = await fetch('/api/models');
+            if (!res.ok) return;
+            const data = await res.json();
+
+            // Cloud（claude + openai）
+            const cloud = [];
+            for (const provider of ['claude', 'openai']) {
+                const models = data[provider] || [];
+                for (const m of models) {
+                    const value = typeof m === 'string' ? m : (m.id || m.name || '');
+                    let label = typeof m === 'string' ? m : (m.name || m.id || '');
+                    if (typeof m !== 'string' && m.description) label += ` — ${m.description}`;
+                    const prefix = provider === 'claude' ? '[Claude] ' : '[OpenAI] ';
+                    if (value) cloud.push({ value, label: prefix + label });
+                }
+            }
+            this.cloudModels = cloud;
+
+            // Ollama（ローカル）
+            const ollama = [];
+            const ollamaList = data['ollama'] || [];
+            for (const m of ollamaList) {
+                const value = typeof m === 'string' ? m : (m.name || m.id || '');
+                let label = typeof m === 'string' ? m : (m.name || m.id || '');
+                if (typeof m !== 'string' && m.size) label += ` (${m.size})`;
+                if (value) ollama.push({ value, label });
+            }
+            this.ollamaModels = ollama;
+            this.modelsLoaded = true;
+        } catch (e) {
+            console.error('モデル読み込みエラー:', e);
+        }
+    },
+
+    async loadCrewTeams() {
+        try {
+            const res = await fetch('/api/crew/teams');
+            if (!res.ok) return;
+            const data = await res.json();
+            this.crewTeams = data.teams || {};
+            this.updateCrewAgents();
+        } catch (e) {
+            console.error('CrewAIチーム読み込みエラー:', e);
+        }
+    },
+
+    async loadVramStatus() {
+        try {
+            const res = await fetch('/api/crew/vram');
+            if (!res.ok) return;
+            this.vramStatus = await res.json();
+        } catch (e) {
+            console.error('VRAM状態取得エラー:', e);
+        }
+    },
+
+    updateCrewAgents() {
+        const team = this.crewTeams[this.selectedTeam];
+        if (team) {
+            // ディープコピーして個別に編集可能にする
+            this.crewAgents = team.map(a => ({ ...a }));
+        } else {
+            this.crewAgents = [];
+        }
+    },
+
+    updateAgentVram(index) {
+        const agent = this.crewAgents[index];
+        if (!agent) return;
+        // モデル名からVRAM推定値を再計算（簡易版）
+        const sizeMap = {
+            '120b': 75, '122b': 76, '123b': 70,
+            '80b': 47, '27b': 16, '30b': 23,
+            '14b': 9, '8b': 6, '7b': 6,
+            '4b': 3, '3b': 3,
+        };
+        let estimated = 10;
+        for (const [suffix, gb] of Object.entries(sizeMap)) {
+            if (agent.model.includes(suffix)) {
+                estimated = gb;
+                break;
+            }
+        }
+        agent.estimated_vram_gb = estimated;
+    },
+
     async runPipeline() {
         if (!this.taskInput.trim() || this.isRunning) return;
         this.isRunning = true;
         this.steps.forEach(s => { s.status = 'idle'; s.progress = 0; s.result = ''; });
 
         try {
+            const payload = {
+                task: this.taskInput,
+                plan_model: this.planModel,
+                exec_model: this.execModel,
+                verify_model: this.verifyModel,
+            };
+
+            // CrewAIモードの場合、チーム情報を追加
+            if (this.execMode === 'crew') {
+                payload.exec_mode = 'crew';
+                payload.crew_team = this.selectedTeam;
+                payload.crew_agents = this.crewAgents.map(a => ({
+                    name: a.name,
+                    role: a.role,
+                    model: a.model,
+                }));
+            }
+
             const res = await fetch('/api/pipeline/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    task: this.taskInput,
-                    plan_model: this.planModel,
-                    exec_model: this.execModel,
-                    verify_model: this.verifyModel,
-                }),
+                body: JSON.stringify(payload),
             });
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -78,7 +204,7 @@
             }
         } catch (e) {}
     }
-}" x-init="loadHistory()">
+}" x-init="loadHistory(); loadModels(); loadCrewTeams(); loadVramStatus()">
 
     <!-- ヘッダー -->
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
@@ -97,37 +223,118 @@
                       class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"></textarea>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                <!-- Step1: 計画モデル (Cloud) -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">計画モデル (Cloud)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Step1 計画モデル (Cloud)</label>
                     <select x-model="planModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
                         <option value="">デフォルト</option>
-                        <template x-for="m in $store.app.availableModels" :key="'p'+m">
-                            <option :value="m" x-text="m"></option>
+                        <template x-for="m in cloudModels" :key="'p'+m.value">
+                            <option :value="m.value" x-text="m.label"></option>
                         </template>
                     </select>
                 </div>
+
+                <!-- Step2: 実行モード選択 -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">実行モデル (ローカル)</label>
-                    <select x-model="execModel"
-                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
-                        <option value="">デフォルト</option>
-                        <template x-for="m in $store.app.availableModels" :key="'e'+m">
-                            <option :value="m" x-text="m"></option>
-                        </template>
-                    </select>
+                    <label class="block text-xs text-slate-400 mb-1">Step2 実行モード (ローカル)</label>
+                    <div class="flex gap-2 mb-1.5">
+                        <button @click="execMode = 'single'"
+                                :class="execMode === 'single' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'"
+                                class="text-[10px] px-2 py-0.5 rounded-full transition-colors">
+                            単体モデル
+                        </button>
+                        <button @click="execMode = 'crew'"
+                                :class="execMode === 'crew' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'"
+                                class="text-[10px] px-2 py-0.5 rounded-full transition-colors">
+                            CrewAI
+                        </button>
+                    </div>
+                    <!-- 単体モデル選択 -->
+                    <template x-if="execMode === 'single'">
+                        <select x-model="execModel"
+                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                            <option value="">デフォルト</option>
+                            <template x-for="m in ollamaModels" :key="'e'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </select>
+                    </template>
+                    <!-- CrewAI チーム選択 -->
+                    <template x-if="execMode === 'crew'">
+                        <select x-model="selectedTeam"
+                                @change="updateCrewAgents()"
+                                class="w-full bg-slate-900 border border-purple-600/50 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500">
+                            <template x-for="(agents, name) in crewTeams" :key="name">
+                                <option :value="name" x-text="name.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())"></option>
+                            </template>
+                        </select>
+                    </template>
                 </div>
+
+                <!-- Step3: 検証モデル (Cloud) -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">検証モデル (Cloud)</label>
+                    <label class="block text-xs text-slate-400 mb-1">Step3 検証モデル (Cloud)</label>
                     <select x-model="verifyModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
                         <option value="">デフォルト</option>
-                        <template x-for="m in $store.app.availableModels" :key="'v'+m">
-                            <option :value="m" x-text="m"></option>
+                        <template x-for="m in cloudModels" :key="'v'+m.value">
+                            <option :value="m.value" x-text="m.label"></option>
                         </template>
                     </select>
                 </div>
             </div>
+
+            <!-- CrewAI エージェント詳細パネル -->
+            <template x-if="execMode === 'crew' && crewAgents.length > 0">
+                <div class="mt-4 bg-slate-900 rounded-xl p-4 border border-purple-600/30">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-semibold text-purple-300">CrewAI エージェント構成</h4>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-500">推定VRAM:</span>
+                            <span class="text-xs font-mono"
+                                  :class="totalEstimatedVram > 92 ? 'text-red-400' : totalEstimatedVram > 60 ? 'text-amber-400' : 'text-emerald-400'"
+                                  x-text="totalEstimatedVram + ' GB'"></span>
+                            <template x-if="vramStatus.total_vram_used_gb > 0">
+                                <span class="text-[10px] text-slate-500">(現在使用中: <span x-text="vramStatus.total_vram_used_gb"></span> GB)</span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="(agent, idx) in crewAgents" :key="agent.name">
+                            <div class="flex items-center gap-3 bg-slate-800 rounded-lg px-3 py-2">
+                                <div class="flex-shrink-0 w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                    <span class="text-[10px] font-bold text-purple-300" x-text="(idx+1)"></span>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-xs font-medium text-slate-200" x-text="agent.role"></div>
+                                    <div class="text-[10px] text-slate-500" x-text="agent.name"></div>
+                                </div>
+                                <select :value="agent.model"
+                                        @change="agent.model = $event.target.value; updateAgentVram(idx)"
+                                        class="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[11px] text-slate-200 focus:outline-none focus:border-purple-500 max-w-[180px]">
+                                    <template x-for="m in ollamaModels" :key="'crew'+agent.name+m.value">
+                                        <option :value="m.value" x-text="m.label" :selected="m.value === agent.model"></option>
+                                    </template>
+                                </select>
+                                <span class="text-[10px] text-slate-500 w-12 text-right" x-text="(agent.estimated_vram_gb || 0) + 'GB'"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <!-- VRAM使用量バー -->
+                    <div class="mt-3">
+                        <div class="flex justify-between text-[10px] text-slate-500 mb-1">
+                            <span>VRAM使用量</span>
+                            <span x-text="totalEstimatedVram + ' / 96 GB'"></span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-1.5">
+                            <div class="h-1.5 rounded-full transition-all duration-500"
+                                 :class="totalEstimatedVram > 92 ? 'bg-red-500' : totalEstimatedVram > 60 ? 'bg-amber-500' : 'bg-purple-500'"
+                                 :style="'width: ' + Math.min(100, (totalEstimatedVram / 96) * 100) + '%'"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
 
             <button @click="runPipeline()"
                     :disabled="!taskInput.trim() || isRunning"
