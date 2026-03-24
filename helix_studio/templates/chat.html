@@ -16,46 +16,52 @@
 
             <!-- プロバイダ切替タブ -->
             <div class="flex bg-slate-900 rounded-lg p-0.5">
-                <button @click="providerTab = 'cloud'; $store.app.provider = 'claude'; $store.app.loadModels()"
-                        :class="providerTab === 'cloud' ? 'bg-slate-700 text-blue-400 shadow' : 'text-slate-400 hover:text-slate-300'"
-                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
-                    Cloud AI
-                </button>
                 <button @click="providerTab = 'local'; $store.app.provider = 'ollama'; $store.app.loadModels()"
                         :class="providerTab === 'local' ? 'bg-slate-700 text-emerald-400 shadow' : 'text-slate-400 hover:text-slate-300'"
                         class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
-                    ローカル AI
+                    ローカル
+                </button>
+                <button @click="providerTab = 'cloud'; $store.app.provider = 'claude'; $store.app.loadModels()"
+                        :class="providerTab === 'cloud' ? 'bg-slate-700 text-blue-400 shadow' : 'text-slate-400 hover:text-slate-300'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
+                    Cloud API
+                </button>
+                <button @click="providerTab = 'cli'; $store.app.provider = 'claude_code'; $store.app.loadModels()"
+                        :class="providerTab === 'cli' ? 'bg-slate-700 text-purple-400 shadow' : 'text-slate-400 hover:text-slate-300'"
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
+                    CLI
                 </button>
             </div>
 
-            <!-- Cloud 時のプロバイダ選択 -->
-            <template x-if="providerTab === 'cloud'">
-                <select x-model="$store.app.provider"
-                        @change="$store.app.loadModels()"
-                        class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
-                    <option value="claude">Claude</option>
-                    <option value="openai">OpenAI</option>
-                </select>
-            </template>
-
-            <!-- Local 時のプロバイダ選択 -->
-            <template x-if="providerTab === 'local'">
-                <select x-model="$store.app.provider"
-                        @change="$store.app.loadModels()"
-                        class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
-                    <option value="ollama">Ollama</option>
-                    <option value="openai_compat">OpenAI互換</option>
-                </select>
-            </template>
+            <!-- プロバイダ選択（タブに応じて表示） -->
+            <select x-show="providerTab === 'local'" x-model="$store.app.provider"
+                    @change="$store.app.loadModels()"
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
+                <option value="ollama">Ollama</option>
+                <option value="openai_compat">OpenAI互換 API</option>
+            </select>
+            <select x-show="providerTab === 'cloud'" x-model="$store.app.provider"
+                    @change="$store.app.loadModels()"
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
+                <option value="claude">Claude API</option>
+                <option value="openai">OpenAI API</option>
+            </select>
+            <select x-show="providerTab === 'cli'" x-model="$store.app.provider"
+                    @change="$store.app.loadModels()"
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
+                <option value="claude_code">Claude Code</option>
+                <option value="codex">Codex CLI</option>
+                <option value="gemini_cli">Gemini CLI</option>
+            </select>
 
             <!-- モデル選択 -->
             <select x-model="$store.app.model"
-                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[200px]">
+                    class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[250px]">
                 <template x-if="$store.app.availableModels.length === 0">
-                    <option value="">モデルなし</option>
+                    <option value="">モデルなし（設定を確認）</option>
                 </template>
                 <template x-for="m in $store.app.availableModels" :key="m">
-                    <option :value="m" x-text="m"></option>
+                    <option :value="m" x-text="$store.app.getModelLabel(m)"></option>
                 </template>
             </select>
 
