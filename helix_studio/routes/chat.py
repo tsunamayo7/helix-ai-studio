@@ -74,8 +74,16 @@ async def ws_chat(ws: WebSocket):
 
             # Mem0自動注入
             mem0_inject = await get_setting("mem0_auto_inject")
+            logger.info("Mem0 auto_inject=%s, content=%s", mem0_inject, content[:50] if content else "")
             if mem0_inject == "true" and content:
                 await _inject_mem0_context(messages, content)
+                # 注入後のメッセージ確認
+                if messages:
+                    last_user = next((m for m in reversed(messages) if m["role"] == "user"), None)
+                    if last_user and "参考" in last_user.get("content", ""):
+                        logger.info("Mem0注入成功: ユーザーメッセージに記憶を埋め込み済み")
+                    else:
+                        logger.info("Mem0注入: 記憶なしまたは注入対象なし")
 
             # ストリーミング応答
             start_ms = time.monotonic_ns() // 1_000_000

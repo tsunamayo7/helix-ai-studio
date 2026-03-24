@@ -10,7 +10,7 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8503))
+    port = int(os.environ.get("PORT", 8504))
     uvicorn.run(
         "helix_studio.app:app",
         host="0.0.0.0",
