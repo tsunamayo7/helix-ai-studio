@@ -274,48 +274,44 @@
                     </select>
                 </div>
 
-                <!-- Step2: 実行モード選択 -->
+                <!-- Step2: 実行モデル -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Step2 実行モード (ローカル)</label>
-                    <div class="flex gap-2 mb-1.5">
-                        <button @click="execMode = 'single'"
-                                :class="execMode === 'single' ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-400'"
-                                class="text-[10px] px-2 py-0.5 rounded-full transition-colors">
-                            単体モデル
-                        </button>
-                        <button @click="execMode = 'crew'"
-                                :class="execMode === 'crew' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-400'"
-                                class="text-[10px] px-2 py-0.5 rounded-full transition-colors">
-                            CrewAI
-                        </button>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-xs text-slate-400">Step2 実行モデル</label>
+                        <div class="flex bg-slate-900 rounded p-0.5">
+                            <button @click="execMode = 'single'"
+                                    :class="execMode === 'single' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'"
+                                    class="text-[10px] px-2 py-0.5 rounded transition-all">
+                                単体
+                            </button>
+                            <button @click="execMode = 'crew'"
+                                    :class="execMode === 'crew' ? 'bg-purple-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'"
+                                    class="text-[10px] px-2 py-0.5 rounded transition-all">
+                                CrewAI
+                            </button>
+                        </div>
                     </div>
-                    <!-- 単体モデル選択 -->
-                    <template x-if="execMode === 'single'">
-                        <select x-model="execModel"
-                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
-                            <option value="">デフォルト</option>
-                            <optgroup label="Ollama">
-                                <template x-for="m in ollamaModels" :key="'e-ollama-'+m.value">
-                                    <option :value="m.value" x-text="m.label"></option>
-                                </template>
-                            </optgroup>
-                            <optgroup label="OpenAI互換" x-show="compatModels.length > 0">
-                                <template x-for="m in compatModels" :key="'e-compat-'+m.value">
-                                    <option :value="m.value" x-text="m.label"></option>
-                                </template>
-                            </optgroup>
-                        </select>
-                    </template>
-                    <!-- CrewAI チーム選択 -->
-                    <template x-if="execMode === 'crew'">
-                        <select x-model="selectedTeam"
-                                @change="updateCrewAgents()"
-                                class="w-full bg-slate-900 border border-purple-600/50 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500">
-                            <template x-for="(agents, name) in crewTeams" :key="name">
-                                <option :value="name" x-text="name.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())"></option>
+                    <select x-show="execMode === 'single'" x-model="execModel"
+                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+                        <option value="">デフォルト</option>
+                        <optgroup label="Ollama">
+                            <template x-for="m in ollamaModels" :key="'e-ollama-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
                             </template>
-                        </select>
-                    </template>
+                        </optgroup>
+                        <optgroup label="OpenAI互換" x-show="compatModels.length > 0">
+                            <template x-for="m in compatModels" :key="'e-compat-'+m.value">
+                                <option :value="m.value" x-text="m.label"></option>
+                            </template>
+                        </optgroup>
+                    </select>
+                    <select x-show="execMode === 'crew'" x-model="selectedTeam"
+                            @change="updateCrewAgents()"
+                            class="w-full bg-slate-900 border border-purple-600/50 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-purple-500">
+                        <template x-for="(agents, name) in crewTeams" :key="name">
+                            <option :value="name" x-text="name.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())"></option>
+                        </template>
+                    </select>
                 </div>
 
                 <!-- Step3: 検証モデル -->
