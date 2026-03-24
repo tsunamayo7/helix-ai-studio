@@ -99,12 +99,27 @@ async def ws_chat(ws: WebSocket):
                 provider, model, duration_ms=duration_ms,
             )
 
-            # 完了通知
+            # プロバイダ表示名の生成
+            provider_labels = {
+                "ollama": "ローカル / Ollama",
+                "openai_compat": "ローカル / OpenAI互換",
+                "claude": "Cloud / Claude API",
+                "openai": "Cloud / OpenAI API",
+                "claude_code": "CLI / Claude Code",
+                "codex": "CLI / Codex",
+                "gemini_cli": "CLI / Gemini",
+            }
+            provider_label = provider_labels.get(provider, provider)
+
+            # 完了通知（モデル情報付き）
             await ws.send_text(json.dumps({
                 "type": "done",
                 "conversation_id": conversation_id,
                 "message_id": asst_msg_id,
                 "duration_ms": duration_ms,
+                "provider": provider,
+                "provider_label": provider_label,
+                "model": model,
             }))
 
     except WebSocketDisconnect:

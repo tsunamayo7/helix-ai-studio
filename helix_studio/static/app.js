@@ -101,6 +101,13 @@ document.addEventListener('alpine:init', () => {
                     break;
                 case 'done':
                     this.isStreaming = false;
+                    // 最後のアシスタントメッセージにモデル情報を付与
+                    const lastMsg = this.messages[this.messages.length - 1];
+                    if (lastMsg && lastMsg.role === 'assistant') {
+                        lastMsg.provider_label = data.provider_label || '';
+                        lastMsg.model = data.model || '';
+                        lastMsg.duration_ms = data.duration_ms || 0;
+                    }
                     if (data.conversation_id) {
                         this.currentConversationId = data.conversation_id;
                     }
@@ -151,6 +158,9 @@ document.addEventListener('alpine:init', () => {
                 role: 'assistant',
                 content: '',
                 timestamp: new Date().toLocaleTimeString('ja-JP'),
+                provider_label: '',
+                model: this.model,
+                duration_ms: 0,
             });
             this.isStreaming = true;
 
