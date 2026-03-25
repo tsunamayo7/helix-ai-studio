@@ -14,10 +14,12 @@ from helix_studio.db import init_db
 from helix_studio.routes import (
     chat,
     crew_api,
+    mcp_api,
     memory,
     models_api,
     pages,
     pipeline_api,
+    rag_api,
     settings_api,
     tools_api,
 )
@@ -45,7 +47,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Helix AI Studio",
         description="ローカルLLM + クラウドAI統合チャットスタジオ",
-        version="0.1.0",
+        version="2.0.0",
         lifespan=lifespan,
     )
 
@@ -66,6 +68,8 @@ def create_app() -> FastAPI:
     app.include_router(pipeline_api.router)
     app.include_router(crew_api.router)
     app.include_router(tools_api.router)
+    app.include_router(rag_api.router)
+    app.include_router(mcp_api.router)
 
     return app
 

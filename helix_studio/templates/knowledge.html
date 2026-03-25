@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}ナレッジ — Helix AI Studio{% endblock %}
+{% block nav_knowledge %}bg-slate-700 text-blue-400 font-medium{% endblock %}
+
+{% block content %}
+<div class="flex-1 overflow-y-auto" x-data="{
+    documents: [],
+    loading: true,
+    uploading: false,
+    searchQuery: '',
+    searchResults: [],
+    searching: false,
+    showSearch: false,
+    ragStatus: null,
+    dragOver: false,
+
+    async init() {
+        await this.loadStatus();
+        await this.loadDocuments();
+    },
+
+    async loadStatus() {
+        try {
+            const r = await fetch('/api/rag/status');
+            if (r.ok) this.ragStatus = await r.json();
+        } catch (e) { console.error(e); }
+    },
+
+    async loadDocuments() {
+        this.loading = true;
+        try {
+            const r = await fetch('/api/rag/documents');
+            if (r.ok) this.documents = await r.json();
+        } catch (e) { console.error(e); }
+        this.loading = false;
+    },
+
+    async uploadFiles(files) {
+        if (!files || files.length === 0) return;
+        this.uploading = true;
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                const r = await fetch('/api/rag/upload', { method: 'POST', body: fd });
+                const data = await r.json();
+                if (!r.ok) alert(data.detail || 'アップロード失敗');
+            } catch (e) {
+                alert('アップロードエラー: ' + e.message);
+            }
+        }
+        this.uploading = false;
+        await this.loadDocuments();
+        await this.loadStatus();
+    },
+
+    async deleteDoc(docId) {
+        if (!confirm('このドキュメントを削除しますか？')) return;
+        try {
+            const r = await fetch('/api/rag/documents/' + docId, { method: 'DELETE' });
+            if (r.ok) {
+                this.documents = this.documents.filter(d => d.doc_id !== docId);
+                await this.loadStatus();
+            }
+        } catch (e) { console.error(e); }
+    },
+
+    async searchDocs() {
+        if (!this.searchQuery.trim()) return;
+        this.searching = true;
+        try {
+            const r = await fetch('/api/rag/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: this.searchQuery, limit: 5 }),
+            });
+            if (r.ok) this.searchResults = await r.json();
+        } catch (e) { console.error(e); }
+        this.searching = false;
+    },
+
+    handleDrop(e) {
+        e.preventDefault();
+        this.dragOver = false;
+        this.uploadFiles(e.dataTransfer.files);
+    },
+}" x-init="init()">
+
+    <!-- ヘッダー -->
+    <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('knowledge')">ナレッジベース</h2>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    <span x-show="ragStatus && ragStatus.available" class="text-emerald-400">● Qdrant 接続中</span>
+                    <span x-show="!ragStatus || !ragStatus.available" class="text-red-400">● Qdrant 未接続</span>
+                    <span x-show="ragStatus" class="ml-2" x-text="'(' + (ragStatus?.points_count || 0) + ' チャンク)'"></span>
+                </p>
+            </div>
+            <div class="flex gap-2">
+                <button @click="showSearch = !showSearch"
+                        :class="showSearch ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'"
+                        class="px-3 py-1.5 rounded-lg text-sm transition-colors">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    検索テスト
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <!-- ドラッグ&ドロップ アップロードエリア -->
+        <div @dragover.prevent="dragOver = true"
+             @dragleave.prevent="dragOver = false"
+             @drop="handleDrop($event)"
+             :class="dragOver ? 'border-blue-400 bg-blue-500/10' : 'border-slate-600 hover:border-slate-500'"
+             class="border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer"
+             @click="$refs.fileInput.click()">
+            <input type="file" x-ref="fileInput" multiple accept=".txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv,.html,.css,.sh,.sql,.java,.go,.rs,.c,.cpp,.h,.rb,.php,.xml,.ini,.cfg,.log"
+                   @change="uploadFiles($event.target.files)" class="hidden">
+            <div x-show="!uploading">
+                <svg class="w-10 h-10 mx-auto text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                <p class="text-sm text-slate-300 font-medium">ドキュメントをドラッグ&ドロップ</p>
+                <p class="text-xs text-slate-500 mt-1">またはクリックしてファイルを選択 (.txt, .md, .py, .json など)</p>
+            </div>
+            <div x-show="uploading" class="flex items-center justify-center gap-2">
+                <svg class="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                <span class="text-sm text-blue-400">アップロード中...</span>
+            </div>
+        </div>
+
+        <!-- 検索テスト -->
+        <div x-show="showSearch" x-transition class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="text-sm font-semibold text-slate-300 mb-3">ベクトル検索テスト</h3>
+            <div class="flex gap-2">
+                <input type="text" x-model="searchQuery"
+                       @keydown.enter="searchDocs()"
+                       placeholder="検索クエリを入力..."
+                       class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                <button @click="searchDocs()"
+                        :disabled="searching"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors">
+                    <span x-show="!searching">検索</span>
+                    <span x-show="searching">検索中...</span>
+                </button>
+            </div>
+            <div x-show="searchResults.length > 0" class="mt-3 space-y-2">
+                <template x-for="(r, idx) in searchResults" :key="idx">
+                    <div class="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-mono text-blue-400" x-text="r.filename"></span>
+                            <span class="text-xs text-slate-500" x-text="'score: ' + r.score"></span>
+                        </div>
+                        <p class="text-xs text-slate-300 whitespace-pre-wrap line-clamp-4" x-text="r.content"></p>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- ドキュメント一覧 -->
+        <div>
+            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">登録済みドキュメント</h3>
+
+            <template x-if="loading">
+                <div class="text-center py-8">
+                    <svg class="w-6 h-6 animate-spin text-blue-400 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                </div>
+            </template>
+
+            <template x-if="!loading && documents.length === 0">
+                <div class="text-center py-12">
+                    <div class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto mb-3">
+                        <svg class="w-7 h-7 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    </div>
+                    <p class="text-sm text-slate-400">ドキュメントが登録されていません</p>
+                    <p class="text-xs text-slate-500 mt-1">ファイルをアップロードするとRAG検索が有効になります</p>
+                </div>
+            </template>
+
+            <template x-if="!loading && documents.length > 0">
+                <div class="bg-slate-800 rounded-xl border border-slate-700 divide-y divide-slate-700 overflow-hidden">
+                    <template x-for="doc in documents" :key="doc.doc_id">
+                        <div class="group flex items-center gap-3 px-4 py-3 hover:bg-slate-700/50 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-slate-200 truncate" x-text="doc.filename"></div>
+                                <div class="text-[10px] text-slate-500" x-text="doc.chunks + ' チャンク'"></div>
+                            </div>
+                            <button @click="deleteDoc(doc.doc_id)"
+                                    class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-slate-600 text-slate-500 hover:text-red-400 transition-all shrink-0"
+                                    title="削除">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+{% endblock %}

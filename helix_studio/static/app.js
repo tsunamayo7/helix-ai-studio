@@ -1,11 +1,40 @@
-/* Helix AI Studio — Alpine.js ストア & WebSocket 管理 */
+/* Helix AI Studio — Alpine.js Stores & WebSocket */
 
 document.addEventListener('alpine:init', () => {
 
-    // Markdown レンダラー設定
+    // ── i18n ストア ──────────────────────────────────────
+    const TRANSLATIONS = {
+        ja: {
+            chat: 'チャット', pipeline: 'パイプライン', knowledge: 'ナレッジ',
+            history: '履歴', settings: '設定', connected: '接続中', disconnected: '未接続',
+            send: '送信', newChat: '新しい会話', deleteConfirm: 'この会話を削除しますか？',
+            noConnection: 'サーバーに接続されていません。再接続を待ってください。',
+            copied: 'コピー済み', copy: 'コピー',
+        },
+        en: {
+            chat: 'Chat', pipeline: 'Pipeline', knowledge: 'Knowledge',
+            history: 'History', settings: 'Settings', connected: 'Connected', disconnected: 'Disconnected',
+            send: 'Send', newChat: 'New Chat', deleteConfirm: 'Delete this conversation?',
+            noConnection: 'Not connected to server. Please wait for reconnection.',
+            copied: 'Copied', copy: 'Copy',
+        },
+    };
+
+    Alpine.store('i18n', {
+        lang: localStorage.getItem('helix_lang') || 'ja',
+        t(key) {
+            return (TRANSLATIONS[this.lang] || TRANSLATIONS.ja)[key] || key;
+        },
+        setLang(lang) {
+            this.lang = lang;
+            localStorage.setItem('helix_lang', lang);
+        },
+    });
+
+    // ── Markdown レンダラー ───────────────────────────────
     if (typeof marked !== 'undefined') {
         marked.setOptions({
-            highlight: function (code, lang) {
+            highlight(code, lang) {
                 if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
                     return hljs.highlight(code, { language: lang }).value;
                 }
@@ -16,41 +45,43 @@ document.addEventListener('alpine:init', () => {
         });
     }
 
+    // ── App ストア ────────────────────────────────────────
     Alpine.store('app', {
-        // ── WebSocket ──
+        // WebSocket
         ws: null,
         connected: false,
         reconnectAttempts: 0,
         maxReconnectDelay: 30000,
         reconnectTimer: null,
 
-        // ── チャット状態 ──
+        // チャット
         messages: [],
         isStreaming: false,
         currentStreamText: '',
 
-        // ── モデル選択 ──
+        // モデル選択
         provider: 'ollama',
         model: '',
-        availableModels: [],   // [{value: 'model-id', label: 'Display Name'}, ...]
+        availableModels: [],
 
-        // ── 会話 ──
+        // 会話
         conversations: [],
         currentConversationId: null,
 
-        // ── Mem0 ──
+        // Mem0 & RAG
         mem0Enabled: true,
+        ragEnabled: true,
 
-        // ── サイドバー ──
+        // サイドバー
         sidebarOpen: true,
 
-        // ── WebSocket 接続 ──
+        // ── WebSocket ──
         connectWs() {
             const wsUrl = `ws://${location.host}/ws/chat`;
             try {
                 this.ws = new WebSocket(wsUrl);
             } catch (e) {
-                console.error('WebSocket 接続エラー:', e);
+                console.error('WebSocket error:', e);
                 this.scheduleReconnect();
                 return;
             }
@@ -58,33 +89,27 @@ document.addEventListener('alpine:init', () => {
             this.ws.onopen = () => {
                 this.connected = true;
                 this.reconnectAttempts = 0;
-                console.log('WebSocket 接続完了');
             };
 
             this.ws.onmessage = (event) => {
                 try {
-                    const data = JSON.parse(event.data);
-                    this.handleWsMessage(data);
+                    this.handleWsMessage(JSON.parse(event.data));
                 } catch (e) {
-                    console.error('メッセージ解析エラー:', e);
+                    console.error('Message parse error:', e);
                 }
             };
 
             this.ws.onclose = () => {
                 this.connected = false;
-                console.log('WebSocket 切断');
                 this.scheduleReconnect();
             };
 
-            this.ws.onerror = (err) => {
-                console.error('WebSocket エラー:', err);
-            };
+            this.ws.onerror = (err) => console.error('WebSocket error:', err);
         },
 
         scheduleReconnect() {
             if (this.reconnectTimer) return;
-            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
-            console.log(`${delay}ms 後に再接続...`);
+            const delay = Math.min(1000 * 2 ** this.reconnectAttempts, this.maxReconnectDelay);
             this.reconnectTimer = setTimeout(() => {
                 this.reconnectTimer = null;
                 this.reconnectAttempts++;
@@ -92,7 +117,6 @@ document.addEventListener('alpine:init', () => {
             }, delay);
         },
 
-        // ── メッセージ処理 ──
         handleWsMessage(data) {
             switch (data.type) {
                 case 'chunk':
@@ -101,11 +125,10 @@ document.addEventListener('alpine:init', () => {
                     break;
                 case 'done':
                     this.isStreaming = false;
-                    // 最後のアシスタントメッセージにモデル情報を付与（Alpine反映のため配列を再構築）
                     if (this.messages.length > 0) {
                         const lastIdx = this.messages.length - 1;
                         const last = this.messages[lastIdx];
-                        if (last && last.role === 'assistant') {
+                        if (last?.role === 'assistant') {
                             this.messages[lastIdx] = {
                                 ...last,
                                 provider_label: data.provider_label || '',
@@ -114,16 +137,14 @@ document.addEventListener('alpine:init', () => {
                             };
                         }
                     }
-                    if (data.conversation_id) {
-                        this.currentConversationId = data.conversation_id;
-                    }
+                    if (data.conversation_id) this.currentConversationId = data.conversation_id;
                     this.loadConversations();
                     break;
                 case 'error':
                     this.isStreaming = false;
                     this.messages.push({
                         role: 'error',
-                        content: data.content || '不明なエラーが発生しました',
+                        content: data.content || 'Unknown error',
                         timestamp: new Date().toLocaleTimeString('ja-JP'),
                     });
                     break;
@@ -138,27 +159,22 @@ document.addEventListener('alpine:init', () => {
 
         updateLastAssistantMessage() {
             const last = this.messages[this.messages.length - 1];
-            if (last && last.role === 'assistant') {
-                last.content = this.currentStreamText;
-            }
+            if (last?.role === 'assistant') last.content = this.currentStreamText;
         },
 
-        // ── メッセージ送信 ──
         async sendMessage(content) {
             if (!content.trim() || this.isStreaming) return;
             if (!this.connected) {
-                alert('サーバーに接続されていません。再接続を待ってください。');
+                alert(Alpine.store('i18n').t('noConnection'));
                 return;
             }
 
-            // ユーザーメッセージ追加
             this.messages.push({
                 role: 'user',
                 content: content.trim(),
                 timestamp: new Date().toLocaleTimeString('ja-JP'),
             });
 
-            // アシスタントプレースホルダー追加
             this.currentStreamText = '';
             this.messages.push({
                 role: 'assistant',
@@ -170,7 +186,6 @@ document.addEventListener('alpine:init', () => {
             });
             this.isStreaming = true;
 
-            // WebSocket 送信
             this.ws.send(JSON.stringify({
                 action: 'chat',
                 conversation_id: this.currentConversationId,
@@ -178,56 +193,49 @@ document.addEventListener('alpine:init', () => {
                 model: this.model,
                 content: content.trim(),
                 mem0_enabled: this.mem0Enabled,
+                rag_enabled: this.ragEnabled,
             }));
         },
 
-        // ── モデル一覧読み込み ──
         async loadModels() {
             try {
                 const res = await fetch('/api/models');
-                if (res.ok) {
-                    const data = await res.json();
-                    const providerModels = data[this.provider] || [];
+                if (!res.ok) return;
+                const data = await res.json();
+                const providerModels = data[this.provider] || [];
 
-                    this.availableModels = providerModels.map(m => {
-                        if (typeof m === 'string') {
-                            return { value: m, label: m };
-                        }
-                        // CLI models: id + name, Ollama: name + size
-                        const value = m.id || m.name || '';
-                        let label = m.name || m.id || '';
-                        if (m.description) label += ` — ${m.description}`;
-                        else if (m.size) label += ` (${m.size})`;
-                        return { value, label };
-                    }).filter(m => m.value);
+                this.availableModels = providerModels.map(m => {
+                    if (typeof m === 'string') return { value: m, label: m };
+                    const value = m.id || m.name || '';
+                    let label = m.name || m.id || '';
+                    if (m.description) label += ` — ${m.description}`;
+                    else if (m.size) label += ` (${m.size})`;
+                    return { value, label };
+                }).filter(m => m.value);
 
-                    if (this.availableModels.length > 0) {
-                        const values = this.availableModels.map(m => m.value);
-                        if (!values.includes(this.model)) {
-                            this.model = this.availableModels[0].value;
-                        }
+                if (this.availableModels.length > 0) {
+                    const values = this.availableModels.map(m => m.value);
+                    if (!values.includes(this.model)) {
+                        this.model = this.availableModels[0].value;
                     }
                 }
             } catch (e) {
-                console.error('モデル読み込みエラー:', e);
+                console.error('Model load error:', e);
                 this.availableModels = [];
             }
         },
 
-        // ── 会話一覧読み込み ──
         async loadConversations() {
             try {
                 const res = await fetch('/api/conversations');
-                if (res.ok) {
-                    const data = await res.json();
-                    this.conversations = Array.isArray(data) ? data : (data.conversations || []);
-                }
+                if (!res.ok) return;
+                const data = await res.json();
+                this.conversations = Array.isArray(data) ? data : (data.conversations || []);
             } catch (e) {
-                console.error('会話一覧読み込みエラー:', e);
+                console.error('Conversation load error:', e);
             }
         },
 
-        // ── 新規会話 ──
         async newConversation() {
             this.currentConversationId = null;
             this.messages = [];
@@ -235,41 +243,34 @@ document.addEventListener('alpine:init', () => {
             this.isStreaming = false;
         },
 
-        // ── 会話切替 ──
         async switchConversation(id) {
             try {
                 const res = await fetch(`/api/conversations/${id}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    this.currentConversationId = id;
-                    this.messages = (data.messages || []).map(m => ({
-                        role: m.role,
-                        content: m.content,
-                        timestamp: m.timestamp || '',
-                    }));
-                }
+                if (!res.ok) return;
+                const data = await res.json();
+                this.currentConversationId = id;
+                this.messages = (data.messages || []).map(m => ({
+                    role: m.role,
+                    content: m.content,
+                    timestamp: m.timestamp || '',
+                }));
             } catch (e) {
-                console.error('会話読み込みエラー:', e);
+                console.error('Conversation load error:', e);
             }
         },
 
-        // ── 会話削除 ──
         async deleteConversation(id) {
-            if (!confirm('この会話を削除しますか？')) return;
+            if (!confirm(Alpine.store('i18n').t('deleteConfirm'))) return;
             try {
                 const res = await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    this.conversations = this.conversations.filter(c => c.id !== id);
-                    if (this.currentConversationId === id) {
-                        this.newConversation();
-                    }
-                }
+                if (!res.ok) return;
+                this.conversations = this.conversations.filter(c => c.id !== id);
+                if (this.currentConversationId === id) this.newConversation();
             } catch (e) {
-                console.error('会話削除エラー:', e);
+                console.error('Conversation delete error:', e);
             }
         },
 
-        // ── 初期化 ──
         init() {
             this.connectWs();
             this.loadModels();
@@ -278,29 +279,27 @@ document.addEventListener('alpine:init', () => {
     });
 });
 
-// ── ユーティリティ ──
+// ── Utilities ──
 
 function renderMarkdown(text) {
     if (!text) return '';
     if (typeof marked === 'undefined') return escapeHtml(text);
-    const html = marked.parse(text);
-    return addCopyButtons(html);
+    return addCopyButtons(marked.parse(text));
 }
 
 function addCopyButtons(html) {
-    return html.replace(/<pre><code(.*?)>/g, (match, attrs) => {
-        return `<pre><button class="copy-btn" onclick="copyCode(this)">コピー</button><code${attrs}>`;
-    });
+    return html.replace(/<pre><code(.*?)>/g, (_, attrs) =>
+        `<pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><code${attrs}>`);
 }
 
 function copyCode(btn) {
     const code = btn.nextElementSibling;
-    if (code) {
-        navigator.clipboard.writeText(code.textContent).then(() => {
-            btn.textContent = 'コピー済み';
-            setTimeout(() => { btn.textContent = 'コピー'; }, 1500);
-        });
-    }
+    if (!code) return;
+    const i18n = Alpine?.store?.('i18n');
+    navigator.clipboard.writeText(code.textContent).then(() => {
+        btn.textContent = i18n?.t('copied') || 'Copied';
+        setTimeout(() => { btn.textContent = i18n?.t('copy') || 'Copy'; }, 1500);
+    });
 }
 
 function escapeHtml(text) {
@@ -316,11 +315,7 @@ function autoResize(el) {
 
 function scrollToBottom(selector) {
     const el = document.querySelector(selector);
-    if (el) {
-        requestAnimationFrame(() => {
-            el.scrollTop = el.scrollHeight;
-        });
-    }
+    if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
 }
 
 function formatDate(dateStr) {

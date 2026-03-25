@@ -19,7 +19,7 @@ from helix_studio.models import (
     ConversationDetail,
     ConversationSummary,
 )
-from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0, tools
+from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0, rag, tools
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["chat"])
@@ -74,16 +74,13 @@ async def ws_chat(ws: WebSocket):
 
             # Mem0自動注入
             mem0_inject = await get_setting("mem0_auto_inject")
-            logger.info("Mem0 auto_inject=%s, content=%s", mem0_inject, content[:50] if content else "")
             if mem0_inject == "true" and content:
                 await _inject_mem0_context(messages, content)
-                # 注入後のメッセージ確認
-                if messages:
-                    last_user = next((m for m in reversed(messages) if m["role"] == "user"), None)
-                    if last_user and "参考" in last_user.get("content", ""):
-                        logger.info("Mem0注入成功: ユーザーメッセージに記憶を埋め込み済み")
-                    else:
-                        logger.info("Mem0注入: 記憶なしまたは注入対象なし")
+
+            # RAG自動注入
+            rag_enabled = data.get("rag_enabled", True)
+            if rag_enabled and content:
+                await _inject_rag_context(messages, content)
 
             # ストリーミング応答
             start_ms = time.monotonic_ns() // 1_000_000
@@ -355,6 +352,27 @@ async def _inject_mem0_context(
                     )
     except Exception as e:
         logger.debug("Mem0注入をスキップ: %s", e)
+
+
+async def _inject_rag_context(
+    messages: list[dict[str, str]],
+    query: str,
+) -> None:
+    """RAGナレッジベースから関連チャンクを検索し、ユーザーメッセージに注入。"""
+    try:
+        ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
+        results = await rag.search(query, limit=3, ollama_url=ollama_url)
+        if results:
+            context = rag.format_rag_context(results)
+            if context and messages:
+                for i in range(len(messages) - 1, -1, -1):
+                    if messages[i]["role"] == "user":
+                        messages[i]["content"] = (
+                            context + "\n\n---\n\n" + messages[i]["content"]
+                        )
+                        break
+    except Exception as e:
+        logger.debug("RAG注入をスキップ: %s", e)
 
 
 async def _load_conversation_messages(conversation_id: str) -> list[dict[str, str]]:

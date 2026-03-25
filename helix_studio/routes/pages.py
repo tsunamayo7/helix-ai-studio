@@ -56,6 +56,16 @@ async def settings_page(request: Request):
     )
 
 
+@router.get("/knowledge", response_class=HTMLResponse)
+async def knowledge_page(request: Request):
+    """ナレッジベース画面"""
+    settings = await get_all_settings()
+    return _get_templates().TemplateResponse(
+        request=request, name="knowledge.html",
+        context={"page": "knowledge", "settings": settings},
+    )
+
+
 @router.get("/history", response_class=HTMLResponse)
 async def history_page(request: Request):
     """履歴画面"""

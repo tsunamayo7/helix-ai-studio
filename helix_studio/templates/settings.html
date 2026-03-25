@@ -198,6 +198,36 @@
             </div>
         </section>
 
+        <!-- RAG / ナレッジベース設定 -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">RAG ナレッジベース設定</h3>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Qdrant URL</label>
+                    <input type="text" x-model="settings.qdrant_url"
+                           placeholder="http://localhost:6333"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">埋め込みモデル (Ollama)</label>
+                    <input type="text" x-model="settings.rag_embedding_model"
+                           placeholder="qwen3-embedding:8b"
+                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" x-model="settings.rag_auto_inject"
+                               class="rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500/30">
+                        <span class="text-xs text-slate-300">会話にナレッジを自動注入</span>
+                    </label>
+                </div>
+                <p class="text-[10px] text-slate-600">アップロードしたドキュメントのチャンクをベクトル検索し、関連コンテキストをチャットに自動注入します。</p>
+            </div>
+        </section>
+
         <!-- GPU / VRAM 設定 -->
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
@@ -264,6 +294,28 @@
                     <input type="text" x-model="settings.default_local_model"
                            placeholder="qwen3.5:122b"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
+                </div>
+            </div>
+        </section>
+
+        <!-- 言語 / Language -->
+        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
+                <h3 class="text-sm font-semibold text-slate-200">Language / 言語</h3>
+            </div>
+            <div class="p-5">
+                <div class="flex gap-2">
+                    <button @click="$store.i18n.setLang('ja')"
+                            :class="$store.i18n.lang === 'ja' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'"
+                            class="px-4 py-2 rounded-lg text-sm transition-colors">
+                        日本語
+                    </button>
+                    <button @click="$store.i18n.setLang('en')"
+                            :class="$store.i18n.lang === 'en' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'"
+                            class="px-4 py-2 rounded-lg text-sm transition-colors">
+                        English
+                    </button>
                 </div>
             </div>
         </section>

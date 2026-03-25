@@ -14,7 +14,8 @@
             const res = await fetch('/api/conversations');
             if (res.ok) {
                 const data = await res.json();
-                this.conversations = (data.conversations || []).sort((a, b) => {
+                const convs = Array.isArray(data) ? data : (data.conversations || []);
+                this.conversations = convs.sort((a, b) => {
                     return new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at);
                 });
             }
