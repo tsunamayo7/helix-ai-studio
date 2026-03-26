@@ -11,25 +11,25 @@ from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
-# 既知のCLIモデル定義
+# Known CLI model definitions
 CLAUDE_CODE_MODELS = [
-    {"id": "opus", "name": "Claude Opus 4.6 (1M)", "description": "最高性能モデル"},
-    {"id": "sonnet", "name": "Claude Sonnet 4.6", "description": "高速・高性能バランス"},
-    {"id": "haiku", "name": "Claude Haiku 4.5", "description": "最速・低コスト"},
+    {"id": "opus", "name": "Claude Opus 4.6 (1M)", "description": "Most capable model"},
+    {"id": "sonnet", "name": "Claude Sonnet 4.6", "description": "Fast & powerful balance"},
+    {"id": "haiku", "name": "Claude Haiku 4.5", "description": "Fastest & lowest cost"},
 ]
 
 CODEX_MODELS = [
-    {"id": "gpt-5.4", "name": "GPT-5.4", "description": "最新フロンティアモデル"},
-    {"id": "gpt-5.4-mini", "name": "GPT-5.4 Mini", "description": "小型フロンティアモデル"},
-    {"id": "gpt-5.3-codex", "name": "GPT-5.3 Codex", "description": "Codex最適化モデル"},
-    {"id": "gpt-5.3-codex-spark", "name": "GPT-5.3 Codex Spark", "description": "超高速コーディング"},
-    {"id": "gpt-5.2-codex", "name": "GPT-5.2 Codex", "description": "安定版Codexモデル"},
-    {"id": "gpt-5.2", "name": "GPT-5.2", "description": "長時間エージェント向け"},
+    {"id": "gpt-5.4", "name": "GPT-5.4", "description": "Latest frontier model"},
+    {"id": "gpt-5.4-mini", "name": "GPT-5.4 Mini", "description": "Compact frontier model"},
+    {"id": "gpt-5.3-codex", "name": "GPT-5.3 Codex", "description": "Codex optimized"},
+    {"id": "gpt-5.3-codex-spark", "name": "GPT-5.3 Codex Spark", "description": "Ultra-fast coding"},
+    {"id": "gpt-5.2-codex", "name": "GPT-5.2 Codex", "description": "Stable Codex model"},
+    {"id": "gpt-5.2", "name": "GPT-5.2", "description": "Long-running agent model"},
 ]
 
 GEMINI_CLI_MODELS = [
-    {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "最高性能"},
-    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "高速推論"},
+    {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "description": "Most capable"},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "description": "Fast inference"},
 ]
 
 
