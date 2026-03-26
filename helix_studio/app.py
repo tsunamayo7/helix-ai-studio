@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -70,6 +71,11 @@ def create_app() -> FastAPI:
     app.include_router(tools_api.router)
     app.include_router(rag_api.router)
     app.include_router(mcp_api.router)
+
+    # ヘルスチェック（外部依存なし）
+    @app.get("/healthz")
+    async def healthz():
+        return JSONResponse({"status": "ok"})
 
     return app
 
