@@ -167,13 +167,18 @@
         this.steps.forEach(s => { s.status = 'idle'; s.progress = 0; s.result = ''; });
 
         try {
-            // Backend expects: title, input_text, step1_model, step2_model, step3_model
+            // Auto-select first available model if none selected
+            const firstOllama = this.ollamaModels.length > 0 ? this.ollamaModels[0].value : '';
+            const firstCli = this.cliModels.length > 0 ? this.cliModels[0].value : '';
+            const firstCloud = this.cloudModels.length > 0 ? this.cloudModels[0].value : '';
+            const defaultModel = firstCli || firstCloud || firstOllama;
+
             const payload = {
                 title: this.taskInput.substring(0, 100),
                 input_text: this.taskInput,
-                step1_model: this.planModel,
-                step2_model: this.execModel,
-                step3_model: this.verifyModel,
+                step1_model: this.planModel || defaultModel,
+                step2_model: this.execModel || firstOllama,
+                step3_model: this.verifyModel || defaultModel,
             };
 
             this.steps[0].status = 'running';
@@ -239,10 +244,12 @@
                                 s.status = 'error';
                             }
                         });
-                        // Ensure final answer is set on completion
-                        if (status.step3_result) {
+                        // Always stop loading on completion
+                        this.finalAnswerLoading = false;
+                        if (status.step3_result && status.step3_result.trim()) {
                             this.finalAnswer = status.step3_result;
-                            this.finalAnswerLoading = false;
+                        } else if (status.status === 'completed') {
+                            this.finalAnswer = this.steps[2].result || 'Pipeline completed.';
                         }
                         if (status.error) {
                             this.steps[Math.min(currentStep, 2)].result = status.error;
