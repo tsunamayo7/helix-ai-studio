@@ -51,6 +51,12 @@ Switch between Local (Ollama), Cloud API (Claude/OpenAI), and CLI (Claude Code/C
 
 Click the 🌐 button to enable web search. The LLM can also autonomously decide to search when it needs current information (tool-use capable models only).
 
+### Pipeline — Plan → Execute → Verify
+
+![Pipeline Demo](docs/images/en/gh_pipeline_demo.gif)
+
+3-step automated pipeline with CLI (Claude Code/Codex) for planning & verification, local LLM (Ollama) for execution. CrewAI multi-agent mode also available.
+
 ### App Tour — All Features
 
 ![App Tour](docs/images/en/gh_navigation_demo.gif)
