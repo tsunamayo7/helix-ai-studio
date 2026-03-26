@@ -126,6 +126,12 @@ Step 3: Verify (Cloud/CLI/Local) — Verify results and evaluate quality
 
 ## Quick Start
 
+### Option 0: One-Click Deploy (Free)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tsunamayo7/helix-ai-studio)
+
+Deploy to Render's free tier in one click. Uses Cloud API providers (Claude/OpenAI) — enter your API keys in Settings after deploy.
+
 ### Option 1: Local Install
 
 ```bash

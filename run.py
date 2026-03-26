@@ -15,6 +15,6 @@ if __name__ == "__main__":
         "helix_studio.app:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=os.environ.get("RENDER") is None,  # disable reload on Render
         log_level="info",
     )

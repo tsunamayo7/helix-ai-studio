@@ -16,6 +16,7 @@ COPY run.py .
 # Create data directory
 RUN mkdir -p data
 
-EXPOSE 8502
+# PORT is set by the hosting platform (Render, Railway, etc.)
+EXPOSE ${PORT:-8504}
 
 CMD ["uv", "run", "python", "run.py"]

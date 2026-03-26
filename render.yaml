@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: helix-ai-studio
+    runtime: docker
+    plan: free
+    branch: master
+    healthCheckPath: /api/models
+    envVars:
+      - key: PORT
+        value: "10000"
