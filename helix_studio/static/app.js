@@ -68,7 +68,7 @@ document.addEventListener('alpine:init', () => {
             deleteDocConfirm: 'このドキュメントを削除しますか？',
             // pipeline
             aiPipeline: 'AIパイプライン',
-            pipelineDesc: 'Cloud AI で計画 → ローカル LLM で実行 → Cloud AI で検証',
+            pipelineDesc: '計画 → 実行 → 最終回答 の3ステップで自動処理',
             taskDescription: 'タスクの説明',
             taskPlaceholder: '実行したいタスクを入力してください...',
             step1PlanModel: 'Step1 計画モデル',
@@ -83,6 +83,7 @@ document.addEventListener('alpine:init', () => {
             planStep: '計画',
             execStep: '実行',
             verifyStep: '検証',
+            finalAnswerStep: '最終回答',
             crewAgentConfig: 'CrewAI エージェント構成',
             estimatedVram: '推定VRAM:',
             currentlyUsed: '現在使用中:',
@@ -211,7 +212,7 @@ document.addEventListener('alpine:init', () => {
             deleteDocConfirm: 'Delete this document?',
             // pipeline
             aiPipeline: 'AI Pipeline',
-            pipelineDesc: 'Plan with Cloud AI → Execute with local LLM → Verify with Cloud AI',
+            pipelineDesc: 'Plan → Execute → Final Answer in 3 automated steps',
             taskDescription: 'Task Description',
             taskPlaceholder: 'Enter the task you want to execute...',
             step1PlanModel: 'Step 1: Plan Model',
@@ -226,6 +227,7 @@ document.addEventListener('alpine:init', () => {
             planStep: 'Plan',
             execStep: 'Execute',
             verifyStep: 'Verify',
+            finalAnswerStep: 'Final Answer',
             crewAgentConfig: 'CrewAI Agent Configuration',
             estimatedVram: 'Est. VRAM:',
             currentlyUsed: 'Currently used:',

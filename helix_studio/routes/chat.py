@@ -50,10 +50,14 @@ async def ws_chat(ws: WebSocket):
                 }))
                 continue
 
-            # 会話IDがなければ新規作成
+            # 会話IDがなければ新規作成（タイトルはメッセージ冒頭から自動生成）
             if not conversation_id:
                 conversation_id = str(uuid.uuid4())
-                await _create_conversation(conversation_id, provider, model, system_prompt)
+                auto_title = content.strip().split("\n")[0][:60] or "New Chat"
+                # Remove @commands from title
+                import re as _re
+                auto_title = _re.sub(r'@\w+\s*', '', auto_title).strip() or "New Chat"
+                await _create_conversation(conversation_id, provider, model, system_prompt, title=auto_title)
 
             # ユーザーメッセージをDB保存
             user_msg_id = str(uuid.uuid4())

@@ -1,22 +1,5 @@
-<!-- 会話一覧コンポーネント -->
+<!-- Recent conversations (compact) -->
 <div class="flex-1 overflow-y-auto p-3 space-y-1">
-    <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider" x-text="$store.i18n.t('conversationHistory')"></span>
-        <button @click="$store.app.newConversation()"
-                class="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
-                :title="$store.i18n.t('newChat')">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        </button>
-    </div>
-
-    <!-- 会話が無い場合 -->
-    <template x-if="$store.app.conversations.length === 0">
-        <div class="text-center py-6">
-            <p class="text-xs text-slate-500" x-text="$store.i18n.t('noConversations')"></p>
-            <p class="text-[10px] text-slate-600 mt-1" x-text="$store.i18n.t('startNewChat')"></p>
-        </div>
-    </template>
-
     <!-- 会話リスト -->
     <template x-for="conv in $store.app.conversations" :key="conv.id">
         <div @click="$store.app.switchConversation(conv.id)"

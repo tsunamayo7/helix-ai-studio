@@ -13,7 +13,7 @@
     steps: [
         { nameKey: 'planStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
         { nameKey: 'execStep', icon: 'local', status: 'idle', progress: 0, result: '' },
-        { nameKey: 'verifyStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
+        { nameKey: 'finalAnswerStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
     ],
     finalAnswer: '',
     finalAnswerLoading: false,
@@ -221,12 +221,12 @@
                     if (status.step2_result) this.steps[1].result = status.step2_result;
                     if (status.step3_result) this.steps[2].result = status.step3_result;
 
-                    // Step4: Final answer
-                    if (status.current_step >= 4 && !status.step4_result) {
+                    // Step3 = Final Answer
+                    if (status.current_step >= 3 && status.status === 'running' && !status.step3_result) {
                         this.finalAnswerLoading = true;
                     }
-                    if (status.step4_result) {
-                        this.finalAnswer = status.step4_result;
+                    if (status.step3_result) {
+                        this.finalAnswer = status.step3_result;
                         this.finalAnswerLoading = false;
                     }
 

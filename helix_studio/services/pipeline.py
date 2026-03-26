@@ -74,9 +74,10 @@ Execute each step of the plan below thoroughly.
 5. Provide an overall execution summary at the end
 """
 
-STEP3_PROMPT = """You are a quality assurance expert.
+STEP3_PROMPT = """You are a technical writer who creates polished, actionable final deliverables.
 You MUST respond in the same language as the task description below.
-Comprehensively verify the following task, plan, and execution results.
+
+Based on the plan and execution results below, create a final answer that the user can directly use.
 
 ## Original Task
 {input_text}
@@ -89,53 +90,13 @@ Comprehensively verify the following task, plan, and execution results.
 
 {memory_context}
 
-## Verification Criteria and Output Format
-
-### 1. Quality Assessment
-- **Overall Rating**: A (Excellent) / B (Good) / C (Needs Improvement) / D (Insufficient)
-- **Completion Rate**: What percentage of the plan was executed
-
-### 2. Plan Alignment
-- Comparison of planned vs actual results for each step
-- List of unexecuted or incomplete items
-
-### 3. Quality Check
-- Accuracy: Are there any errors in the content
-- Completeness: Are requirements met
-- Practicality: Is the quality production-ready
-
-### 4. Improvement Suggestions
-- High-priority improvements (up to 3)
-- Additional items to consider
-
-### 5. Final Summary
-- (Conclusion in 3 lines or less)
-"""
-
-STEP4_PROMPT = """You are a technical writer who creates clear, actionable final deliverables.
-You MUST respond in the same language as the task description below.
-
-Based on the entire pipeline results below, create a polished final answer that the user can directly use.
-
-## Original Task
-{input_text}
-
-## Step 1: Plan
-{step1_result}
-
-## Step 2: Execution
-{step2_result}
-
-## Step 3: Verification
-{step3_result}
-
 ## Instructions
-1. Synthesize all results into a single, coherent final deliverable
-2. If the task requested code, include the final polished code
-3. If the task requested a document, include the final document
-4. Remove all meta-commentary (planning notes, verification notes)
+1. Synthesize the plan and execution results into a single, coherent final deliverable
+2. If code was requested, include the final polished code with comments
+3. If a document was requested, include the final document
+4. Remove all meta-commentary (planning notes, intermediate steps)
 5. The output should be something the user can copy-paste and use immediately
-6. Keep it concise but complete
+6. Add a brief quality assessment at the end (1-2 lines)
 """
 
 ProgressCallback = Callable[[int, str, str], Awaitable[None]]
@@ -233,9 +194,9 @@ async def run_pipeline(
         )
         await db.commit()
 
-        # ── Step 3: Cloud AI で検証 ──
+        # ── Step 3: Final Answer (Cloud/CLI/Ollama) ──
         if progress_callback:
-            await progress_callback(3, "running", "Step3: Verifying quality...")
+            await progress_callback(3, "running", "Step3: Generating final answer...")
 
         step3_result = await _run_cloud_step(
             step3_model,
@@ -246,37 +207,17 @@ async def run_pipeline(
                 memory_context=memory_context,
             ),
         )
-        await db.execute(
-            "UPDATE pipeline_runs SET step3_result=?, current_step=4 WHERE id=?",
-            (step3_result, run_id),
-        )
-        await db.commit()
-
-        # ── Step 4: Final Answer (Cloud/CLI/Ollama) ──
-        if progress_callback:
-            await progress_callback(4, "running", "Step4: Generating final answer...")
-
-        step4_model = step3_model  # Same model as verification
-        step4_result = await _run_cloud_step(
-            step4_model,
-            STEP4_PROMPT.format(
-                input_text=input_text,
-                step1_result=step1_result,
-                step2_result=step2_result,
-                step3_result=step3_result,
-            ),
-        )
 
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
-            """UPDATE pipeline_runs SET step3_result=?, step4_result=?,
-               current_step=4, status='completed', completed_at=? WHERE id=?""",
-            (step3_result, step4_result, now, run_id),
+            """UPDATE pipeline_runs SET step3_result=?, current_step=3,
+               status='completed', completed_at=? WHERE id=?""",
+            (step3_result, now, run_id),
         )
         await db.commit()
 
         if progress_callback:
-            await progress_callback(4, "completed", "Pipeline completed")
+            await progress_callback(3, "completed", "Pipeline completed")
 
         return {
             "id": run_id,
@@ -284,7 +225,6 @@ async def run_pipeline(
             "step1_result": step1_result,
             "step2_result": step2_result,
             "step3_result": step3_result,
-            "step4_result": step4_result,
         }
 
     except Exception as e:
