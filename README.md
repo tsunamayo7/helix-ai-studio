@@ -9,6 +9,40 @@ All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integrat
 
 ---
 
+## Demo
+
+### Chat — Streaming Response
+
+![Chat Streaming](docs/images/chat_streaming_short.gif)
+
+Real-time WebSocket streaming with Ollama (nemotron-cascade-2). Provider and model switching with one click.
+
+### Chat UI
+
+![Chat Main](docs/images/gh_01_chat_main.png)
+
+Dark theme, Japanese UI, sidebar with conversation history, provider tabs (Local / Cloud API / CLI).
+
+### RAG Knowledge Base
+
+![Knowledge Base](docs/images/gh_03_knowledge_base.png)
+
+Drag & drop document upload, Qdrant vector search, Ollama embedding — all running locally.
+
+### Pipeline — Plan → Execute → Verify
+
+![Pipeline](docs/images/gh_04_pipeline.png)
+
+3-step automated pipeline with per-step model selection.
+
+### Settings
+
+![Settings](docs/images/gh_05_settings.png)
+
+Cloud AI, Local AI, Mem0 shared memory, MCP tool integration — all configurable from the UI.
+
+---
+
 ## Features
 
 ### 7 AI Providers
