@@ -273,7 +273,7 @@ async def _get_memory_context(query: str) -> str:
 
 
 async def _run_cloud_step(model: str, prompt: str) -> str:
-    """クラウドAIにプロンプトを送信して応答を取得。"""
+    """AIにプロンプトを送信して応答を取得。Cloud/Ollamaを自動判定。"""
     # モデル名からプロバイダを判定
     if model.startswith("claude"):
         provider = "claude"
@@ -282,11 +282,14 @@ async def _run_cloud_step(model: str, prompt: str) -> str:
         provider = "openai"
         api_key = await get_setting("openai_api_key") or ""
     else:
+        # Cloud APIキーがなければOllamaにフォールバック
         provider = "claude"
         api_key = await get_setting("claude_api_key") or ""
 
+    # Cloud APIキーがない場合、Ollamaで実行
     if not api_key:
-        raise ValueError(f"{provider}のAPIキーが設定されていません。設定画面から入力してください。")
+        logger.info("Cloud APIキー未設定、Ollamaで実行: %s", model)
+        return await _run_local_step(model, prompt)
 
     messages = [{"role": "user", "content": prompt}]
     return await cloud_ai.chat_once(provider, api_key, model, messages)
