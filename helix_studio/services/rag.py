@@ -83,21 +83,24 @@ async def _parse_with_docling(file_content: bytes, filename: str) -> str | None:
 
 
 async def ensure_collection() -> bool:
-    """Qdrant コレクションが存在しなければ作成する。"""
+    """Qdrant コレクションが存在しなければ作成する（hybrid検索対応）。"""
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
             r = await c.get(f"{QDRANT_URL}/collections/{COLLECTION}")
             if r.status_code == 200:
                 return True
-            # 作成
+            # dense + sparse vectors で作成
             r = await c.put(
                 f"{QDRANT_URL}/collections/{COLLECTION}",
                 json={
                     "vectors": {"size": EMBEDDING_DIM, "distance": "Cosine"},
+                    "sparse_vectors": {
+                        "text_bm25": {},
+                    },
                 },
             )
             r.raise_for_status()
-            logger.info("Qdrant コレクション '%s' を作成", COLLECTION)
+            logger.info("Qdrant hybrid コレクション '%s' を作成", COLLECTION)
             return True
     except Exception as e:
         logger.warning("Qdrant コレクション確認失敗: %s", e)
@@ -122,6 +125,29 @@ async def _embed(text: str, ollama_url: str | None = None) -> list[float] | None
     except Exception as e:
         logger.debug("埋め込み生成失敗: %s", e)
         return None
+
+
+# ── BM25 スパースベクトル ─────────────────────────────────
+
+
+def _tokenize_for_bm25(text: str) -> dict[str, list]:
+    """簡易BM25トークナイザ。単語頻度ベースのスパースベクトルを生成。"""
+    import math
+    tokens = re.findall(r"\w+", text.lower())
+    if not tokens:
+        return {"indices": [], "values": []}
+
+    # 単語→インデックスマッピング (ハッシュで固定)
+    freq: dict[int, float] = {}
+    for tok in tokens:
+        idx = hash(tok) % 2_000_000  # 2M次元のスパース空間
+        freq[idx] = freq.get(idx, 0) + 1.0
+
+    # TF正規化 (sublinear TF)
+    indices = sorted(freq.keys())
+    values = [1.0 + math.log(freq[i]) for i in indices]
+
+    return {"indices": indices, "values": values}
 
 
 # ── チャンク分割 ──────────────────────────────────────────
@@ -202,8 +228,9 @@ async def ingest_text(
         vector = await _embed(chunk, ollama_url)
         if not vector:
             continue
+        sparse = _tokenize_for_bm25(chunk)
         point_id = str(uuid.uuid4())
-        points.append({
+        point: dict[str, Any] = {
             "id": point_id,
             "vector": vector,
             "payload": {
@@ -214,7 +241,10 @@ async def ingest_text(
                 "content": chunk,
                 **(metadata or {}),
             },
-        })
+        }
+        if sparse["indices"]:
+            point["sparse_vectors"] = {"text_bm25": sparse}
+        points.append(point)
 
     if not points:
         return {"ok": False, "error": "埋め込み生成に失敗しました"}
@@ -267,25 +297,64 @@ async def search(
     score_threshold: float = 0.3,
     ollama_url: str | None = None,
 ) -> list[dict[str, Any]]:
-    """クエリに関連するチャンクをベクトル検索で取得。"""
+    """Hybrid検索 (dense + BM25 sparse + RRF融合) でチャンクを取得。"""
     vector = await _embed(query, ollama_url)
     if not vector:
         return []
 
+    sparse = _tokenize_for_bm25(query)
+
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as c:
+            # Qdrant Query API でhybrid検索 (prefetch + RRF)
+            query_payload: dict[str, Any] = {
+                "prefetch": [
+                    {
+                        "query": vector,
+                        "using": "__default__",
+                        "limit": limit * 3,
+                    },
+                ],
+                "query": {"fusion": "rrf"},
+                "limit": limit,
+                "with_payload": True,
+            }
+            # スパースベクトルがあればhybrid、なければdenseのみ
+            if sparse["indices"]:
+                query_payload["prefetch"].append({
+                    "query": {
+                        "indices": sparse["indices"],
+                        "values": sparse["values"],
+                    },
+                    "using": "text_bm25",
+                    "limit": limit * 3,
+                })
+
             r = await c.post(
-                f"{QDRANT_URL}/collections/{COLLECTION}/points/search",
-                json={
-                    "vector": vector,
-                    "limit": limit,
-                    "with_payload": True,
-                    "score_threshold": score_threshold,
-                },
+                f"{QDRANT_URL}/collections/{COLLECTION}/points/query",
+                json=query_payload,
             )
-            r.raise_for_status()
+
+            # Query APIが使えない場合、従来のsearch APIにフォールバック
+            if r.status_code >= 400:
+                logger.debug("Query API unavailable, falling back to search API")
+                r = await c.post(
+                    f"{QDRANT_URL}/collections/{COLLECTION}/points/search",
+                    json={
+                        "vector": vector,
+                        "limit": limit,
+                        "with_payload": True,
+                        "score_threshold": score_threshold,
+                    },
+                )
+                r.raise_for_status()
+                points_key = "result"
+            else:
+                r.raise_for_status()
+                points_key = "points"
+
             results = []
-            for point in r.json().get("result", []):
+            for point in r.json().get(points_key, []):
                 payload = point.get("payload", {})
                 results.append({
                     "content": payload.get("content", ""),
