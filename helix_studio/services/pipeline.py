@@ -312,6 +312,9 @@ async def _run_cloud_step(model: str, prompt: str) -> str:
 async def _run_local_step(model: str, prompt: str) -> str:
     """ローカルLLMにプロンプトを送信して応答を取得。"""
     ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
+    # Strip provider prefix (e.g. "ollama/gemma3:4b" -> "gemma3:4b")
+    if "/" in model:
+        model = model.split("/", 1)[1]
     messages = [{"role": "user", "content": prompt}]
     chunks: list[str] = []
     async for chunk in local_ai.stream_ollama_chat(ollama_url, model, messages):
