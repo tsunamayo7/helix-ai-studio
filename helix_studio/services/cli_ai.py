@@ -65,15 +65,15 @@ def _resolve_command(cmd_name: str) -> str:
     return cmd_name
 
 
-def _run_subprocess(cmd: list[str], timeout: int = 300) -> subprocess.CompletedProcess:
+def _run_subprocess(cmd: list[str], timeout: int = 300, stdin_text: str | None = None) -> subprocess.CompletedProcess:
     """サブプロセスを同期的に実行する（asyncio.to_thread用）。"""
-    # コマンド名をフルパスに解決（Windows .cmd対応）
     resolved_cmd = [_resolve_command(cmd[0])] + cmd[1:]
     return subprocess.run(
         resolved_cmd,
         capture_output=True,
         timeout=timeout,
-        shell=True,  # Windows .cmd ファイルの実行に必要
+        shell=True,
+        input=stdin_text.encode("utf-8") if stdin_text else None,
     )
 
 
@@ -83,10 +83,16 @@ async def stream_chat_claude_code(
     system: str = "",
 ) -> AsyncIterator[str]:
     """Claude Code CLI で非対話チャット（ストリーミング風）。"""
-    cmd = ["claude", "-p", message, "--model", model, "--output-format", "json"]
+    # 長文プロンプトはstdin経由で渡す（コマンドライン引数長制限回避）
+    if len(message) > 500:
+        cmd = ["claude", "-p", "-", "--model", model, "--output-format", "json"]
+        stdin_text = message
+    else:
+        cmd = ["claude", "-p", message, "--model", model, "--output-format", "json"]
+        stdin_text = None
 
     try:
-        result = await asyncio.to_thread(_run_subprocess, cmd, 300)
+        result = await asyncio.to_thread(_run_subprocess, cmd, 300, stdin_text)
 
         if result.returncode != 0:
             error_text = result.stderr.decode("utf-8", errors="replace").strip()

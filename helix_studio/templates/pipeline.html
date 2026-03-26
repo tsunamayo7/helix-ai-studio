@@ -462,25 +462,48 @@
                              :style="'width: ' + step.progress + '%'"></div>
                     </div>
 
-                    <!-- 結果テキスト -->
-                    <div class="text-xs text-slate-400 min-h-[60px] max-h-[200px] overflow-y-auto">
-                        <template x-if="step.result">
-                            <div class="markdown-body" x-html="renderMarkdown(step.result)"></div>
-                        </template>
-                        <template x-if="!step.result && step.status === 'idle'">
+                    <!-- ステップ状態表示（実行中はアニメーションのみ） -->
+                    <div class="text-xs text-slate-400 min-h-[40px]">
+                        <template x-if="step.status === 'idle'">
                             <span class="text-slate-600" x-text="$store.i18n.t('resultPlaceholder')"></span>
                         </template>
-                        <template x-if="!step.result && step.status === 'running'">
+                        <template x-if="step.status === 'running'">
                             <div class="flex gap-1 py-2">
                                 <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 0ms;"></span>
                                 <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 150ms;"></span>
                                 <span class="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style="animation-delay: 300ms;"></span>
                             </div>
                         </template>
+                        <template x-if="step.status === 'done'">
+                            <span class="text-emerald-400">&#10003;</span>
+                        </template>
+                        <template x-if="step.status === 'error'">
+                            <span class="text-red-400" x-text="step.result || 'Error'"></span>
+                        </template>
                     </div>
                 </div>
             </template>
         </div>
+
+        <!-- 実行結果（全ステップ完了後に表示） -->
+        <template x-if="steps.every(s => s.status === 'done') && steps.some(s => s.result)">
+            <div class="bg-slate-800 rounded-xl border border-emerald-500/30 overflow-hidden">
+                <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <h3 class="text-sm font-semibold text-emerald-300" x-text="$store.i18n.t('pipelineResults')"></h3>
+                </div>
+                <div class="divide-y divide-slate-700">
+                    <template x-for="(step, i) in steps" :key="'result-'+i">
+                        <div x-show="step.result" class="p-5">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="text-xs font-medium text-slate-400" x-text="'Step ' + (i+1) + ': ' + $store.i18n.t(step.nameKey)"></span>
+                            </div>
+                            <div class="text-sm text-slate-300 markdown-body max-h-[400px] overflow-y-auto" x-html="renderMarkdown(step.result)"></div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
 
         <!-- 実行履歴 -->
         <div class="bg-slate-800 rounded-xl border border-slate-700">
@@ -492,11 +515,16 @@
                     <div class="px-5 py-8 text-center text-xs text-slate-500" x-text="$store.i18n.t('noExecutionHistory')">
                     </div>
                 </template>
-                <template x-for="(item, idx) in history" :key="idx">
-                    <div class="px-5 py-3 hover:bg-slate-700/30 transition-colors cursor-pointer">
+                <template x-for="(item, idx) in history" :key="'hist-'+idx">
+                    <div class="px-5 py-3 hover:bg-slate-700/30 transition-colors">
                         <div class="flex items-center justify-between">
-                            <span class="text-sm text-slate-300 truncate" x-text="item.task"></span>
-                            <span class="text-[10px] text-slate-500 shrink-0 ml-3" x-text="item.timestamp"></span>
+                            <span class="text-sm text-slate-300 truncate" x-text="item.title || item.task || 'Pipeline'"></span>
+                            <div class="flex items-center gap-2 shrink-0 ml-3">
+                                <span class="text-[10px] px-1.5 py-0.5 rounded-full"
+                                      :class="item.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : item.status === 'failed' ? 'bg-red-500/20 text-red-400' : 'bg-slate-700 text-slate-400'"
+                                      x-text="item.status || ''"></span>
+                                <span class="text-[10px] text-slate-500" x-text="item.created_at || item.timestamp || ''"></span>
+                            </div>
                         </div>
                     </div>
                 </template>
