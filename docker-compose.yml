@@ -7,7 +7,7 @@ services:
     environment:
       - OLLAMA_URL=http://ollama:11434
       - MEM0_URL=http://mem0:8080
-      - MEM0_USER_ID=default
+      - MEM0_USER_ID=tsunamayo7
     volumes:
       - studio-data:/app/data
     depends_on:
