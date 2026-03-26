@@ -16,8 +16,6 @@
         mem0_auto_inject: true,
         mcp_helix_pilot_cmd: '',
         mcp_helix_sandbox_cmd: '',
-        default_cloud_model: '',
-        default_local_model: '',
     },
     testResults: {},
     saving: false,
@@ -277,28 +275,6 @@
                     <input type="text" x-model="settings.mcp_helix_sandbox_cmd"
                            placeholder="python -m helix_sandbox.server"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors font-mono">
-                </div>
-            </div>
-        </section>
-
-        <!-- デフォルトモデル設定 -->
-        <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-            <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
-                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('defaultModels')"></h3>
-            </div>
-            <div class="p-5 space-y-4">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('cloudDefaultModel')"></label>
-                    <input type="text" x-model="settings.default_cloud_model"
-                           placeholder="claude-sonnet-4-20250514"
-                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('localDefaultModel')"></label>
-                    <input type="text" x-model="settings.default_local_model"
-                           placeholder="qwen3.5:122b"
-                           class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
             </div>
         </section>
