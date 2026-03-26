@@ -16,11 +16,19 @@ logger = logging.getLogger(__name__)
 # ── Web検索（DuckDuckGo — 無料・APIキー不要）──
 
 
+SEARXNG_URL = "http://localhost:8888"  # SearXNG self-hosted
+
+
 async def web_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
-    """DuckDuckGo Instant Answer API + HTML検索で結果を取得（無料）"""
+    """SearXNG → DuckDuckGo フォールバックで検索（全て無料）"""
+    # SearXNG 優先（複数エンジン横断、高品質）
+    results = await _searxng_search(query, max_results)
+    if results:
+        return results[:max_results]
+
     results = []
 
-    # DuckDuckGo Instant Answer API（公式、無料）
+    # DuckDuckGo Instant Answer API（フォールバック）
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
@@ -81,6 +89,36 @@ async def web_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
             logger.debug("DuckDuckGo HTML検索失敗: %s", e)
 
     return results[:max_results]
+
+
+async def _searxng_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
+    """SearXNG API で横断検索（Google/Bing/DuckDuckGo等）"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{SEARXNG_URL}/search",
+                params={
+                    "q": query,
+                    "format": "json",
+                    "categories": "general",
+                    "language": "auto",
+                    "pageno": 1,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            results = []
+            for r in data.get("results", [])[:max_results]:
+                results.append({
+                    "title": r.get("title", ""),
+                    "snippet": r.get("content", "")[:300],
+                    "url": r.get("url", ""),
+                    "source": f"SearXNG ({r.get('engine', '')})",
+                })
+            return results
+    except Exception as e:
+        logger.debug("SearXNG unavailable, falling back to DuckDuckGo: %s", e)
+        return []
 
 
 def format_search_results(results: list[dict]) -> str:
