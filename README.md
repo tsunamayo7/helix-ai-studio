@@ -2,13 +2,13 @@
 
 All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integration, Mem0 shared memory, CrewAI multi-agent, and 3-step pipeline in a single lightweight web app.
 
-7つのAIプロバイダ・RAGナレッジベース・MCPツール統合・Mem0共有記憶・CrewAIマルチエージェント・パイプラインを統合した軽量Webアプリです。
-
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-supported-black?logo=ollama&logoColor=white)](https://ollama.com/)
 [![Self-Hosted](https://img.shields.io/badge/Self--Hosted-100%25-green)](https://github.com/tsunamayo7/helix-ai-studio)
+
+> **[日本語版 README はこちら (README.ja.md)](README.ja.md)**
 
 ---
 
@@ -16,19 +16,19 @@ All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integrat
 
 ### Chat — Streaming Response
 
-![Streaming Demo](docs/images/gh_streaming_demo.gif)
+![Streaming Demo](docs/images/en/gh_streaming_demo.gif)
 
 Real-time WebSocket streaming with Ollama. Type a prompt, hit send, and watch the response stream in with syntax-highlighted code blocks.
 
 ### Provider & Model Switching
 
-![Provider Switch](docs/images/gh_provider_switch.gif)
+![Provider Switch](docs/images/en/gh_provider_switch.gif)
 
 Switch between Local (Ollama), Cloud API (Claude/OpenAI), and CLI (Claude Code/Codex/Gemini) with one click. Models auto-load per provider.
 
 ### App Tour — All Features
 
-![App Tour](docs/images/gh_navigation_demo.gif)
+![App Tour](docs/images/en/gh_navigation_demo.gif)
 
 Chat → Pipeline → Knowledge Base → Settings — everything in a single lightweight web app.
 
@@ -36,7 +36,7 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 
 | Chat UI | RAG Knowledge Base | Pipeline | Settings |
 |:---:|:---:|:---:|:---:|
-| ![Chat](docs/images/gh_01_chat_main.png) | ![RAG](docs/images/gh_03_knowledge_base.png) | ![Pipeline](docs/images/gh_04_pipeline.png) | ![Settings](docs/images/gh_05_settings.png) |
+| ![Chat](docs/images/en/gh_01_chat_main.png) | ![RAG](docs/images/en/gh_03_knowledge_base.png) | ![Pipeline](docs/images/en/gh_04_pipeline.png) | ![Settings](docs/images/en/gh_05_settings.png) |
 | Dark theme, sidebar, history | Drag & drop, Qdrant search | Plan → Execute → Verify | Cloud/Local/Mem0/MCP config |
 
 ---
