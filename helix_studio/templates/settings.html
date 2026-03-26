@@ -10,7 +10,7 @@
         openai_api_key: '',
         ollama_url: 'http://localhost:11434',
         openai_compat_url: '',
-        openai_compat_key: '',
+        openai_compat_api_key: '',
         mem0_url: 'http://localhost:8080',
         mem0_user_id: 'tsunamayo7',
         mem0_auto_inject: true,
@@ -27,7 +27,8 @@
             const res = await fetch('/api/settings');
             if (res.ok) {
                 const data = await res.json();
-                Object.assign(this.settings, data);
+                // API returns { settings: {...} }
+                Object.assign(this.settings, data.settings || data);
             }
         } catch (e) {}
     },
@@ -36,9 +37,9 @@
         this.saving = true;
         try {
             const res = await fetch('/api/settings', {
-                method: 'POST',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.settings),
+                body: JSON.stringify({ settings: this.settings }),
             });
             if (res.ok) {
                 this.testResults.save = { ok: true, msg: Alpine.store('i18n').t('saved') };
@@ -55,13 +56,17 @@
     async testConnection(service) {
         this.testResults[service] = { ok: null, msg: Alpine.store('i18n').t('testing') };
         try {
-            const res = await fetch('/api/settings/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ service, settings: this.settings }),
-            });
-            const data = await res.json();
-            this.testResults[service] = { ok: data.ok, msg: data.message };
+            // Direct connectivity test per service
+            let testUrl = '';
+            if (service === 'claude') testUrl = '/api/models?provider=claude';
+            else if (service === 'openai') testUrl = '/api/models?provider=openai';
+            else if (service === 'ollama') testUrl = this.settings.ollama_url + '/api/tags';
+            else if (service === 'openai_compat') testUrl = (this.settings.openai_compat_url || '') + '/v1/models';
+            else if (service === 'mem0') testUrl = (this.settings.mem0_url || 'http://localhost:8080') + '/health';
+            else { this.testResults[service] = { ok: false, msg: 'Unknown service' }; return; }
+
+            const res = await fetch(testUrl, { signal: AbortSignal.timeout(5000) });
+            this.testResults[service] = { ok: res.ok, msg: res.ok ? 'OK (' + res.status + ')' : 'Failed (' + res.status + ')' };
         } catch (e) {
             this.testResults[service] = { ok: false, msg: Alpine.store('i18n').t('connectionError') };
         }
@@ -138,7 +143,7 @@
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('openaiCompatKey')"></label>
-                    <input type="password" x-model="settings.openai_compat_key"
+                    <input type="password" x-model="settings.openai_compat_api_key"
                            placeholder="lm-studio-..."
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>

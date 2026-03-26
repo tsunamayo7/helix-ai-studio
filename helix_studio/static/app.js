@@ -333,7 +333,8 @@ document.addEventListener('alpine:init', () => {
 
         // ── WebSocket ──
         connectWs() {
-            const wsUrl = `ws://${location.host}/ws/chat`;
+            const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProto}//${location.host}/ws/chat`;
             try {
                 this.ws = new WebSocket(wsUrl);
             } catch (e) {
@@ -509,7 +510,10 @@ document.addEventListener('alpine:init', () => {
                 this.messages = (data.messages || []).map(m => ({
                     role: m.role,
                     content: m.content,
-                    timestamp: m.timestamp || '',
+                    timestamp: m.timestamp || m.created_at || '',
+                    provider_label: m.provider || '',
+                    model: m.model || '',
+                    duration_ms: m.duration_ms || 0,
                 }));
             } catch (e) {
                 console.error('Conversation load error:', e);
