@@ -163,71 +163,92 @@
         this.steps.forEach(s => { s.status = 'idle'; s.progress = 0; s.result = ''; });
 
         try {
+            // Backend expects: title, input_text, step1_model, step2_model, step3_model
             const payload = {
-                task: this.taskInput,
-                plan_model: this.planModel,
-                exec_model: this.execModel,
-                verify_model: this.verifyModel,
+                title: this.taskInput.substring(0, 100),
+                input_text: this.taskInput,
+                step1_model: this.planModel,
+                step2_model: this.execModel,
+                step3_model: this.verifyModel,
             };
 
-            // CrewAIモードの場合、チーム情報を追加
-            if (this.execMode === 'crew') {
-                payload.exec_mode = 'crew';
-                payload.crew_team = this.selectedTeam;
-                payload.crew_agents = this.crewAgents.map(a => ({
-                    name: a.name,
-                    role: a.role,
-                    model: a.model,
-                }));
-            }
+            this.steps[0].status = 'running';
+            this.steps[0].progress = 10;
 
-            const res = await fetch('/api/pipeline/run', {
+            const res = await fetch('/api/pipeline/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
             });
-            const reader = res.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            if (data.step !== undefined && data.step < 3) {
-                                const step = this.steps[data.step];
-                                if (data.status) step.status = data.status;
-                                if (data.progress !== undefined) step.progress = data.progress;
-                                if (data.result) step.result = data.result;
-                            }
-                        } catch (e) {}
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'Pipeline start failed');
+            }
+
+            const data = await res.json();
+            const runId = data.id;
+
+            // Poll for status until complete
+            let attempts = 0;
+            while (attempts < 120) { // max 2 minutes
+                await new Promise(r => setTimeout(r, 1000));
+                attempts++;
+
+                try {
+                    const statusRes = await fetch(`/api/pipeline/${runId}`);
+                    if (!statusRes.ok) continue;
+                    const status = await statusRes.json();
+
+                    // Update step UI based on current_step
+                    const currentStep = status.current_step || 0;
+                    for (let i = 0; i < 3; i++) {
+                        if (i < currentStep) {
+                            this.steps[i].status = 'done';
+                            this.steps[i].progress = 100;
+                        } else if (i === currentStep && status.status === 'running') {
+                            this.steps[i].status = 'running';
+                            this.steps[i].progress = 50;
+                        }
                     }
-                }
+
+                    // Fill results from status
+                    if (status.step1_result) this.steps[0].result = status.step1_result;
+                    if (status.step2_result) this.steps[1].result = status.step2_result;
+                    if (status.step3_result) this.steps[2].result = status.step3_result;
+
+                    if (status.status === 'completed' || status.status === 'failed') {
+                        this.steps.forEach((s, i) => {
+                            if (status.status === 'completed') {
+                                s.status = 'done';
+                                s.progress = 100;
+                            } else if (i >= currentStep) {
+                                s.status = 'error';
+                            }
+                        });
+                        if (status.error) {
+                            this.steps[Math.min(currentStep, 2)].result = status.error;
+                        }
+                        break;
+                    }
+                } catch (e) { /* polling error, retry */ }
             }
         } catch (e) {
-            console.error(Alpine.store('i18n').t('pipelineError'), e);
+            console.error('Pipeline error:', e);
+            this.steps[0].status = 'error';
+            this.steps[0].result = e.message;
         }
 
         this.isRunning = false;
-        this.history.unshift({
-            task: this.taskInput,
-            timestamp: new Date().toLocaleString(Alpine.store('i18n').lang === 'en' ? 'en-US' : 'ja-JP'),
-            steps: JSON.parse(JSON.stringify(this.steps)),
-        });
+        await this.loadHistory();
     },
 
     async loadHistory() {
         try {
-            const res = await fetch('/api/pipeline/history');
+            const res = await fetch('/api/pipeline/history/list');
             if (res.ok) {
                 const data = await res.json();
-                this.history = data.history || [];
+                this.history = Array.isArray(data) ? data : (data.history || []);
             }
         } catch (e) {}
     }
