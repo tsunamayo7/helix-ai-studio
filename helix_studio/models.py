@@ -54,11 +54,11 @@ class ConversationDetail(ConversationSummary):
 
 # ── 設定 ──────────────────────────────────────────────
 class SettingUpdate(BaseModel):
-    settings: dict[str, str]
+    settings: dict[str, str | bool | int | float]
 
 
 class SettingResponse(BaseModel):
-    settings: dict[str, str]
+    settings: dict[str, str | bool | int | float]
 
 
 # ── パイプライン ──────────────────────────────────────
