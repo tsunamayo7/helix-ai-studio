@@ -88,6 +88,9 @@ CLI tools are automatically detected — if not installed, they are hidden from 
 ### RAG Knowledge Base
 
 - **Drag & drop** document upload (.txt, .md, .py, .json, and 25+ formats)
+- **Docling Parser** — PDF, Office (docx/pptx/xlsx), and image parsing via Docling Serve
+- **Hybrid search** — dense vector + BM25 sparse + RRF (Reciprocal Rank Fusion)
+- **TEI Reranker** — bge-reranker-v2-m3 for precision re-scoring
 - **Qdrant** vector database for semantic search
 - **Ollama embedding** (qwen3-embedding:8b) — runs locally, no API cost
 - **Auto-inject** relevant knowledge chunks into chat context
@@ -109,6 +112,7 @@ CLI tools are automatically detected — if not installed, they are hidden from 
 - Model info badge on every response
 - Conversation history auto-save and restore
 - `@search`, `@file`, `@ls` chat commands
+- **File attachment** — drag & drop or clip icon to attach files, auto-registered to RAG
 - **Auto-inject** Mem0 memories + RAG knowledge into context
 
 ### Mem0 Shared Memory
@@ -228,10 +232,12 @@ Browser (http://localhost:8504)
     |-- Local AI ---------> Ollama / OpenAI-Compatible (vLLM, llama.cpp)
     |-- CLI Agents -------> Claude Code / Codex / Gemini CLI
     |-- RAG --------------> Qdrant + Ollama Embedding (helix_rag collection)
+|-- RAG Parsing ------> Docling Serve (PDF/Office/images)
     |-- Memory -----------> Mem0 HTTP -> Qdrant + Ollama Embedding (mem0_shared)
     |-- MCP --------------> stdio transport -> Any MCP server
     |-- CrewAI -----------> Multi-agent (Ollama-only, VRAM-managed)
-    |-- Web Search -------> DuckDuckGo (free)
+    |-- Web Search -------> SearXNG (multi-engine) / DuckDuckGo fallback
+|-- Reranker ---------> TEI (bge-reranker-v2-m3)
     |-- File Operations --> Local filesystem (path traversal protected)
     |-- Pipeline ---------> Plan -> Execute -> Verify
 ```
@@ -241,13 +247,13 @@ Browser (http://localhost:8504)
 | Layer | Technology |
 | --- | --- |
 | Backend | Python 3.12, FastAPI, aiosqlite, httpx |
-| Frontend | Jinja2, Tailwind CSS (CDN), Alpine.js (CDN) |
+| Frontend | Jinja2, Tailwind CSS v4 (static build), Alpine.js (CDN) |
 | Database | SQLite (app data), Qdrant (vectors) |
 | AI | anthropic SDK, openai SDK, Ollama HTTP API |
-| RAG | Qdrant vector search, Ollama embedding |
+| RAG | Qdrant hybrid search (dense + BM25), Ollama embedding, TEI Reranker, Docling |
 | Memory | Mem0 HTTP API, Qdrant direct search fallback |
 | MCP | JSON-RPC over stdio (no mcp SDK dependency) |
-| Search | DuckDuckGo (free, no API key) |
+| Search | SearXNG (multi-engine), DuckDuckGo fallback |
 
 ---
 
@@ -298,13 +304,30 @@ Browser (http://localhost:8504)
 
 | Method | Path | Description |
 | --- | --- | --- |
+| GET | `/healthz` | Health check (no external dependencies) |
 | GET | `/api/models` | All provider models |
 | GET/PUT | `/api/settings` | Settings CRUD |
 | POST | `/api/memory/search` | Search Mem0 memories |
 | POST | `/api/memory/add` | Add memory |
 | POST | `/api/tools/search` | Web search |
 | POST | `/api/pipeline/start` | Start pipeline |
+| GET | `/api/pipeline/{run_id}` | Get pipeline run status |
+| GET | `/api/pipeline/history/list` | Pipeline run history |
 | GET | `/api/crew/teams` | CrewAI teams |
+
+---
+
+## Docker Services (Full Stack)
+
+| Service | URL | Purpose |
+| --- | --- | --- |
+| **Helix AI Studio** | localhost:8504 | Main app |
+| **Docling Serve** | localhost:5001 | PDF/Office/image parsing |
+| **SearXNG** | localhost:8888 | Web search (multi-engine) |
+| **TEI Reranker** | localhost:8480 | bge-reranker-v2-m3 re-scoring |
+| **Ollama** | localhost:11434 | Local LLM |
+| **Qdrant** | localhost:6333 | Vector database |
+| **Mem0** | localhost:8080 | Shared memory server |
 
 ---
 
