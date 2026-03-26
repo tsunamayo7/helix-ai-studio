@@ -2,6 +2,8 @@
 
 All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integration, Mem0 shared memory, CrewAI multi-agent, and 3-step pipeline in a single lightweight web app.
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-helix--ai--studio-blue?style=for-the-badge&logo=rocket&logoColor=white)](https://helix-ai-studio.onrender.com)
+
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/)
