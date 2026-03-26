@@ -34,3 +34,5 @@ package-lock.json
 # Private
 非公開/
 pytest-cache-files-*/
+*.db
+merge_sort.py
