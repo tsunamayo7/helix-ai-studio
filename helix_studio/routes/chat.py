@@ -288,10 +288,13 @@ async def _process_tool_commands(content: str) -> str:
     import re
     parts = []
 
-    # @search コマンド
-    search_matches = re.findall(r'@search\s+(.+?)(?=@\w|$)', content, re.DOTALL)
-    for query in search_matches:
-        query = query.strip()
+    # @search コマンド — 最初の行（or改行/句読点まで）を検索クエリとして使う
+    search_matches = re.findall(r'@search\s+(.+?)(?=\n|@\w|$)', content, re.DOTALL)
+    for raw_query in search_matches:
+        # 長い文章が入った場合、最初の句/文だけを検索クエリにする
+        query = re.split(r'[。？?！!\n]', raw_query.strip())[0].strip()
+        if not query:
+            query = raw_query.strip()[:100]  # フォールバック: 先頭100文字
         if query:
             try:
                 results = await tools.web_search(query, max_results=5)

@@ -260,6 +260,15 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
             </button>
 
+            <!-- Web検索ボタン（@searchをトグル） -->
+            <button @click="if (input.startsWith('@search ')) { input = input.replace(/^@search\s*/, ''); } else { input = '@search ' + input; }"
+                    :disabled="$store.app.isStreaming"
+                    :class="input.startsWith('@search ') ? 'text-blue-400 bg-blue-500/10 ring-1 ring-blue-500/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                    class="p-3 rounded-xl transition-all duration-200 shrink-0"
+                    :title="$store.i18n.t('webSearch')">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </button>
+
             <textarea x-model="input"
                       @keydown.enter.prevent="if (!$event.shiftKey) { sendWithFiles(); }"
                       @input="autoResize($el)"
