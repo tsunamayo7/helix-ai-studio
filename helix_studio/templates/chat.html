@@ -24,9 +24,15 @@
                 const r = await fetch('/api/rag/upload', { method: 'POST', body: fd });
                 const data = await r.json();
                 if (r.ok && data.ok) {
-                    this.attachedFiles.push({ name: file.name, doc_id: data.doc_id, chunks: data.chunks });
+                    this.attachedFiles = [...this.attachedFiles, { name: file.name, doc_id: data.doc_id, chunks: data.chunks }];
+                } else {
+                    console.warn('Upload rejected:', data.detail || data.error);
+                    this.attachedFiles = [...this.attachedFiles, { name: file.name + ' (failed)', doc_id: '', chunks: 0 }];
                 }
-            } catch (e) { console.error('Upload failed:', e); }
+            } catch (e) {
+                console.error('Upload failed:', e);
+                this.attachedFiles = [...this.attachedFiles, { name: file.name + ' (error)', doc_id: '', chunks: 0 }];
+            }
         }
         this.uploading = false;
     },
@@ -222,27 +228,25 @@
          @dragleave.prevent="$el.classList.remove('ring-2','ring-blue-500/50')"
          @drop.prevent="$el.classList.remove('ring-2','ring-blue-500/50'); attachFiles($event.dataTransfer.files)">
 
+        <!-- アップロード中インジケータ -->
+        <div x-show="uploading" class="max-w-3xl mx-auto mb-2 flex items-center gap-2 text-xs text-blue-400">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            <span x-text="$store.i18n.t('uploading')"></span>
+        </div>
+
         <!-- 添付ファイルプレビュー -->
-        <template x-if="attachedFiles.length > 0">
-            <div class="max-w-3xl mx-auto mb-2 flex flex-wrap gap-2">
-                <template x-for="(f, idx) in attachedFiles" :key="idx">
-                    <div class="flex items-center gap-1.5 bg-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-300">
-                        <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <span x-text="f.name" class="max-w-[150px] truncate"></span>
-                        <span class="text-slate-500" x-text="'(' + f.chunks + ' chunks)'"></span>
-                        <button @click="removeFile(idx)" class="ml-1 text-slate-500 hover:text-red-400">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-                </template>
-                <template x-if="uploading">
-                    <div class="flex items-center gap-1.5 text-xs text-blue-400">
-                        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                        <span x-text="$store.i18n.t('uploading')"></span>
-                    </div>
-                </template>
-            </div>
-        </template>
+        <div x-show="attachedFiles.length > 0" class="max-w-3xl mx-auto mb-2 flex flex-wrap gap-2">
+            <template x-for="(f, idx) in attachedFiles" :key="idx">
+                <div class="flex items-center gap-1.5 bg-emerald-900/40 border border-emerald-700/50 rounded-lg px-2.5 py-1.5 text-xs text-emerald-300">
+                    <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span x-text="f.name" class="max-w-[200px] truncate font-medium"></span>
+                    <span class="text-emerald-500/70 text-[10px]" x-text="f.chunks + ' chunks'"></span>
+                    <button @click="removeFile(idx)" class="ml-1 text-emerald-500/50 hover:text-red-400 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </template>
+        </div>
 
         <div class="max-w-3xl mx-auto flex gap-3 items-end">
             <!-- ファイル添付ボタン -->
