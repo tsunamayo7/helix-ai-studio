@@ -239,6 +239,11 @@
                                 s.status = 'error';
                             }
                         });
+                        // Ensure final answer is set on completion
+                        if (status.step3_result) {
+                            this.finalAnswer = status.step3_result;
+                            this.finalAnswerLoading = false;
+                        }
                         if (status.error) {
                             this.steps[Math.min(currentStep, 2)].result = status.error;
                         }
