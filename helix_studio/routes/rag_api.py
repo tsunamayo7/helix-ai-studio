@@ -43,20 +43,33 @@ async def upload_document(file: UploadFile = File(...)) -> dict[str, Any]:
     if not file.filename:
         raise HTTPException(status_code=400, detail="ファイル名が必要です")
 
+    from pathlib import Path
+    ext = Path(file.filename).suffix.lower()
     content = await file.read()
-    try:
-        text = content.decode("utf-8")
-    except UnicodeDecodeError:
+
+    # Docling 対応フォーマット (PDF, Office, 画像)
+    if ext in rag.DOCLING_EXTENSIONS:
+        text = await rag._parse_with_docling(content, file.filename)
+        if not text:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Docling parse failed for {file.filename}. Is docling-serve running on {rag.DOCLING_URL}?",
+            )
+    # テキスト系フォーマット
+    else:
         try:
-            text = content.decode("shift_jis")
+            text = content.decode("utf-8")
         except UnicodeDecodeError:
-            raise HTTPException(status_code=400, detail="テキストファイルのみ対応しています")
+            try:
+                text = content.decode("shift_jis")
+            except UnicodeDecodeError:
+                raise HTTPException(status_code=400, detail="Unsupported file encoding")
 
     ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
     result = await rag.ingest_text(text, file.filename, ollama_url=ollama_url)
 
     if not result.get("ok"):
-        raise HTTPException(status_code=500, detail=result.get("error", "登録失敗"))
+        raise HTTPException(status_code=500, detail=result.get("error", "Registration failed"))
     return result
 
 

@@ -36,6 +36,48 @@ SUPPORTED_EXTENSIONS = {
     ".xml", ".ini", ".cfg", ".log", ".env",
 }
 
+# Docling Serve でパース可能な拡張子
+DOCLING_EXTENSIONS = {
+    ".pdf", ".docx", ".pptx", ".xlsx", ".png", ".jpg", ".jpeg",
+    ".tiff", ".bmp", ".gif", ".webp",
+}
+
+DOCLING_URL = "http://localhost:5001"
+
+
+# ── Docling パーサー ──────────────────────────────────────
+
+
+async def _parse_with_docling(file_content: bytes, filename: str) -> str | None:
+    """Docling Serve API でドキュメントをMarkdownに変換。"""
+    import base64
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=120.0, write=30.0, pool=5.0)) as c:
+            payload = {
+                "options": {"to_format": "markdown"},
+                "http_sources": [],
+                "file_sources": [
+                    {
+                        "base64": base64.b64encode(file_content).decode("ascii"),
+                        "filename": filename,
+                    }
+                ],
+            }
+            r = await c.post(f"{DOCLING_URL}/v1/convert/source", json=payload)
+            r.raise_for_status()
+            data = r.json()
+            # Docling Serve v1 returns {"document": {"md_content": "..."}}
+            doc = data.get("document", {})
+            md = doc.get("md_content", "")
+            if not md:
+                # 代替パス: results 配列
+                for result in data.get("results", []):
+                    md += result.get("md_content", result.get("text", "")) + "\n"
+            return md if md.strip() else None
+    except Exception as e:
+        logger.warning("Docling パース失敗 (%s): %s", filename, e)
+        return None
+
 
 # ── コレクション管理 ──────────────────────────────────────
 
