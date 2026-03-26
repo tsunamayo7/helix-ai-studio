@@ -13,6 +13,7 @@
     providerTab: 'local',
     attachedFiles: [],
     uploading: false,
+    searchMode: false,
 
     async attachFiles(files) {
         if (!files || files.length === 0) return;
@@ -42,6 +43,10 @@
     sendWithFiles() {
         if (!this.input.trim() && this.attachedFiles.length === 0) return;
         let msg = this.input;
+        // 検索モードON → @searchを自動付与（テキストには表示しない）
+        if (this.searchMode && !msg.startsWith('@search ')) {
+            msg = '@search ' + msg;
+        }
         if (this.attachedFiles.length > 0) {
             const names = this.attachedFiles.map(f => f.name).join(', ');
             msg = `[Attached: ${names}]\n${msg}`;
@@ -49,6 +54,7 @@
         $store.app.sendMessage(msg);
         this.input = '';
         this.attachedFiles = [];
+        this.searchMode = false;
     },
 }">
 
@@ -228,6 +234,16 @@
          @dragleave.prevent="$el.classList.remove('ring-2','ring-blue-500/50')"
          @drop.prevent="$el.classList.remove('ring-2','ring-blue-500/50'); attachFiles($event.dataTransfer.files)">
 
+        <!-- 検索モードインジケータ -->
+        <div x-show="searchMode" x-transition
+             class="max-w-3xl mx-auto mb-2 flex items-center gap-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+            <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+            <span class="text-xs text-blue-300" x-text="$store.i18n.t('searchModeOn')"></span>
+            <button @click="searchMode = false" class="ml-auto text-blue-400/50 hover:text-blue-300">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
         <!-- アップロード中インジケータ -->
         <div x-show="uploading" class="max-w-3xl mx-auto mb-2 flex items-center gap-2 text-xs text-blue-400">
             <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
@@ -260,13 +276,14 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
             </button>
 
-            <!-- Web検索ボタン（@searchをトグル） -->
-            <button @click="if (input.startsWith('@search ')) { input = input.replace(/^@search\s*/, ''); } else { input = '@search ' + input; }"
+            <!-- Web検索トグルボタン -->
+            <button @click="searchMode = !searchMode"
                     :disabled="$store.app.isStreaming"
-                    :class="input.startsWith('@search ') ? 'text-blue-400 bg-blue-500/10 ring-1 ring-blue-500/30' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
-                    class="p-3 rounded-xl transition-all duration-200 shrink-0"
+                    :class="searchMode ? 'text-blue-400 bg-blue-500/20 ring-1 ring-blue-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                    class="p-3 rounded-xl transition-all duration-200 shrink-0 relative"
                     :title="$store.i18n.t('webSearch')">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/></svg>
+                <span x-show="searchMode" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-blue-500 rounded-full"></span>
             </button>
 
             <textarea x-model="input"

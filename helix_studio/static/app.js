@@ -30,6 +30,7 @@ document.addEventListener('alpine:init', () => {
             inputPlaceholder: 'メッセージを入力... (Shift+Enter で改行)',
             attachFile: 'ファイルを添付',
             webSearch: 'Web検索を有効にして送信',
+            searchModeOn: '🔍 Web検索ON — 送信するとWeb検索結果を含めて回答します',
             uploading: 'アップロード中...',
             // sidebar
             conversationHistory: '会話履歴',
@@ -166,6 +167,7 @@ document.addEventListener('alpine:init', () => {
             inputPlaceholder: 'Type a message... (Shift+Enter for newline)',
             attachFile: 'Attach file',
             webSearch: 'Enable web search for this message',
+            searchModeOn: 'Web search ON — Response will include web search results',
             uploading: 'Uploading...',
             // sidebar
             conversationHistory: 'Conversations',
