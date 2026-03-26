@@ -82,6 +82,12 @@ async def ws_chat(ws: WebSocket):
             if rag_enabled and content:
                 await _inject_rag_context(messages, content)
 
+            # LLM自律Web検索（tool use対応モデルのみ）
+            if not tool_context:  # 手動@searchがなければ自動検索を試みる
+                auto_search = await _auto_web_search(provider, model, content, messages)
+                if auto_search:
+                    messages.insert(0, {"role": "system", "content": auto_search})
+
             # ストリーミング応答
             start_ms = time.monotonic_ns() // 1_000_000
             full_response = ""
@@ -436,3 +442,97 @@ async def _save_message(
         await db.commit()
     finally:
         await db.close()
+
+
+# ── LLM自律Web検索（tool use） ──────────────────────────
+
+
+# tool use 対応モデルのパターン（Ollama名）
+_TOOL_USE_MODELS = {
+    "qwen3", "qwen3.5", "llama4", "llama3.3", "llama3.1",
+    "mistral", "mistral-small", "command-a", "command-r",
+    "nemotron", "gpt-oss", "devstral", "gemma3",
+}
+
+
+def _supports_tool_use(provider: str, model: str) -> bool:
+    """モデルがtool use（function calling）に対応しているか判定。"""
+    # Cloud APIは全て対応
+    if provider in ("claude", "openai"):
+        return True
+    # CLI経由は非対応（tool useの制御ができない）
+    if provider in ("claude_code", "codex", "gemini_cli"):
+        return False
+    # Ollamaローカル: モデル名からファミリーを判定
+    model_lower = model.lower().split(":")[0]  # "qwen3.5:122b" → "qwen3.5"
+    return any(model_lower.startswith(family) for family in _TOOL_USE_MODELS)
+
+
+_WEB_SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "web_search",
+        "description": "Search the web for current information. Use this when the user asks about recent events, latest data, or topics that require up-to-date information.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query to look up on the web",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+
+async def _auto_web_search(
+    provider: str, model: str, content: str, messages: list[dict]
+) -> str:
+    """tool use対応モデルにWeb検索ツールを提示し、LLMの判断で検索を実行する。"""
+    if not _supports_tool_use(provider, model):
+        return ""
+
+    try:
+        ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
+        import httpx
+
+        # tool use付きの非ストリーミング呼び出し
+        if provider == "ollama" or provider not in ("claude", "openai"):
+            payload = {
+                "model": model,
+                "messages": messages[-5:],  # 直近5件に制限（トークン節約）
+                "tools": [_WEB_SEARCH_TOOL],
+                "stream": False,
+            }
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as c:
+                r = await c.post(f"{ollama_url}/api/chat", json=payload)
+                if r.status_code != 200:
+                    return ""
+                data = r.json()
+
+            # ツール呼び出しがあるか確認
+            tool_calls = data.get("message", {}).get("tool_calls", [])
+            if not tool_calls:
+                return ""  # LLMが検索不要と判断
+
+            # 検索実行
+            search_results = []
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                if fn.get("name") == "web_search":
+                    query = fn.get("arguments", {}).get("query", "")
+                    if query:
+                        logger.info("LLM auto web search: %s", query)
+                        results = await tools.web_search(query, max_results=5)
+                        search_results.append(tools.format_search_results(results))
+
+            return "\n\n".join(search_results) if search_results else ""
+
+        # Cloud API (Claude/OpenAI) は今後追加可能
+        return ""
+
+    except Exception as e:
+        logger.debug("Auto web search failed: %s", e)
+        return ""
