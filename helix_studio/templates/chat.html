@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}チャット — Helix AI Studio{% endblock %}
+{% block title %}Chat — Helix AI Studio{% endblock %}
 {% block nav_chat %}bg-slate-700 text-blue-400 font-medium{% endblock %}
 
 {% block sidebar %}
@@ -18,18 +18,18 @@
             <div class="flex bg-slate-900 rounded-lg p-0.5">
                 <button @click="providerTab = 'local'; $store.app.provider = 'ollama'; $store.app.loadModels()"
                         :class="providerTab === 'local' ? 'bg-slate-700 text-emerald-400 shadow' : 'text-slate-400 hover:text-slate-300'"
-                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
-                    ローカル
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200"
+                        x-text="$store.i18n.t('local')">
                 </button>
                 <button @click="providerTab = 'cloud'; $store.app.provider = 'claude'; $store.app.loadModels()"
                         :class="providerTab === 'cloud' ? 'bg-slate-700 text-blue-400 shadow' : 'text-slate-400 hover:text-slate-300'"
-                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
-                    Cloud API
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200"
+                        x-text="$store.i18n.t('cloudApi')">
                 </button>
                 <button @click="providerTab = 'cli'; $store.app.provider = 'claude_code'; $store.app.loadModels()"
                         :class="providerTab === 'cli' ? 'bg-slate-700 text-purple-400 shadow' : 'text-slate-400 hover:text-slate-300'"
-                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200">
-                    CLI
+                        class="px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200"
+                        x-text="$store.i18n.t('cli')">
                 </button>
             </div>
 
@@ -38,7 +38,7 @@
                     @change="$store.app.loadModels()"
                     class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors">
                 <option value="ollama">Ollama</option>
-                <option value="openai_compat">OpenAI互換 API</option>
+                <option value="openai_compat" x-text="$store.i18n.t('openaiCompat')"></option>
             </select>
             <select x-show="providerTab === 'cloud'" x-model="$store.app.provider"
                     @change="$store.app.loadModels()"
@@ -58,7 +58,7 @@
             <select x-model="$store.app.model"
                     class="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500 transition-colors max-w-[300px]">
                 <template x-if="$store.app.availableModels.length === 0">
-                    <option value="">モデルなし（設定を確認）</option>
+                    <option value="" x-text="$store.i18n.t('noModels')"></option>
                 </template>
                 <template x-for="m in $store.app.availableModels" :key="m.value">
                     <option :value="m.value" x-text="m.label"></option>
@@ -84,7 +84,7 @@
             <!-- 新規会話ボタン -->
             <button @click="$store.app.newConversation()"
                     class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded-lg transition-colors duration-200">
-                新規会話
+                <span x-text="$store.i18n.t('newConversation')"></span>
             </button>
         </div>
     </div>
@@ -99,8 +99,8 @@
                 <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
                     <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg>
                 </div>
-                <h2 class="text-lg font-semibold text-slate-300 mb-1">AIとの対話を始めましょう</h2>
-                <p class="text-sm text-slate-500 max-w-sm">Cloud AI とローカル LLM を切り替えながら、自由に対話できます。</p>
+                <h2 class="text-lg font-semibold text-slate-300 mb-1" x-text="$store.i18n.t('startChatTitle')"></h2>
+                <p class="text-sm text-slate-500 max-w-sm" x-text="$store.i18n.t('startChatDesc')"></p>
             </div>
         </template>
 
@@ -113,7 +113,7 @@
                     <div class="max-w-2xl px-4 py-3 rounded-xl bg-red-900/30 border border-red-800 text-red-300 text-sm">
                         <div class="flex items-center gap-2 mb-1">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
-                            <span class="font-medium">エラー</span>
+                            <span class="font-medium" x-text="$store.i18n.t('error')"></span>
                         </div>
                         <span x-text="msg.content"></span>
                     </div>
@@ -138,11 +138,11 @@
                             <div class="flex items-center gap-2 mb-1.5">
                                 <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium"
                                      :class="{
-                                         'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50': msg.provider_label && msg.provider_label.startsWith('ローカル'),
+                                         'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50': msg.provider_label && (msg.provider_label.startsWith('ローカル') || msg.provider_label.startsWith('Local')),
                                          'bg-blue-900/40 text-blue-400 border border-blue-800/50': msg.provider_label && msg.provider_label.startsWith('Cloud'),
                                          'bg-purple-900/40 text-purple-400 border border-purple-800/50': msg.provider_label && msg.provider_label.startsWith('CLI'),
                                      }">
-                                    <template x-if="msg.provider_label && msg.provider_label.startsWith('ローカル')">
+                                    <template x-if="msg.provider_label && (msg.provider_label.startsWith('ローカル') || msg.provider_label.startsWith('Local'))">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                     </template>
                                     <template x-if="msg.provider_label && msg.provider_label.startsWith('Cloud')">
@@ -156,7 +156,7 @@
                                     <span x-text="msg.model" class="font-mono"></span>
                                 </div>
                                 <template x-if="msg.duration_ms > 0">
-                                    <span class="text-[10px] text-slate-600" x-text="(msg.duration_ms / 1000).toFixed(1) + '秒'"></span>
+                                    <span class="text-[10px] text-slate-600" x-text="(msg.duration_ms / 1000).toFixed(1) + $store.i18n.t('seconds')"></span>
                                 </template>
                             </div>
                         </template>
@@ -187,7 +187,7 @@
                       @keydown.enter.prevent="if (!$event.shiftKey) { $store.app.sendMessage(input); input = ''; }"
                       @input="autoResize($el)"
                       :disabled="$store.app.isStreaming"
-                      placeholder="メッセージを入力... (Shift+Enter で改行)"
+                      :placeholder="$store.i18n.t('inputPlaceholder')"
                       rows="1"
                       class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200 max-h-[200px] overflow-y-auto"></textarea>
             <button @click="$store.app.sendMessage(input); input = '';"

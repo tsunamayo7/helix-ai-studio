@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ナレッジ — Helix AI Studio{% endblock %}
+{% block title %}Knowledge — Helix AI Studio{% endblock %}
 {% block nav_knowledge %}bg-slate-700 text-blue-400 font-medium{% endblock %}
 
 {% block content %}
@@ -45,9 +45,9 @@
             try {
                 const r = await fetch('/api/rag/upload', { method: 'POST', body: fd });
                 const data = await r.json();
-                if (!r.ok) alert(data.detail || 'アップロード失敗');
+                if (!r.ok) alert(data.detail || Alpine.store('i18n').t('uploadFailed'));
             } catch (e) {
-                alert('アップロードエラー: ' + e.message);
+                alert(Alpine.store('i18n').t('uploadError') + e.message);
             }
         }
         this.uploading = false;
@@ -56,7 +56,7 @@
     },
 
     async deleteDoc(docId) {
-        if (!confirm('このドキュメントを削除しますか？')) return;
+        if (!confirm(Alpine.store('i18n').t('deleteDocConfirm'))) return;
         try {
             const r = await fetch('/api/rag/documents/' + docId, { method: 'DELETE' });
             if (r.ok) {
@@ -91,11 +91,11 @@
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('knowledge')">ナレッジベース</h2>
+                <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('knowledge')"></h2>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    <span x-show="ragStatus && ragStatus.available" class="text-emerald-400">● Qdrant 接続中</span>
-                    <span x-show="!ragStatus || !ragStatus.available" class="text-red-400">● Qdrant 未接続</span>
-                    <span x-show="ragStatus" class="ml-2" x-text="'(' + (ragStatus?.points_count || 0) + ' チャンク)'"></span>
+                    <span x-show="ragStatus && ragStatus.available" class="text-emerald-400" x-text="'● ' + $store.i18n.t('qdrantConnected')"></span>
+                    <span x-show="!ragStatus || !ragStatus.available" class="text-red-400" x-text="'● ' + $store.i18n.t('qdrantDisconnected')"></span>
+                    <span x-show="ragStatus" class="ml-2" x-text="'(' + (ragStatus?.points_count || 0) + ' ' + $store.i18n.t('chunks') + ')'"></span>
                 </p>
             </div>
             <div class="flex gap-2">
@@ -103,7 +103,7 @@
                         :class="showSearch ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'"
                         class="px-3 py-1.5 rounded-lg text-sm transition-colors">
                     <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    検索テスト
+                    <span x-text="$store.i18n.t('searchTest')"></span>
                 </button>
             </div>
         </div>
@@ -122,28 +122,28 @@
                    @change="uploadFiles($event.target.files)" class="hidden">
             <div x-show="!uploading">
                 <svg class="w-10 h-10 mx-auto text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                <p class="text-sm text-slate-300 font-medium">ドキュメントをドラッグ&ドロップ</p>
-                <p class="text-xs text-slate-500 mt-1">またはクリックしてファイルを選択 (.txt, .md, .py, .json など)</p>
+                <p class="text-sm text-slate-300 font-medium" x-text="$store.i18n.t('dragDropDocuments')"></p>
+                <p class="text-xs text-slate-500 mt-1" x-text="$store.i18n.t('clickToSelectFiles')"></p>
             </div>
             <div x-show="uploading" class="flex items-center justify-center gap-2">
                 <svg class="w-5 h-5 animate-spin text-blue-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                <span class="text-sm text-blue-400">アップロード中...</span>
+                <span class="text-sm text-blue-400" x-text="$store.i18n.t('uploading')"></span>
             </div>
         </div>
 
         <!-- 検索テスト -->
         <div x-show="showSearch" x-transition class="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 class="text-sm font-semibold text-slate-300 mb-3">ベクトル検索テスト</h3>
+            <h3 class="text-sm font-semibold text-slate-300 mb-3" x-text="$store.i18n.t('vectorSearchTest')"></h3>
             <div class="flex gap-2">
                 <input type="text" x-model="searchQuery"
                        @keydown.enter="searchDocs()"
-                       placeholder="検索クエリを入力..."
+                       :placeholder="$store.i18n.t('searchQueryPlaceholder')"
                        class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
                 <button @click="searchDocs()"
                         :disabled="searching"
                         class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm rounded-lg transition-colors">
-                    <span x-show="!searching">検索</span>
-                    <span x-show="searching">検索中...</span>
+                    <span x-show="!searching" x-text="$store.i18n.t('search')"></span>
+                    <span x-show="searching" x-text="$store.i18n.t('searching')"></span>
                 </button>
             </div>
             <div x-show="searchResults.length > 0" class="mt-3 space-y-2">
@@ -161,7 +161,7 @@
 
         <!-- ドキュメント一覧 -->
         <div>
-            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">登録済みドキュメント</h3>
+            <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3" x-text="$store.i18n.t('registeredDocuments')"></h3>
 
             <template x-if="loading">
                 <div class="text-center py-8">
@@ -174,8 +174,8 @@
                     <div class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto mb-3">
                         <svg class="w-7 h-7 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     </div>
-                    <p class="text-sm text-slate-400">ドキュメントが登録されていません</p>
-                    <p class="text-xs text-slate-500 mt-1">ファイルをアップロードするとRAG検索が有効になります</p>
+                    <p class="text-sm text-slate-400" x-text="$store.i18n.t('noDocuments')"></p>
+                    <p class="text-xs text-slate-500 mt-1" x-text="$store.i18n.t('noDocumentsDesc')"></p>
                 </div>
             </template>
 
@@ -188,11 +188,11 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="text-sm text-slate-200 truncate" x-text="doc.filename"></div>
-                                <div class="text-[10px] text-slate-500" x-text="doc.chunks + ' チャンク'"></div>
+                                <div class="text-[10px] text-slate-500" x-text="doc.chunks + ' ' + $store.i18n.t('chunks')"></div>
                             </div>
                             <button @click="deleteDoc(doc.doc_id)"
                                     class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-slate-600 text-slate-500 hover:text-red-400 transition-all shrink-0"
-                                    title="削除">
+                                    :title="$store.i18n.t('delete')">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
                         </div>

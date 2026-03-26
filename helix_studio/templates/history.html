@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}履歴 — Helix AI Studio{% endblock %}
+{% block title %}History — Helix AI Studio{% endblock %}
 {% block nav_history %}bg-slate-700 text-blue-400 font-medium{% endblock %}
 
 {% block content %}
@@ -20,13 +20,13 @@
                 });
             }
         } catch (e) {
-            console.error('履歴読み込みエラー:', e);
+            console.error(Alpine.store('i18n').t('historyLoadError'), e);
         }
         this.loading = false;
     },
 
     async deleteConv(id) {
-        if (!confirm('この会話を削除しますか？')) return;
+        if (!confirm(Alpine.store('i18n').t('deleteConvConfirm'))) return;
         try {
             const res = await fetch('/api/conversations/' + id, { method: 'DELETE' });
             if (res.ok) {
@@ -39,7 +39,8 @@
         const groups = {};
         convs.forEach(c => {
             const d = new Date(c.updated_at || c.created_at);
-            const key = d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+            const locale = Alpine.store('i18n').lang === 'en' ? 'en-US' : 'ja-JP';
+            const key = d.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' });
             if (!groups[key]) groups[key] = [];
             groups[key].push(c);
         });
@@ -49,8 +50,8 @@
 
     <!-- ヘッダー -->
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
-        <h2 class="text-lg font-semibold text-slate-100">会話履歴</h2>
-        <p class="text-xs text-slate-400 mt-0.5">過去の会話を日付順に表示</p>
+        <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('conversationHistoryTitle')"></h2>
+        <p class="text-xs text-slate-400 mt-0.5" x-text="$store.i18n.t('conversationHistoryDesc')"></p>
     </div>
 
     <div class="p-6 max-w-3xl mx-auto">
@@ -59,7 +60,7 @@
         <template x-if="loading">
             <div class="text-center py-16">
                 <svg class="w-8 h-8 animate-spin text-blue-400 mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                <p class="text-sm text-slate-400 mt-3">読み込み中...</p>
+                <p class="text-sm text-slate-400 mt-3" x-text="$store.i18n.t('loading')"></p>
             </div>
         </template>
 
@@ -69,10 +70,10 @@
                 <div class="w-16 h-16 rounded-2xl bg-slate-800 flex items-center justify-center mx-auto mb-4">
                     <svg class="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 </div>
-                <h3 class="text-base font-semibold text-slate-400 mb-1">履歴がありません</h3>
-                <p class="text-sm text-slate-500">チャットを始めると、ここに会話履歴が表示されます。</p>
-                <a href="/" class="inline-block mt-4 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-xl transition-colors">
-                    チャットを始める
+                <h3 class="text-base font-semibold text-slate-400 mb-1" x-text="$store.i18n.t('noHistory')"></h3>
+                <p class="text-sm text-slate-500" x-text="$store.i18n.t('noHistoryDesc')"></p>
+                <a href="/" class="inline-block mt-4 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-xl transition-colors"
+                   x-text="$store.i18n.t('startChat')">
                 </a>
             </div>
         </template>
@@ -90,18 +91,18 @@
                                         <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                                     </div>
                                     <a :href="'/?conversation=' + conv.id" class="flex-1 min-w-0">
-                                        <div class="text-sm text-slate-200 truncate" x-text="conv.title || '無題の会話'"></div>
+                                        <div class="text-sm text-slate-200 truncate" x-text="conv.title || $store.i18n.t('untitledConversation')"></div>
                                         <div class="text-[10px] text-slate-500 mt-0.5">
-                                            <span x-text="conv.message_count ? conv.message_count + ' メッセージ' : ''"></span>
+                                            <span x-text="conv.message_count ? conv.message_count + ' ' + $store.i18n.t('messages') : ''"></span>
                                             <span class="mx-1" x-show="conv.message_count && conv.provider">|</span>
                                             <span x-text="conv.provider || ''"></span>
                                         </div>
                                     </a>
                                     <div class="text-[10px] text-slate-500 shrink-0"
-                                         x-text="new Date(conv.updated_at || conv.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })"></div>
+                                         x-text="new Date(conv.updated_at || conv.created_at).toLocaleTimeString($store.i18n.lang === 'en' ? 'en-US' : 'ja-JP', { hour: '2-digit', minute: '2-digit' })"></div>
                                     <button @click="deleteConv(conv.id)"
                                             class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-slate-600 text-slate-500 hover:text-red-400 transition-all shrink-0"
-                                            title="削除">
+                                            :title="$store.i18n.t('delete')">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </div>

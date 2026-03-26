@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}パイプライン — Helix AI Studio{% endblock %}
+{% block title %}Pipeline — Helix AI Studio{% endblock %}
 {% block nav_pipeline %}bg-slate-700 text-blue-400 font-medium{% endblock %}
 
 {% block content %}
@@ -11,9 +11,9 @@
     verifyModel: '',
     isRunning: false,
     steps: [
-        { name: '計画', icon: 'cloud', status: 'idle', progress: 0, result: '' },
-        { name: '実行', icon: 'local', status: 'idle', progress: 0, result: '' },
-        { name: '検証', icon: 'cloud', status: 'idle', progress: 0, result: '' },
+        { nameKey: 'planStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
+        { nameKey: 'execStep', icon: 'local', status: 'idle', progress: 0, result: '' },
+        { nameKey: 'verifyStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
     ],
     history: [],
 
@@ -95,13 +95,13 @@
             for (const m of (data['openai_compat'] || [])) {
                 const value = typeof m === 'string' ? m : (m.name || m.id || '');
                 let label = typeof m === 'string' ? m : (m.name || m.id || '');
-                if (value) compat.push({ value, label: '[互換] ' + label });
+                if (value) compat.push({ value, label: '[' + Alpine.store('i18n').t('compatLabel') + '] ' + label });
             }
             this.compatModels = compat;
 
             this.modelsLoaded = true;
         } catch (e) {
-            console.error('モデル読み込みエラー:', e);
+            console.error(Alpine.store('i18n').t('modelLoadError'), e);
         }
     },
 
@@ -113,7 +113,7 @@
             this.crewTeams = data.teams || {};
             this.updateCrewAgents();
         } catch (e) {
-            console.error('CrewAIチーム読み込みエラー:', e);
+            console.error(Alpine.store('i18n').t('crewTeamLoadError'), e);
         }
     },
 
@@ -123,7 +123,7 @@
             if (!res.ok) return;
             this.vramStatus = await res.json();
         } catch (e) {
-            console.error('VRAM状態取得エラー:', e);
+            console.error(Alpine.store('i18n').t('vramStatusError'), e);
         }
     },
 
@@ -211,13 +211,13 @@
                 }
             }
         } catch (e) {
-            console.error('パイプラインエラー:', e);
+            console.error(Alpine.store('i18n').t('pipelineError'), e);
         }
 
         this.isRunning = false;
         this.history.unshift({
             task: this.taskInput,
-            timestamp: new Date().toLocaleString('ja-JP'),
+            timestamp: new Date().toLocaleString(Alpine.store('i18n').lang === 'en' ? 'en-US' : 'ja-JP'),
             steps: JSON.parse(JSON.stringify(this.steps)),
         });
     },
@@ -235,27 +235,27 @@
 
     <!-- ヘッダー -->
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
-        <h2 class="text-lg font-semibold text-slate-100">AIパイプライン</h2>
-        <p class="text-xs text-slate-400 mt-0.5">Cloud AI で計画 → ローカル LLM で実行 → Cloud AI で検証</p>
+        <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('aiPipeline')"></h2>
+        <p class="text-xs text-slate-400 mt-0.5" x-text="$store.i18n.t('pipelineDesc')"></p>
     </div>
 
     <div class="p-6 max-w-5xl mx-auto space-y-6">
 
         <!-- 入力エリア -->
         <div class="bg-slate-800 rounded-xl p-5 border border-slate-700">
-            <label class="block text-sm font-medium text-slate-300 mb-2">タスクの説明</label>
+            <label class="block text-sm font-medium text-slate-300 mb-2" x-text="$store.i18n.t('taskDescription')"></label>
             <textarea x-model="taskInput"
-                      placeholder="実行したいタスクを入力してください..."
+                      :placeholder="$store.i18n.t('taskPlaceholder')"
                       rows="3"
                       class="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"></textarea>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 <!-- Step1: 計画モデル -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Step1 計画モデル</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('step1PlanModel')"></label>
                     <select x-model="planModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
-                        <option value="">デフォルト</option>
+                        <option value="" x-text="$store.i18n.t('default')"></option>
                         <optgroup label="Cloud API" x-show="cloudModels.length > 0">
                             <template x-for="m in cloudModels" :key="'p-cloud-'+m.value">
                                 <option :value="m.value" x-text="m.label"></option>
@@ -274,32 +274,32 @@
                     </select>
                 </div>
 
-                <!-- Step2: 実行モデル -->
+                <!-- Step2: Exec Model -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-xs text-slate-400">Step2 実行モデル</label>
+                        <label class="text-xs text-slate-400" x-text="$store.i18n.t('step2ExecModel')"></label>
                         <div class="flex bg-slate-900 rounded p-0.5">
                             <button @click="execMode = 'single'"
                                     :class="execMode === 'single' ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'"
-                                    class="text-[10px] px-2 py-0.5 rounded transition-all">
-                                単体
+                                    class="text-[10px] px-2 py-0.5 rounded transition-all"
+                                    x-text="$store.i18n.t('single')">
                             </button>
                             <button @click="execMode = 'crew'"
                                     :class="execMode === 'crew' ? 'bg-purple-600 text-white shadow' : 'text-slate-500 hover:text-slate-300'"
-                                    class="text-[10px] px-2 py-0.5 rounded transition-all">
-                                CrewAI
+                                    class="text-[10px] px-2 py-0.5 rounded transition-all"
+                                    x-text="$store.i18n.t('crewai')">
                             </button>
                         </div>
                     </div>
                     <select x-show="execMode === 'single'" x-model="execModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
-                        <option value="">デフォルト</option>
+                        <option value="" x-text="$store.i18n.t('default')"></option>
                         <optgroup label="Ollama">
                             <template x-for="m in ollamaModels" :key="'e-ollama-'+m.value">
                                 <option :value="m.value" x-text="m.label"></option>
                             </template>
                         </optgroup>
-                        <optgroup label="OpenAI互換" x-show="compatModels.length > 0">
+                        <optgroup :label="$store.i18n.t('openaiCompat')" x-show="compatModels.length > 0">
                             <template x-for="m in compatModels" :key="'e-compat-'+m.value">
                                 <option :value="m.value" x-text="m.label"></option>
                             </template>
@@ -316,10 +316,10 @@
 
                 <!-- Step3: 検証モデル -->
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Step3 検証モデル</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('step3VerifyModel')"></label>
                     <select x-model="verifyModel"
                             class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
-                        <option value="">デフォルト</option>
+                        <option value="" x-text="$store.i18n.t('default')"></option>
                         <optgroup label="Cloud API" x-show="cloudModels.length > 0">
                             <template x-for="m in cloudModels" :key="'v-cloud-'+m.value">
                                 <option :value="m.value" x-text="m.label"></option>
@@ -343,14 +343,14 @@
             <template x-if="execMode === 'crew' && crewAgents.length > 0">
                 <div class="mt-4 bg-slate-900 rounded-xl p-4 border border-purple-600/30">
                     <div class="flex items-center justify-between mb-3">
-                        <h4 class="text-xs font-semibold text-purple-300">CrewAI エージェント構成</h4>
+                        <h4 class="text-xs font-semibold text-purple-300" x-text="$store.i18n.t('crewAgentConfig')"></h4>
                         <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-500">推定VRAM:</span>
+                            <span class="text-[10px] text-slate-500" x-text="$store.i18n.t('estimatedVram')"></span>
                             <span class="text-xs font-mono"
                                   :class="totalEstimatedVram > 92 ? 'text-red-400' : totalEstimatedVram > 60 ? 'text-amber-400' : 'text-emerald-400'"
                                   x-text="totalEstimatedVram + ' GB'"></span>
                             <template x-if="vramStatus.total_vram_used_gb > 0">
-                                <span class="text-[10px] text-slate-500">(現在使用中: <span x-text="vramStatus.total_vram_used_gb"></span> GB)</span>
+                                <span class="text-[10px] text-slate-500">(<span x-text="$store.i18n.t('currentlyUsed')"></span> <span x-text="vramStatus.total_vram_used_gb"></span> GB)</span>
                             </template>
                         </div>
                     </div>
@@ -378,7 +378,7 @@
                     <!-- VRAM使用量バー -->
                     <div class="mt-3">
                         <div class="flex justify-between text-[10px] text-slate-500 mb-1">
-                            <span>VRAM使用量</span>
+                            <span x-text="$store.i18n.t('vramUsage')"></span>
                             <span x-text="totalEstimatedVram + ' / ' + (vramStatus.total_vram_gb || 96) + ' GB'"></span>
                         </div>
                         <div class="w-full bg-slate-700 rounded-full h-1.5">
@@ -394,10 +394,10 @@
                     :disabled="!taskInput.trim() || isRunning"
                     :class="taskInput.trim() && !isRunning ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
                     class="mt-4 px-6 py-2.5 text-white text-sm font-medium rounded-xl transition-all duration-200">
-                <span x-show="!isRunning">パイプライン実行</span>
+                <span x-show="!isRunning" x-text="$store.i18n.t('runPipeline')"></span>
                 <span x-show="isRunning" class="flex items-center gap-2">
                     <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                    実行中...
+                    <span x-text="$store.i18n.t('running')"></span>
                 </span>
             </button>
         </div>
@@ -423,14 +423,14 @@
                         </div>
                         <div>
                             <div class="text-xs text-slate-500" x-text="'Step ' + (i + 1)"></div>
-                            <div class="text-sm font-semibold text-slate-200" x-text="step.name"></div>
+                            <div class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t(step.nameKey)"></div>
                         </div>
                         <!-- ステータスバッジ -->
                         <div class="ml-auto">
-                            <span x-show="step.status === 'idle'" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">待機中</span>
-                            <span x-show="step.status === 'running'" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">実行中</span>
-                            <span x-show="step.status === 'done'" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">完了</span>
-                            <span x-show="step.status === 'error'" class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">エラー</span>
+                            <span x-show="step.status === 'idle'" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400" x-text="$store.i18n.t('statusIdle')"></span>
+                            <span x-show="step.status === 'running'" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400" x-text="$store.i18n.t('statusRunning')"></span>
+                            <span x-show="step.status === 'done'" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400" x-text="$store.i18n.t('statusDone')"></span>
+                            <span x-show="step.status === 'error'" class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400" x-text="$store.i18n.t('statusError')"></span>
                         </div>
                     </div>
 
@@ -447,7 +447,7 @@
                             <div class="markdown-body" x-html="renderMarkdown(step.result)"></div>
                         </template>
                         <template x-if="!step.result && step.status === 'idle'">
-                            <span class="text-slate-600">結果がここに表示されます</span>
+                            <span class="text-slate-600" x-text="$store.i18n.t('resultPlaceholder')"></span>
                         </template>
                         <template x-if="!step.result && step.status === 'running'">
                             <div class="flex gap-1 py-2">
@@ -464,12 +464,11 @@
         <!-- 実行履歴 -->
         <div class="bg-slate-800 rounded-xl border border-slate-700">
             <div class="px-5 py-3 border-b border-slate-700">
-                <h3 class="text-sm font-semibold text-slate-300">実行履歴</h3>
+                <h3 class="text-sm font-semibold text-slate-300" x-text="$store.i18n.t('executionHistory')"></h3>
             </div>
             <div class="divide-y divide-slate-700">
                 <template x-if="history.length === 0">
-                    <div class="px-5 py-8 text-center text-xs text-slate-500">
-                        まだ実行履歴がありません
+                    <div class="px-5 py-8 text-center text-xs text-slate-500" x-text="$store.i18n.t('noExecutionHistory')">
                     </div>
                 </template>
                 <template x-for="(item, idx) in history" :key="idx">

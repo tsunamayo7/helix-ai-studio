@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}設定 — Helix AI Studio{% endblock %}
+{% block title %}Settings — Helix AI Studio{% endblock %}
 {% block nav_settings %}bg-slate-700 text-blue-400 font-medium{% endblock %}
 
 {% block content %}
@@ -41,19 +41,19 @@
                 body: JSON.stringify(this.settings),
             });
             if (res.ok) {
-                this.testResults.save = { ok: true, msg: '保存しました' };
+                this.testResults.save = { ok: true, msg: Alpine.store('i18n').t('saved') };
             } else {
-                this.testResults.save = { ok: false, msg: '保存に失敗しました' };
+                this.testResults.save = { ok: false, msg: Alpine.store('i18n').t('saveFailed') };
             }
         } catch (e) {
-            this.testResults.save = { ok: false, msg: 'エラー: ' + e.message };
+            this.testResults.save = { ok: false, msg: Alpine.store('i18n').t('error') + ': ' + e.message };
         }
         this.saving = false;
         setTimeout(() => { this.testResults.save = null; }, 3000);
     },
 
     async testConnection(service) {
-        this.testResults[service] = { ok: null, msg: 'テスト中...' };
+        this.testResults[service] = { ok: null, msg: Alpine.store('i18n').t('testing') };
         try {
             const res = await fetch('/api/settings/test', {
                 method: 'POST',
@@ -63,7 +63,7 @@
             const data = await res.json();
             this.testResults[service] = { ok: data.ok, msg: data.message };
         } catch (e) {
-            this.testResults[service] = { ok: false, msg: '接続エラー' };
+            this.testResults[service] = { ok: false, msg: Alpine.store('i18n').t('connectionError') };
         }
         setTimeout(() => { this.testResults[service] = null; }, 5000);
     },
@@ -71,8 +71,8 @@
 
     <!-- ヘッダー -->
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-6 py-4">
-        <h2 class="text-lg font-semibold text-slate-100">設定</h2>
-        <p class="text-xs text-slate-400 mt-0.5">APIキー、接続先、デフォルトモデルの設定</p>
+        <h2 class="text-lg font-semibold text-slate-100" x-text="$store.i18n.t('settingsTitle')"></h2>
+        <p class="text-xs text-slate-400 mt-0.5" x-text="$store.i18n.t('settingsDesc')"></p>
     </div>
 
     <div class="p-6 max-w-3xl mx-auto space-y-6">
@@ -81,17 +81,17 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">Cloud AI 設定</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('cloudAiSettings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Claude API キー</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('claudeApiKey')"></label>
                     <input type="password" x-model="settings.claude_api_key"
                            placeholder="sk-ant-..."
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">OpenAI API キー</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('openaiApiKey')"></label>
                     <input type="password" x-model="settings.openai_api_key"
                            placeholder="sk-..."
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
@@ -99,11 +99,11 @@
                 <div class="flex items-center gap-3">
                     <button @click="testConnection('claude')"
                             class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
-                        Claude 接続テスト
+                        <span x-text="$store.i18n.t('claudeConnTest')"></span>
                     </button>
                     <button @click="testConnection('openai')"
                             class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
-                        OpenAI 接続テスト
+                        <span x-text="$store.i18n.t('openaiConnTest')"></span>
                     </button>
                     <template x-if="testResults.claude">
                         <span :class="testResults.claude.ok ? 'text-emerald-400' : testResults.claude.ok === false ? 'text-red-400' : 'text-slate-400'"
@@ -121,23 +121,23 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">ローカル AI 設定</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('localAiSettings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Ollama URL</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('ollamaUrl')"></label>
                     <input type="text" x-model="settings.ollama_url"
                            placeholder="http://localhost:11434"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">OpenAI 互換 API URL</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('openaiCompatUrl')"></label>
                     <input type="text" x-model="settings.openai_compat_url"
                            placeholder="http://localhost:1234/v1"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">OpenAI 互換 API キー（任意）</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('openaiCompatKey')"></label>
                     <input type="password" x-model="settings.openai_compat_key"
                            placeholder="lm-studio-..."
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
@@ -145,11 +145,11 @@
                 <div class="flex items-center gap-3">
                     <button @click="testConnection('ollama')"
                             class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
-                        Ollama 接続テスト
+                        <span x-text="$store.i18n.t('ollamaConnTest')"></span>
                     </button>
                     <button @click="testConnection('openai_compat')"
                             class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
-                        互換API 接続テスト
+                        <span x-text="$store.i18n.t('compatConnTest')"></span>
                     </button>
                     <template x-if="testResults.ollama">
                         <span :class="testResults.ollama.ok ? 'text-emerald-400' : testResults.ollama.ok === false ? 'text-red-400' : 'text-slate-400'"
@@ -163,17 +163,17 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">Mem0 設定（共有記憶）</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('mem0Settings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Mem0 HTTP URL</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('mem0HttpUrl')"></label>
                     <input type="text" x-model="settings.mem0_url"
                            placeholder="http://localhost:8080"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">ユーザー ID</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('userId')"></label>
                     <input type="text" x-model="settings.mem0_user_id"
                            placeholder="tsunamayo7"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
@@ -182,13 +182,13 @@
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" x-model="settings.mem0_auto_inject"
                                class="rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500/30">
-                        <span class="text-xs text-slate-300">会話に記憶を自動注入</span>
+                        <span class="text-xs text-slate-300" x-text="$store.i18n.t('autoInjectMemory')"></span>
                     </label>
                 </div>
                 <div class="flex items-center gap-3">
                     <button @click="testConnection('mem0')"
                             class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-colors">
-                        Mem0 接続テスト
+                        <span x-text="$store.i18n.t('mem0ConnTest')"></span>
                     </button>
                     <template x-if="testResults.mem0">
                         <span :class="testResults.mem0.ok ? 'text-emerald-400' : testResults.mem0.ok === false ? 'text-red-400' : 'text-slate-400'"
@@ -202,17 +202,17 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">RAG ナレッジベース設定</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('ragSettings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Qdrant URL</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('qdrantUrl')"></label>
                     <input type="text" x-model="settings.qdrant_url"
                            placeholder="http://localhost:6333"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">埋め込みモデル (Ollama)</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('embeddingModel')"></label>
                     <input type="text" x-model="settings.rag_embedding_model"
                            placeholder="qwen3-embedding:8b"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
@@ -221,10 +221,10 @@
                     <label class="flex items-center gap-2 cursor-pointer">
                         <input type="checkbox" x-model="settings.rag_auto_inject"
                                class="rounded border-slate-600 bg-slate-900 text-blue-500 focus:ring-blue-500/30">
-                        <span class="text-xs text-slate-300">会話にナレッジを自動注入</span>
+                        <span class="text-xs text-slate-300" x-text="$store.i18n.t('autoInjectKnowledge')"></span>
                     </label>
                 </div>
-                <p class="text-[10px] text-slate-600">アップロードしたドキュメントのチャンクをベクトル検索し、関連コンテキストをチャットに自動注入します。</p>
+                <p class="text-[10px] text-slate-600" x-text="$store.i18n.t('ragAutoInjectDesc')"></p>
             </div>
         </section>
 
@@ -232,23 +232,23 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">GPU / VRAM 設定</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('gpuVramSettings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">GPU VRAM 合計 (GB)</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('gpuVramTotal')"></label>
                     <div class="flex items-center gap-3">
                         <input type="number" x-model="settings.gpu_vram_total"
-                               placeholder="0 = 自動検出"
+                               placeholder="0 = Auto-detect"
                                class="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
-                        <span class="text-xs text-slate-500 whitespace-nowrap">0 = 自動検出 (nvidia-smi)</span>
+                        <span class="text-xs text-slate-500 whitespace-nowrap" x-text="$store.i18n.t('gpuVramAutoDetect')"></span>
                     </div>
-                    <p class="text-[10px] text-slate-600 mt-1">マルチGPU環境の場合は合計値を入力（例: 96GB + 16GB = 112）。CrewAIのVRAM制限に使用されます。</p>
+                    <p class="text-[10px] text-slate-600 mt-1" x-text="$store.i18n.t('gpuVramMultiDesc')"></p>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">GPU構成メモ</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('gpuConfigMemo')"></label>
                     <input type="text" x-model="settings.gpu_config"
-                           placeholder="auto（例: RTX PRO 6000 96GB + RTX 5070 Ti 16GB）"
+                           placeholder="auto (e.g. RTX PRO 6000 96GB + RTX 5070 Ti 16GB)"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
             </div>
@@ -258,17 +258,17 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">MCP サーバー設定</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('mcpSettings')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">helix-pilot 起動コマンド</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('helixPilotCmd')"></label>
                     <input type="text" x-model="settings.mcp_helix_pilot_cmd"
                            placeholder="python -m helix_pilot.server"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors font-mono">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">helix-sandbox 起動コマンド</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('helixSandboxCmd')"></label>
                     <input type="text" x-model="settings.mcp_helix_sandbox_cmd"
                            placeholder="python -m helix_sandbox.server"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors font-mono">
@@ -280,17 +280,17 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">デフォルトモデル</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('defaultModels')"></h3>
             </div>
             <div class="p-5 space-y-4">
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">Cloud AI デフォルトモデル</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('cloudDefaultModel')"></label>
                     <input type="text" x-model="settings.default_cloud_model"
                            placeholder="claude-sonnet-4-20250514"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-400 mb-1">ローカル AI デフォルトモデル</label>
+                    <label class="block text-xs text-slate-400 mb-1" x-text="$store.i18n.t('localDefaultModel')"></label>
                     <input type="text" x-model="settings.default_local_model"
                            placeholder="qwen3.5:122b"
                            class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors">
@@ -302,7 +302,7 @@
         <section class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
             <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
                 <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/></svg>
-                <h3 class="text-sm font-semibold text-slate-200">Language / 言語</h3>
+                <h3 class="text-sm font-semibold text-slate-200" x-text="$store.i18n.t('language')"></h3>
             </div>
             <div class="p-5">
                 <div class="flex gap-2">
@@ -325,8 +325,8 @@
             <button @click="saveSettings()"
                     :disabled="saving"
                     class="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-50">
-                <span x-show="!saving">設定を保存</span>
-                <span x-show="saving">保存中...</span>
+                <span x-show="!saving" x-text="$store.i18n.t('saveSettings')"></span>
+                <span x-show="saving" x-text="$store.i18n.t('saving')"></span>
             </button>
             <template x-if="testResults.save">
                 <span :class="testResults.save.ok ? 'text-emerald-400' : 'text-red-400'"
