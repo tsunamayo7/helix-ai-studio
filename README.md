@@ -6,6 +6,9 @@ All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integrat
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/)
+[![Ollama](https://img.shields.io/badge/Ollama-supported-black?logo=ollama&logoColor=white)](https://ollama.com/)
+[![Self-Hosted](https://img.shields.io/badge/Self--Hosted-100%25-green)](https://github.com/tsunamayo7/helix-ai-studio)
 
 ---
 
@@ -35,6 +38,15 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 |:---:|:---:|:---:|:---:|
 | ![Chat](docs/images/gh_01_chat_main.png) | ![RAG](docs/images/gh_03_knowledge_base.png) | ![Pipeline](docs/images/gh_04_pipeline.png) | ![Settings](docs/images/gh_05_settings.png) |
 | Dark theme, sidebar, history | Drag & drop, Qdrant search | Plan → Execute → Verify | Cloud/Local/Mem0/MCP config |
+
+---
+
+## Why Helix AI Studio?
+
+- **7 providers in one UI** — Ollama, Claude, OpenAI, vLLM/llama.cpp, Claude Code CLI, Codex CLI, Gemini CLI. Switch with one click.
+- **100% local-capable** — Run entirely on your machine with Ollama + Qdrant. No cloud API required.
+- **No vendor lock-in** — Bring your own models, swap providers anytime, keep your data on your hardware.
+- **RAG + Mem0 + MCP in a single app** — Knowledge base, persistent shared memory, and external tool integration — all built in, no plugins needed.
 
 ---
 
@@ -286,6 +298,14 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 uv sync --dev
 uv run ruff check helix_studio/
 ```
+
+## Support
+
+If you find this project useful, please star this repo! It helps others discover it and motivates continued development.
+
+[![Star History Chart](https://api.star-history.com/svg?repos=tsunamayo7/helix-ai-studio&type=Date)](https://star-history.com/#tsunamayo7/helix-ai-studio&Date)
+
+---
 
 ## License
 
