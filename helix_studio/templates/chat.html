@@ -8,7 +8,43 @@
 {% endblock %}
 
 {% block content %}
-<div class="flex-1 flex flex-col overflow-hidden" x-data="{ input: '', providerTab: 'local' }">
+<div class="flex-1 flex flex-col overflow-hidden" x-data="{
+    input: '',
+    providerTab: 'local',
+    attachedFiles: [],
+    uploading: false,
+
+    async attachFiles(files) {
+        if (!files || files.length === 0) return;
+        this.uploading = true;
+        for (const file of files) {
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+                const r = await fetch('/api/rag/upload', { method: 'POST', body: fd });
+                const data = await r.json();
+                if (r.ok && data.ok) {
+                    this.attachedFiles.push({ name: file.name, doc_id: data.doc_id, chunks: data.chunks });
+                }
+            } catch (e) { console.error('Upload failed:', e); }
+        }
+        this.uploading = false;
+    },
+
+    removeFile(idx) { this.attachedFiles.splice(idx, 1); },
+
+    sendWithFiles() {
+        if (!this.input.trim() && this.attachedFiles.length === 0) return;
+        let msg = this.input;
+        if (this.attachedFiles.length > 0) {
+            const names = this.attachedFiles.map(f => f.name).join(', ');
+            msg = `[Attached: ${names}]\n${msg}`;
+        }
+        $store.app.sendMessage(msg);
+        this.input = '';
+        this.attachedFiles = [];
+    },
+}">
 
     <!-- ヘッダー -->
     <div class="border-b border-slate-700 bg-slate-800/80 backdrop-blur px-4 py-3">
@@ -181,18 +217,55 @@
     </div>
 
     <!-- 入力エリア -->
-    <div class="border-t border-slate-700 bg-slate-800/80 backdrop-blur p-4">
+    <div class="border-t border-slate-700 bg-slate-800/80 backdrop-blur p-4"
+         @dragover.prevent="$el.classList.add('ring-2','ring-blue-500/50')"
+         @dragleave.prevent="$el.classList.remove('ring-2','ring-blue-500/50')"
+         @drop.prevent="$el.classList.remove('ring-2','ring-blue-500/50'); attachFiles($event.dataTransfer.files)">
+
+        <!-- 添付ファイルプレビュー -->
+        <template x-if="attachedFiles.length > 0">
+            <div class="max-w-3xl mx-auto mb-2 flex flex-wrap gap-2">
+                <template x-for="(f, idx) in attachedFiles" :key="idx">
+                    <div class="flex items-center gap-1.5 bg-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                        <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <span x-text="f.name" class="max-w-[150px] truncate"></span>
+                        <span class="text-slate-500" x-text="'(' + f.chunks + ' chunks)'"></span>
+                        <button @click="removeFile(idx)" class="ml-1 text-slate-500 hover:text-red-400">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </template>
+                <template x-if="uploading">
+                    <div class="flex items-center gap-1.5 text-xs text-blue-400">
+                        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <span x-text="$store.i18n.t('uploading')"></span>
+                    </div>
+                </template>
+            </div>
+        </template>
+
         <div class="max-w-3xl mx-auto flex gap-3 items-end">
+            <!-- ファイル添付ボタン -->
+            <input type="file" x-ref="chatFileInput" multiple class="hidden"
+                   accept=".txt,.md,.py,.js,.ts,.json,.yaml,.yml,.toml,.csv,.html,.css,.sh,.sql,.java,.go,.rs,.c,.cpp,.h,.rb,.php,.xml,.pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg"
+                   @change="attachFiles($event.target.files); $event.target.value=''">
+            <button @click="$refs.chatFileInput.click()"
+                    :disabled="$store.app.isStreaming"
+                    class="p-3 rounded-xl transition-all duration-200 shrink-0 text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+                    :title="$store.i18n.t('attachFile')">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+            </button>
+
             <textarea x-model="input"
-                      @keydown.enter.prevent="if (!$event.shiftKey) { $store.app.sendMessage(input); input = ''; }"
+                      @keydown.enter.prevent="if (!$event.shiftKey) { sendWithFiles(); }"
                       @input="autoResize($el)"
                       :disabled="$store.app.isStreaming"
                       :placeholder="$store.i18n.t('inputPlaceholder')"
                       rows="1"
                       class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200 max-h-[200px] overflow-y-auto"></textarea>
-            <button @click="$store.app.sendMessage(input); input = '';"
-                    :disabled="!input.trim() || $store.app.isStreaming"
-                    :class="input.trim() && !$store.app.isStreaming ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
+            <button @click="sendWithFiles()"
+                    :disabled="(!input.trim() && attachedFiles.length === 0) || $store.app.isStreaming"
+                    :class="(input.trim() || attachedFiles.length > 0) && !$store.app.isStreaming ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'"
                     class="p-3 rounded-xl transition-all duration-200 shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0l-7 7m7-7l7 7" transform="rotate(45 12 12)"/></svg>
             </button>

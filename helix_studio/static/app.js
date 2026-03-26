@@ -28,6 +28,8 @@ document.addEventListener('alpine:init', () => {
             error: 'エラー',
             seconds: '秒',
             inputPlaceholder: 'メッセージを入力... (Shift+Enter で改行)',
+            attachFile: 'ファイルを添付',
+            uploading: 'アップロード中...',
             // sidebar
             conversationHistory: '会話履歴',
             noConversations: '会話がありません',
@@ -161,6 +163,8 @@ document.addEventListener('alpine:init', () => {
             error: 'Error',
             seconds: 's',
             inputPlaceholder: 'Type a message... (Shift+Enter for newline)',
+            attachFile: 'Attach file',
+            uploading: 'Uploading...',
             // sidebar
             conversationHistory: 'Conversations',
             noConversations: 'No conversations',
