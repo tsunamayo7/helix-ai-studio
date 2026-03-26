@@ -45,6 +45,12 @@ Real-time WebSocket streaming with Ollama. Type a prompt, hit send, and watch th
 
 Switch between Local (Ollama), Cloud API (Claude/OpenAI), and CLI (Claude Code/Codex/Gemini) with one click. Models auto-load per provider.
 
+### Web Search — LLM Auto-Search
+
+![Web Search Demo](docs/images/en/gh_search_demo.gif)
+
+Click the 🌐 button to enable web search. The LLM can also autonomously decide to search when it needs current information (tool-use capable models only).
+
 ### App Tour — All Features
 
 ![App Tour](docs/images/en/gh_navigation_demo.gif)
