@@ -76,7 +76,7 @@ async def _parse_with_docling(file_content: bytes, filename: str) -> str | None:
                     md += result.get("md_content", result.get("text", "")) + "\n"
             return md if md.strip() else None
     except Exception as e:
-        logger.warning("Docling パース失敗 (%s): %s", filename, e)
+        logger.warning("Docling parse failed (%s): %s", filename, e)
         return None
 
 
@@ -101,10 +101,10 @@ async def ensure_collection() -> bool:
                 },
             )
             r.raise_for_status()
-            logger.info("Qdrant hybrid コレクション '%s' を作成", COLLECTION)
+            logger.info("Created Qdrant hybrid collection '%s'", COLLECTION)
             return True
     except Exception as e:
-        logger.warning("Qdrant コレクション確認失敗: %s", e)
+        logger.warning("Failed to verify Qdrant collection: %s", e)
         return False
 
 
@@ -124,7 +124,7 @@ async def _embed(text: str, ollama_url: str | None = None) -> list[float] | None
             embeddings = r.json().get("embeddings", [[]])
             return embeddings[0] if embeddings and embeddings[0] else None
     except Exception as e:
-        logger.debug("埋め込み生成失敗: %s", e)
+        logger.debug("Embedding generation failed: %s", e)
         return None
 
 
@@ -216,11 +216,11 @@ async def ingest_text(
 ) -> dict[str, Any]:
     """テキストをチャンク分割 → 埋め込み → Qdrant に保存。"""
     if not await ensure_collection():
-        return {"ok": False, "error": "Qdrant に接続できません"}
+        return {"ok": False, "error": "Cannot connect to Qdrant"}
 
     chunks = _chunk_text(text)
     if not chunks:
-        return {"ok": False, "error": "テキストが空です"}
+        return {"ok": False, "error": "Text is empty"}
 
     doc_id = hashlib.sha256(f"{filename}:{text[:200]}".encode()).hexdigest()[:16]
     points = []
@@ -248,7 +248,7 @@ async def ingest_text(
         points.append(point)
 
     if not points:
-        return {"ok": False, "error": "埋め込み生成に失敗しました"}
+        return {"ok": False, "error": "Failed to generate embeddings"}
 
     # Qdrant にバッチ upsert
     try:
@@ -259,9 +259,9 @@ async def ingest_text(
             )
             r.raise_for_status()
     except Exception as e:
-        return {"ok": False, "error": f"Qdrant 保存失敗: {e}"}
+        return {"ok": False, "error": f"Failed to save to Qdrant: {e}"}
 
-    logger.info("RAG 登録: %s (%d チャンク)", filename, len(points))
+    logger.info("RAG ingested: %s (%d chunks)", filename, len(points))
     return {
         "ok": True,
         "doc_id": doc_id,
@@ -277,14 +277,14 @@ async def ingest_file(
     """ファイルを読み込んで ingest_text に渡す。"""
     p = Path(file_path)
     if not p.exists():
-        return {"ok": False, "error": f"ファイルが見つかりません: {file_path}"}
+        return {"ok": False, "error": f"File not found: {file_path}"}
     if p.suffix.lower() not in SUPPORTED_EXTENSIONS:
-        return {"ok": False, "error": f"未対応の拡張子: {p.suffix}"}
+        return {"ok": False, "error": f"Unsupported file extension: {p.suffix}"}
 
     try:
         text = p.read_text(encoding="utf-8", errors="replace")
     except Exception as e:
-        return {"ok": False, "error": f"読み込み失敗: {e}"}
+        return {"ok": False, "error": f"Failed to read file: {e}"}
 
     return await ingest_text(text, p.name, {"path": str(p)}, ollama_url)
 
@@ -370,7 +370,7 @@ async def search(
 
             return results
     except Exception as e:
-        logger.debug("RAG 検索失敗: %s", e)
+        logger.debug("RAG search failed: %s", e)
         return []
 
 
@@ -409,7 +409,7 @@ def format_rag_context(results: list[dict[str, Any]]) -> str:
     """検索結果をプロンプト注入用のコンテキスト文字列にフォーマット。"""
     if not results:
         return ""
-    lines = ["## 参考: ナレッジベース (RAG)"]
+    lines = ["## Reference: Knowledge Base (RAG)"]
     for r in results:
         src = r.get("filename", "unknown")
         score = r.get("score", 0)
@@ -449,7 +449,7 @@ async def list_documents() -> list[dict[str, Any]]:
 
             return list(docs.values())
     except Exception as e:
-        logger.debug("ドキュメント一覧取得失敗: %s", e)
+        logger.debug("Failed to list documents: %s", e)
         return []
 
 
@@ -468,10 +468,10 @@ async def delete_document(doc_id: str) -> bool:
                 },
             )
             r.raise_for_status()
-            logger.info("RAG ドキュメント削除: %s", doc_id)
+            logger.info("RAG document deleted: %s", doc_id)
             return True
     except Exception as e:
-        logger.warning("RAG ドキュメント削除失敗: %s", e)
+        logger.warning("Failed to delete RAG document: %s", e)
         return False
 
 
@@ -484,6 +484,6 @@ async def get_status() -> dict[str, Any]:
                 info = r.json().get("result", {})
                 count = info.get("points_count", 0)
                 return {"available": True, "points_count": count}
-            return {"available": False, "error": "コレクション未作成"}
+            return {"available": False, "error": "Collection not created"}
     except Exception:
-        return {"available": False, "error": "Qdrant に接続できません"}
+        return {"available": False, "error": "Cannot connect to Qdrant"}

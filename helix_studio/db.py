@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 CREATE TABLE IF NOT EXISTS conversations (
     id TEXT PRIMARY KEY,
-    title TEXT NOT NULL DEFAULT '新しい会話',
+    title TEXT NOT NULL DEFAULT 'New Chat',
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     system_prompt TEXT DEFAULT '',

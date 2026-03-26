@@ -56,7 +56,7 @@ async def web_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
                         "source": "DuckDuckGo",
                     })
     except Exception as e:
-        logger.debug("DuckDuckGo API検索失敗: %s", e)
+        logger.debug("DuckDuckGo API search failed: %s", e)
 
     # DuckDuckGo HTML検索（フォールバック）
     if len(results) < max_results:
@@ -86,7 +86,7 @@ async def web_search(query: str, max_results: int = 5) -> list[dict[str, str]]:
                             "source": "DuckDuckGo",
                         })
         except Exception as e:
-            logger.debug("DuckDuckGo HTML検索失敗: %s", e)
+            logger.debug("DuckDuckGo HTML search failed: %s", e)
 
     return results[:max_results]
 
@@ -124,8 +124,8 @@ async def _searxng_search(query: str, max_results: int = 5) -> list[dict[str, st
 def format_search_results(results: list[dict]) -> str:
     """検索結果をLLMに渡すテキスト形式に整形"""
     if not results:
-        return "検索結果が見つかりませんでした。"
-    lines = ["## Web検索結果\n"]
+        return "No search results found."
+    lines = ["## Web Search Results\n"]
     for i, r in enumerate(results, 1):
         lines.append(f"**{i}. {r['title']}**")
         lines.append(f"   {r['snippet']}")
@@ -156,13 +156,13 @@ def _is_safe_path(path: str) -> bool:
 async def list_files(path: str) -> dict[str, Any]:
     """ディレクトリの内容を一覧表示"""
     if not _is_safe_path(path):
-        return {"error": f"アクセス不可: {path}（許可されたディレクトリ外）"}
+        return {"error": f"Access denied: {path} (outside allowed directories)"}
 
     p = Path(path)
     if not p.exists():
-        return {"error": f"パスが存在しません: {path}"}
+        return {"error": f"Path does not exist: {path}"}
     if not p.is_dir():
-        return {"error": f"ディレクトリではありません: {path}"}
+        return {"error": f"Not a directory: {path}"}
 
     entries = []
     try:
@@ -178,7 +178,7 @@ async def list_files(path: str) -> dict[str, Any]:
                 entry["size_display"] = _format_size(item.stat().st_size)
             entries.append(entry)
     except PermissionError:
-        return {"error": f"権限エラー: {path}"}
+        return {"error": f"Permission denied: {path}"}
 
     return {"path": str(p), "entries": entries, "count": len(entries)}
 
@@ -186,15 +186,15 @@ async def list_files(path: str) -> dict[str, Any]:
 async def read_file(path: str, max_size: int = 1_000_000) -> dict[str, Any]:
     """ファイルを読み取り（最大1MB）"""
     if not _is_safe_path(path):
-        return {"error": f"アクセス不可: {path}（許可されたディレクトリ外）"}
+        return {"error": f"Access denied: {path} (outside allowed directories)"}
 
     p = Path(path)
     if not p.exists():
-        return {"error": f"ファイルが存在しません: {path}"}
+        return {"error": f"File does not exist: {path}"}
     if not p.is_file():
-        return {"error": f"ファイルではありません: {path}"}
+        return {"error": f"Not a file: {path}"}
     if p.stat().st_size > max_size:
-        return {"error": f"ファイルが大きすぎます: {_format_size(p.stat().st_size)}（上限: {_format_size(max_size)}）"}
+        return {"error": f"File too large: {_format_size(p.stat().st_size)} (limit: {_format_size(max_size)})"}
 
     try:
         content = p.read_text(encoding="utf-8", errors="replace")
@@ -205,13 +205,13 @@ async def read_file(path: str, max_size: int = 1_000_000) -> dict[str, Any]:
             "lines": content.count("\n") + 1,
         }
     except Exception as e:
-        return {"error": f"読み取りエラー: {e}"}
+        return {"error": f"Read error: {e}"}
 
 
 async def write_file(path: str, content: str) -> dict[str, Any]:
     """ファイルに書き込み"""
     if not _is_safe_path(path):
-        return {"error": f"アクセス不可: {path}（許可されたディレクトリ外）"}
+        return {"error": f"Access denied: {path} (outside allowed directories)"}
 
     p = Path(path)
     try:
@@ -219,20 +219,20 @@ async def write_file(path: str, content: str) -> dict[str, Any]:
         p.write_text(content, encoding="utf-8")
         return {"path": str(p), "size": p.stat().st_size, "ok": True}
     except Exception as e:
-        return {"error": f"書き込みエラー: {e}"}
+        return {"error": f"Write error: {e}"}
 
 
 def format_file_listing(result: dict) -> str:
     """ファイル一覧をLLMに渡すテキスト形式に整形"""
     if result.get("error"):
-        return f"エラー: {result['error']}"
-    lines = [f"## ファイル一覧: {result['path']}\n"]
+        return f"Error: {result['error']}"
+    lines = [f"## File Listing: {result['path']}\n"]
     for e in result.get("entries", []):
         if e["type"] == "dir":
             lines.append(f"  📁 {e['name']}/")
         else:
             lines.append(f"  📄 {e['name']} ({e.get('size_display', '')})")
-    lines.append(f"\n合計: {result.get('count', 0)} 項目")
+    lines.append(f"\nTotal: {result.get('count', 0)} items")
     return "\n".join(lines)
 
 

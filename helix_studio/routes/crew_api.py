@@ -44,7 +44,7 @@ async def run_crew_task(req: dict) -> dict:
     custom_agents = req.get("custom_agents")
 
     if not task:
-        return {"ok": False, "error": "タスクが空です"}
+        return {"ok": False, "error": "Task is empty"}
 
     result = await crew_ai.run_crew(
         ollama_url=ollama_url,
@@ -96,7 +96,7 @@ async def ws_crew(ws: WebSocket):
         custom_agents = data.get("custom_agents")
 
         if not task:
-            await ws.send_text(json.dumps({"type": "error", "message": "タスクが空です"}))
+            await ws.send_text(json.dumps({"type": "error", "message": "Task is empty"}))
             return
 
         async def progress_cb(info: dict):
@@ -116,9 +116,9 @@ async def ws_crew(ws: WebSocket):
         }, ensure_ascii=False))
 
     except WebSocketDisconnect:
-        logger.info("CrewAI WebSocket切断")
+        logger.info("CrewAI WebSocket disconnected")
     except Exception as e:
-        logger.exception("CrewAI WebSocketエラー: %s", e)
+        logger.exception("CrewAI WebSocket error: %s", e)
         try:
             await ws.send_text(json.dumps({"type": "error", "message": str(e)}))
         except Exception:

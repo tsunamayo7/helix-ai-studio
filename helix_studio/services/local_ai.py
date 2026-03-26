@@ -36,7 +36,7 @@ async def list_ollama_models(url: str) -> list[dict[str, Any]]:
                 for m in models
             ]
     except Exception as e:
-        logger.warning("Ollamaモデル一覧の取得に失敗: %s", e)
+        logger.warning("Failed to list Ollama models: %s", e)
         return []
 
 
@@ -96,7 +96,7 @@ async def list_openai_compat_models(url: str, api_key: str = "") -> list[dict[st
                 for m in models
             ]
     except Exception as e:
-        logger.warning("OpenAI互換モデル一覧の取得に失敗: %s", e)
+        logger.warning("Failed to list OpenAI-compatible models: %s", e)
         return []
 
 
@@ -170,7 +170,7 @@ async def stream_chat(
         async for chunk in stream_openai_compat_chat(url, model, messages, api_key):
             yield chunk
     else:
-        raise ValueError(f"未対応のローカルプロバイダ: {provider}")
+        raise ValueError(f"Unsupported local provider: {provider}")
 
 
 # ── ユーティリティ ────────────────────────────────────
@@ -179,7 +179,7 @@ async def stream_chat(
 def _format_size(size_bytes: int) -> str:
     """バイト数を人間が読みやすい形式に変換。"""
     if size_bytes == 0:
-        return "不明"
+        return "Unknown"
     for unit in ("B", "KB", "MB", "GB"):
         if size_bytes < 1024:
             return f"{size_bytes:.1f} {unit}"

@@ -70,11 +70,11 @@ class MCPSession:
                 env=None,  # 親プロセスの環境変数を継承
             )
         except FileNotFoundError:
-            logger.warning("MCP サーバー '%s' のコマンドが見つかりません: %s",
+            logger.warning("MCP server '%s' command not found: %s",
                            self.config.name, self.config.command)
             return False
         except Exception as e:
-            logger.warning("MCP サーバー '%s' 起動失敗: %s", self.config.name, e)
+            logger.warning("MCP server '%s' failed to start: %s", self.config.name, e)
             return False
 
         # initialize handshake
@@ -104,7 +104,7 @@ class MCPSession:
             ]
 
         self._initialized = True
-        logger.info("MCP サーバー '%s' 起動完了 (%d ツール)", self.config.name, len(self._tools))
+        logger.info("MCP server '%s' started (%d tools)", self.config.name, len(self._tools))
         return True
 
     async def stop(self) -> None:
@@ -125,7 +125,7 @@ class MCPSession:
     async def call_tool(self, tool_name: str, arguments: dict[str, Any]) -> Any:
         """ツールを呼び出す。"""
         if not self.is_running:
-            return {"error": f"サーバー '{self.config.name}' が起動していません"}
+            return {"error": f"Server '{self.config.name}' is not running"}
 
         resp = await self._send_request("tools/call", {
             "name": tool_name,
@@ -173,14 +173,14 @@ class MCPSession:
                 data = json.loads(line.decode())
 
             if "error" in data:
-                logger.warning("MCP エラー: %s", data["error"])
+                logger.warning("MCP error: %s", data["error"])
                 return None
             return data.get("result")
         except asyncio.TimeoutError:
-            logger.warning("MCP リクエストタイムアウト: %s.%s", self.config.name, method)
+            logger.warning("MCP request timeout: %s.%s", self.config.name, method)
             return None
         except Exception as e:
-            logger.warning("MCP 通信エラー: %s", e)
+            logger.warning("MCP communication error: %s", e)
             return None
 
     async def _send_notification(self, method: str, params: dict) -> None:
@@ -241,7 +241,7 @@ class MCPManager:
         """指定サーバーのツールを呼び出す。"""
         session = self._sessions.get(server_name)
         if not session:
-            return {"error": f"サーバー '{server_name}' が見つかりません"}
+            return {"error": f"Server '{server_name}' not found"}
         return await session.call_tool(tool_name, arguments)
 
     def get_server_status(self) -> list[dict[str, Any]]:

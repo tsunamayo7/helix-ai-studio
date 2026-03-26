@@ -46,7 +46,7 @@ async def ws_chat(ws: WebSocket):
             if not content:
                 await ws.send_text(json.dumps({
                     "type": "error",
-                    "content": "メッセージが空です",
+                    "content": "Message is empty",
                 }))
                 continue
 
@@ -100,10 +100,10 @@ async def ws_chat(ws: WebSocket):
                         "conversation_id": conversation_id,
                     }))
             except Exception as e:
-                logger.exception("ストリーミングエラー")
+                logger.exception("Streaming error")
                 await ws.send_text(json.dumps({
                     "type": "error",
-                    "content": f"エラーが発生しました: {e}",
+                    "content": f"An error occurred: {e}",
                     "conversation_id": conversation_id,
                 }))
                 continue
@@ -119,8 +119,8 @@ async def ws_chat(ws: WebSocket):
 
             # プロバイダ表示名の生成
             provider_labels = {
-                "ollama": "ローカル / Ollama",
-                "openai_compat": "ローカル / OpenAI互換",
+                "ollama": "Local / Ollama",
+                "openai_compat": "Local / OpenAI Compatible",
                 "claude": "Cloud / Claude API",
                 "openai": "Cloud / OpenAI API",
                 "claude_code": "CLI / Claude Code",
@@ -141,9 +141,9 @@ async def ws_chat(ws: WebSocket):
             }))
 
     except WebSocketDisconnect:
-        logger.info("WebSocket切断")
+        logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.exception("WebSocketエラー: %s", e)
+        logger.exception("WebSocket error: %s", e)
 
 
 # ── REST API ──────────────────────────────────────────
@@ -212,7 +212,7 @@ async def get_conversation(conv_id: str) -> dict:
         )
         conv = await cursor.fetchone()
         if not conv:
-            raise HTTPException(status_code=404, detail="会話が見つかりません")
+            raise HTTPException(status_code=404, detail="Conversation not found")
 
         cursor = await db.execute(
             "SELECT id, role, content, provider, model, tokens_in, tokens_out, "
@@ -255,14 +255,14 @@ async def _route_stream(
         api_key_map = {"claude": "claude_api_key", "openai": "openai_api_key"}
         api_key = await get_setting(api_key_map[provider]) or ""
         if not api_key:
-            raise ValueError(f"{provider}のAPIキーが設定されていません。設定画面から入力してください。")
+            raise ValueError(f"API key for {provider} is not configured. Please set it in the settings page.")
         async for chunk in cloud_ai.stream_chat(provider, api_key, model, messages, system_prompt):
             yield chunk
     elif provider == "openai_compat":
         url = await get_setting("openai_compat_url") or ""
         api_key = await get_setting("openai_compat_api_key") or ""
         if not url:
-            raise ValueError("OpenAI互換APIのURLが設定されていません。")
+            raise ValueError("OpenAI-compatible API URL is not configured.")
         async for chunk in local_ai.stream_chat("openai_compat", url, model, messages, api_key):
             yield chunk
     elif provider in ("claude_code", "codex", "gemini_cli"):
@@ -300,7 +300,7 @@ async def _process_tool_commands(content: str) -> str:
                 results = await tools.web_search(query, max_results=5)
                 parts.append(tools.format_search_results(results))
             except Exception as e:
-                parts.append(f"[Web検索エラー] {e}")
+                parts.append(f"[Web search error] {e}")
 
     # @file コマンド
     file_matches = re.findall(r'@file\s+([\S]+)', content)
@@ -308,14 +308,14 @@ async def _process_tool_commands(content: str) -> str:
         try:
             result = await tools.read_file(path.strip())
             if result.get("error"):
-                parts.append(f"[ファイルエラー] {result['error']}")
+                parts.append(f"[File error] {result['error']}")
             else:
                 file_content = result.get("content", "")
                 if len(file_content) > 5000:
                     file_content = file_content[:5000] + "\n...(truncated)"
-                parts.append(f"## ファイル: {path}\n```\n{file_content}\n```")
+                parts.append(f"## File: {path}\n```\n{file_content}\n```")
         except Exception as e:
-            parts.append(f"[ファイル読み取りエラー] {e}")
+            parts.append(f"[File read error] {e}")
 
     # @ls コマンド
     ls_matches = re.findall(r'@ls\s+([\S]+)', content)
@@ -324,7 +324,7 @@ async def _process_tool_commands(content: str) -> str:
             result = await tools.list_files(path.strip())
             parts.append(tools.format_file_listing(result))
         except Exception as e:
-            parts.append(f"[ディレクトリ一覧エラー] {e}")
+            parts.append(f"[Directory listing error] {e}")
 
     return "\n\n".join(parts) if parts else ""
 
@@ -347,7 +347,7 @@ async def _inject_mem0_context(
             for m in memories:
                 text = m.get("memory", m.get("text", str(m)))
                 mem_texts.append(f"- {text}")
-            context = "【参考: 過去の記憶】\n" + "\n".join(mem_texts)
+            context = "[Reference: Past Memories]\n" + "\n".join(mem_texts)
             # 最後のuserメッセージのcontentの前に参考情報として追加
             if messages:
                 last_user = None
@@ -360,7 +360,7 @@ async def _inject_mem0_context(
                         context + "\n\n---\n\n" + messages[last_user]["content"]
                     )
     except Exception as e:
-        logger.debug("Mem0注入をスキップ: %s", e)
+        logger.debug("Skipping Mem0 injection: %s", e)
 
 
 async def _inject_rag_context(
@@ -381,7 +381,7 @@ async def _inject_rag_context(
                         )
                         break
     except Exception as e:
-        logger.debug("RAG注入をスキップ: %s", e)
+        logger.debug("Skipping RAG injection: %s", e)
 
 
 async def _load_conversation_messages(conversation_id: str) -> list[dict[str, str]]:
@@ -404,7 +404,7 @@ async def _create_conversation(
     provider: str,
     model: str,
     system_prompt: str = "",
-    title: str = "新しい会話",
+    title: str = "New Chat",
 ) -> None:
     """会話レコードをDBに作成。"""
     db = await get_connection()

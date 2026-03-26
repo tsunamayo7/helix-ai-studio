@@ -23,90 +23,90 @@ logger = logging.getLogger(__name__)
 
 # ── プロンプトテンプレート（改良版）──
 
-STEP1_PROMPT = """あなたは経験豊富なソフトウェアアーキテクト兼プロジェクトマネージャーです。
-以下のタスクを分析し、構造化された実行計画を作成してください。
+STEP1_PROMPT = """You are an experienced software architect and project manager.
+Analyze the following task and create a structured execution plan.
 
-## タスク
+## Task
 {input_text}
 
 {memory_context}
 
-## 出力形式（必ずこの構造で出力）
+## Output Format (must follow this structure)
 
-### 1. タスク分析
-- 目的: （何を達成するか）
-- スコープ: （含まれる範囲と含まれない範囲）
-- 前提条件: （必要な環境・知識）
+### 1. Task Analysis
+- Objective: (what to achieve)
+- Scope: (what is included and excluded)
+- Prerequisites: (required environment and knowledge)
 
-### 2. 実行計画
-各ステップを以下の形式で記述:
-- **ステップN**: （タイトル）
-  - 作業内容: （具体的にやること）
-  - 期待出力: （何が出来上がるか）
-  - 使用技術: （言語・ツール等）
+### 2. Execution Plan
+Describe each step in the following format:
+- **Step N**: (title)
+  - Work: (specific actions to take)
+  - Expected Output: (deliverables)
+  - Technology: (languages, tools, etc.)
 
-### 3. リスクと対策
-- リスク1 → 対策
-- リスク2 → 対策
+### 3. Risks and Mitigations
+- Risk 1 → Mitigation
+- Risk 2 → Mitigation
 
-### 4. 成功基準
-- （完了の判定条件を箇条書き）
+### 4. Success Criteria
+- (bullet list of completion conditions)
 """
 
-STEP2_PROMPT = """あなたは優秀なソフトウェアエンジニアです。
-以下の計画に基づいて、各ステップを着実に実行してください。
+STEP2_PROMPT = """You are a skilled software engineer.
+Execute each step of the plan below thoroughly.
 
-## 元のタスク
+## Original Task
 {input_text}
 
-## 実行計画（Step 1で作成済み）
+## Execution Plan (created in Step 1)
 {step1_result}
 
 {memory_context}
 
-## 指示
-1. 計画の各ステップを順番に実行してください
-2. 各ステップの実行結果を具体的に記述してください
-3. コード、設定ファイル、文書などの成果物はそのまま含めてください
-4. 問題が発生した場合は、問題点と代替案を記述してください
-5. 最後に全体の実行サマリーをまとめてください
+## Instructions
+1. Execute each step of the plan in order
+2. Describe the results of each step concretely
+3. Include all deliverables such as code, configuration files, and documents as-is
+4. If issues arise, describe the problem and alternative solutions
+5. Provide an overall execution summary at the end
 """
 
-STEP3_PROMPT = """あなたは品質管理の専門家です。
-以下のタスク、計画、実行結果を総合的に検証してください。
+STEP3_PROMPT = """You are a quality assurance expert.
+Comprehensively verify the following task, plan, and execution results.
 
-## 元のタスク
+## Original Task
 {input_text}
 
-## Step 1: 計画
+## Step 1: Plan
 {step1_result}
 
-## Step 2: 実行結果
+## Step 2: Execution Results
 {step2_result}
 
 {memory_context}
 
-## 検証基準と出力形式
+## Verification Criteria and Output Format
 
-### 1. 品質評価
-- **総合評価**: A（優秀）/ B（良好）/ C（要改善）/ D（不十分）
-- **完成度**: 計画の何%が実行されたか
+### 1. Quality Assessment
+- **Overall Rating**: A (Excellent) / B (Good) / C (Needs Improvement) / D (Insufficient)
+- **Completion Rate**: What percentage of the plan was executed
 
-### 2. 計画との整合性
-- 各ステップの計画 vs 実行結果の対比
-- 未実行・不足項目のリスト
+### 2. Plan Alignment
+- Comparison of planned vs actual results for each step
+- List of unexecuted or incomplete items
 
-### 3. 品質チェック
-- 正確性: 内容に誤りがないか
-- 完全性: 要件を満たしているか
-- 実用性: 実際に使える品質か
+### 3. Quality Check
+- Accuracy: Are there any errors in the content
+- Completeness: Are requirements met
+- Practicality: Is the quality production-ready
 
-### 4. 改善提案
-- 優先度高の改善点（3つ以内）
-- 追加で検討すべき事項
+### 4. Improvement Suggestions
+- High-priority improvements (up to 3)
+- Additional items to consider
 
-### 5. 最終まとめ
-- （3行以内で結論）
+### 5. Final Summary
+- (Conclusion in 3 lines or less)
 """
 
 ProgressCallback = Callable[[int, str, str], Awaitable[None]]
@@ -152,7 +152,7 @@ async def run_pipeline(
 
         # ── Step 1: Cloud AI で計画 ──
         if progress_callback:
-            await progress_callback(1, "running", "Step1: 計画を作成中...")
+            await progress_callback(1, "running", "Step1: Creating plan...")
 
         step1_result = await _run_cloud_step(
             step1_model,
@@ -168,26 +168,26 @@ async def run_pipeline(
         if use_crew:
             # CrewAIマルチエージェントモード
             if progress_callback:
-                await progress_callback(2, "running", f"Step2: CrewAI ({crew_team}) で実行中...")
+                await progress_callback(2, "running", f"Step2: Executing with CrewAI ({crew_team})...")
 
             from helix_studio.services import crew_ai
             ollama_url = await get_setting("ollama_url") or "http://localhost:11434"
             crew_result = await crew_ai.run_crew(
                 ollama_url=ollama_url,
-                task_description=f"{input_text}\n\n## 実行計画\n{step1_result}",
+                task_description=f"{input_text}\n\n## Execution Plan\n{step1_result}",
                 team_name=crew_team,
             )
             step2_result = crew_result.get("final_result", "")
             # エージェント別の結果も保存
             if crew_result.get("steps"):
                 import json
-                step2_result += "\n\n---\n## エージェント別結果\n"
+                step2_result += "\n\n---\n## Results by Agent\n"
                 for s in crew_result["steps"]:
                     step2_result += f"\n### {s['role']} ({s['agent']})\n{s['result']}\n"
         else:
             # 単体ローカルLLMモード
             if progress_callback:
-                await progress_callback(2, "running", "Step2: ローカルLLMで実行中...")
+                await progress_callback(2, "running", "Step2: Executing with local LLM...")
 
             step2_result = await _run_local_step(
                 step2_model,
@@ -206,7 +206,7 @@ async def run_pipeline(
 
         # ── Step 3: Cloud AI で検証 ──
         if progress_callback:
-            await progress_callback(3, "running", "Step3: 品質検証中...")
+            await progress_callback(3, "running", "Step3: Verifying quality...")
 
         step3_result = await _run_cloud_step(
             step3_model,
@@ -226,7 +226,7 @@ async def run_pipeline(
         await db.commit()
 
         if progress_callback:
-            await progress_callback(3, "completed", "パイプライン完了")
+            await progress_callback(3, "completed", "Pipeline completed")
 
         return {
             "id": run_id,
@@ -237,14 +237,14 @@ async def run_pipeline(
         }
 
     except Exception as e:
-        logger.exception("パイプライン実行エラー: %s", e)
+        logger.exception("Pipeline execution error: %s", e)
         await db.execute(
             "UPDATE pipeline_runs SET status='failed', error_msg=? WHERE id=?",
             (str(e), run_id),
         )
         await db.commit()
         if progress_callback:
-            await progress_callback(0, "failed", f"エラー: {e}")
+            await progress_callback(0, "failed", f"Error: {e}")
         return {"id": run_id, "status": "failed", "error_msg": str(e)}
     finally:
         await db.close()
@@ -263,7 +263,7 @@ async def _get_memory_context(query: str) -> str:
         if not memories:
             return ""
 
-        lines = ["## 参考: 過去の記憶（Mem0）"]
+        lines = ["## Reference: Past Memories (Mem0)"]
         for m in memories:
             text = m.get("memory", m.get("text", str(m)))
             lines.append(f"- {text}")
@@ -299,7 +299,7 @@ async def _run_cloud_step(model: str, prompt: str) -> str:
 
     # CLI (Claude Code / Codex / Gemini CLI)
     if provider in _CLI_PROVIDERS:
-        logger.info("CLI実行: provider=%s model=%s", provider, model)
+        logger.info("CLI execution: provider=%s model=%s", provider, model)
         chunks: list[str] = []
         async for chunk in cli_ai.stream_chat_cli(provider, model, prompt):
             chunks.append(chunk)
@@ -314,7 +314,7 @@ async def _run_cloud_step(model: str, prompt: str) -> str:
             return await cloud_ai.chat_once(provider, api_key, model, messages)
 
     # Ollamaフォールバック
-    logger.info("Ollamaで実行: %s", model)
+    logger.info("Executing with Ollama: %s", model)
     return await _run_local_step(model, prompt)
 
 

@@ -27,7 +27,7 @@ async def add_memory(req: MemoryAddRequest) -> dict:
     user_id = req.user_id or await get_setting("mem0_user_id") or "tsunamayo7"
     result = await mem0.add(url, user_id, req.text)
     if result is None:
-        return {"success": False, "message": "Mem0への記憶追加に失敗しました。サーバーが稼働しているか確認してください。"}
+        return {"success": False, "message": "Failed to add memory to Mem0. Please check if the server is running."}
     return {"success": True, "result": result}
 
 

@@ -31,7 +31,7 @@ async def start_pipeline(req: PipelineRequest) -> dict:
         )
     )
 
-    return {"id": run_id, "status": "pending", "message": "パイプラインを開始しました"}
+    return {"id": run_id, "status": "pending", "message": "Pipeline started"}
 
 
 @router.get("/{run_id}")
@@ -44,7 +44,7 @@ async def get_pipeline_status(run_id: str) -> PipelineStatus:
         )
         row = await cursor.fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="パイプラインが見つかりません")
+            raise HTTPException(status_code=404, detail="Pipeline not found")
         return PipelineStatus(**dict(row))
     finally:
         await db.close()

@@ -32,7 +32,7 @@ class ChatResponse(BaseModel):
 
 
 class ConversationCreate(BaseModel):
-    title: str = "新しい会話"
+    title: str = "New Chat"
     provider: str = "ollama"
     model: str = ""
     system_prompt: str = ""
@@ -63,7 +63,7 @@ class SettingResponse(BaseModel):
 
 # ── パイプライン ──────────────────────────────────────
 class PipelineRequest(BaseModel):
-    title: str = "新しいパイプライン"
+    title: str = "New Pipeline"
     input_text: str
     step1_model: str = ""
     step2_model: str = ""

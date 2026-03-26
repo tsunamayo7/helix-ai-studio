@@ -17,7 +17,7 @@ async def search(req: dict) -> dict:
     """Web検索（DuckDuckGo、無料・APIキー不要）"""
     query = req.get("query", "")
     if not query:
-        return {"error": "検索クエリが空です"}
+        return {"error": "Search query is empty"}
 
     max_results = req.get("max_results", 5)
     results = await tools.web_search(query, max_results)
@@ -34,7 +34,7 @@ async def list_files(req: dict) -> dict:
     """ディレクトリ一覧"""
     path = req.get("path", "")
     if not path:
-        return {"error": "パスが空です"}
+        return {"error": "Path is empty"}
     result = await tools.list_files(path)
     result["formatted"] = tools.format_file_listing(result)
     return result
@@ -45,7 +45,7 @@ async def read_file(req: dict) -> dict:
     """ファイル読み取り"""
     path = req.get("path", "")
     if not path:
-        return {"error": "パスが空です"}
+        return {"error": "Path is empty"}
     return await tools.read_file(path)
 
 
@@ -55,5 +55,5 @@ async def write_file(req: dict) -> dict:
     path = req.get("path", "")
     content = req.get("content", "")
     if not path:
-        return {"error": "パスが空です"}
+        return {"error": "Path is empty"}
     return await tools.write_file(path, content)

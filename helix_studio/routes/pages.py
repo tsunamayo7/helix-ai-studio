@@ -22,7 +22,7 @@ def setup_templates(t: Jinja2Templates) -> None:
 
 def _get_templates() -> Jinja2Templates:
     if templates is None:
-        raise RuntimeError("テンプレートが初期化されていません")
+        raise RuntimeError("Templates not initialized")
     return templates
 
 

@@ -41,7 +41,7 @@ async def list_documents() -> list[dict[str, Any]]:
 async def upload_document(file: UploadFile = File(...)) -> dict[str, Any]:
     """ドキュメントをアップロードして RAG に登録。"""
     if not file.filename:
-        raise HTTPException(status_code=400, detail="ファイル名が必要です")
+        raise HTTPException(status_code=400, detail="Filename is required")
 
     from pathlib import Path
     ext = Path(file.filename).suffix.lower()
@@ -85,5 +85,5 @@ async def delete_document(doc_id: str) -> dict[str, Any]:
     """ドキュメントを削除。"""
     ok = await rag.delete_document(doc_id)
     if not ok:
-        raise HTTPException(status_code=500, detail="削除に失敗しました")
+        raise HTTPException(status_code=500, detail="Failed to delete document")
     return {"ok": True, "doc_id": doc_id}

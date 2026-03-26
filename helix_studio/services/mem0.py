@@ -32,7 +32,7 @@ async def _embed(text: str) -> list[float] | None:
             embeddings = data.get("embeddings", [[]])
             return embeddings[0] if embeddings and embeddings[0] else None
     except Exception as e:
-        logger.debug("埋め込み生成失敗: %s", e)
+        logger.debug("Embedding generation failed: %s", e)
         return None
 
 
@@ -61,7 +61,7 @@ async def _qdrant_search(query: str, limit: int = 5) -> list[dict[str, Any]]:
                     })
             return results
     except Exception as e:
-        logger.debug("Qdrant直接検索失敗: %s", e)
+        logger.debug("Qdrant direct search failed: %s", e)
         return []
 
 
@@ -78,7 +78,7 @@ async def search(
         return results
 
     # 2. フォールバック: HTTP API
-    logger.info("Qdrant直接検索が空 → HTTP APIにフォールバック")
+    logger.info("Qdrant direct search returned empty -> falling back to HTTP API")
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.post(
@@ -90,7 +90,7 @@ async def search(
             memories = data.get("memories", [])
             return [{"memory": m.get("text", ""), "score": m.get("score", 0)} for m in memories]
     except Exception as e:
-        logger.debug("HTTP API検索失敗: %s", e)
+        logger.debug("HTTP API search failed: %s", e)
         return []
 
 
@@ -105,7 +105,7 @@ async def add(url: str, user_id: str, text: str) -> dict[str, Any] | None:
             resp.raise_for_status()
             return resp.json()
     except Exception as e:
-        logger.warning("記憶の追加に失敗: %s", e)
+        logger.warning("Failed to add memory: %s", e)
         return None
 
 
@@ -119,7 +119,7 @@ async def get_all(url: str, user_id: str) -> list[dict[str, Any]]:
             memories = data.get("memories", [])
             return [{"memory": m.get("text", ""), "id": m.get("id", "")} for m in memories]
     except Exception as e:
-        logger.warning("全記憶の取得に失敗: %s", e)
+        logger.warning("Failed to retrieve all memories: %s", e)
         return []
 
 
@@ -145,7 +145,7 @@ async def get_status(url: str, user_id: str) -> dict[str, Any]:
         except Exception as e:
             error = str(e)
     else:
-        error = "記憶サーバーに接続できません"
+        error = "Cannot connect to memory server"
     return {
         "available": available,
         "memory_count": memory_count,
