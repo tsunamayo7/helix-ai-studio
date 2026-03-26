@@ -13,33 +13,28 @@ All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integrat
 
 ### Chat — Streaming Response
 
-![Chat Streaming](docs/images/chat_streaming_short.gif)
+![Streaming Demo](docs/images/gh_streaming_demo.gif)
 
-Real-time WebSocket streaming with Ollama (nemotron-cascade-2). Provider and model switching with one click.
+Real-time WebSocket streaming with Ollama. Type a prompt, hit send, and watch the response stream in with syntax-highlighted code blocks.
 
-### Chat UI
+### Provider & Model Switching
 
-![Chat Main](docs/images/gh_01_chat_main.png)
+![Provider Switch](docs/images/gh_provider_switch.gif)
 
-Dark theme, Japanese UI, sidebar with conversation history, provider tabs (Local / Cloud API / CLI).
+Switch between Local (Ollama), Cloud API (Claude/OpenAI), and CLI (Claude Code/Codex/Gemini) with one click. Models auto-load per provider.
 
-### RAG Knowledge Base
+### App Tour — All Features
 
-![Knowledge Base](docs/images/gh_03_knowledge_base.png)
+![App Tour](docs/images/gh_navigation_demo.gif)
 
-Drag & drop document upload, Qdrant vector search, Ollama embedding — all running locally.
+Chat → Pipeline → Knowledge Base → Settings — everything in a single lightweight web app.
 
-### Pipeline — Plan → Execute → Verify
+### Screenshots
 
-![Pipeline](docs/images/gh_04_pipeline.png)
-
-3-step automated pipeline with per-step model selection.
-
-### Settings
-
-![Settings](docs/images/gh_05_settings.png)
-
-Cloud AI, Local AI, Mem0 shared memory, MCP tool integration — all configurable from the UI.
+| Chat UI | RAG Knowledge Base | Pipeline | Settings |
+|:---:|:---:|:---:|:---:|
+| ![Chat](docs/images/gh_01_chat_main.png) | ![RAG](docs/images/gh_03_knowledge_base.png) | ![Pipeline](docs/images/gh_04_pipeline.png) | ![Settings](docs/images/gh_05_settings.png) |
+| Dark theme, sidebar, history | Drag & drop, Qdrant search | Plan → Execute → Verify | Cloud/Local/Mem0/MCP config |
 
 ---
 
