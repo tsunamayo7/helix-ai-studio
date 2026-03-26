@@ -14,6 +14,23 @@ All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integrat
 
 ---
 
+## Table of Contents
+
+- [Demo](#demo)
+- [Why Helix AI Studio?](#why-helix-ai-studio)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Setup](#setup)
+- [Architecture](#architecture)
+- [Pages](#pages)
+- [API Endpoints](#api-endpoints)
+- [Related Projects](#related-projects)
+- [Development](#development)
+- [Support](#support)
+- [License](#license)
+
+---
+
 ## Demo
 
 ### Chat — Streaming Response
@@ -68,7 +85,7 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 
 CLI tools are automatically detected — if not installed, they are hidden from the UI.
 
-### RAG Knowledge Base (NEW)
+### RAG Knowledge Base
 
 - **Drag & drop** document upload (.txt, .md, .py, .json, and 25+ formats)
 - **Qdrant** vector database for semantic search
@@ -77,7 +94,7 @@ CLI tools are automatically detected — if not installed, they are hidden from 
 - **Search test UI** — verify RAG retrieval before chatting
 - Separate from Mem0 (uses `helix_rag` collection)
 
-### MCP Tool Integration (NEW)
+### MCP Tool Integration
 
 - **Model Context Protocol** client for connecting external tools
 - **stdio transport** — compatible with any MCP server
@@ -106,9 +123,9 @@ CLI tools are automatically detected — if not installed, they are hidden from 
 3-step automated pipeline:
 
 ```
-Step 1: Plan (Cloud/CLI/Local) — Analyze task and generate plan
-Step 2: Execute (Local/CrewAI) — Execute the plan
-Step 3: Verify (Cloud/CLI/Local) — Verify results and evaluate quality
+Step 1: Plan    (Cloud/CLI/Local) — Analyze task and generate plan
+Step 2: Execute (Local/CrewAI)    — Execute the plan
+Step 3: Verify  (Cloud/CLI/Local) — Verify results and evaluate quality
 ```
 
 ### CrewAI Multi-Agent
@@ -165,7 +182,7 @@ This starts Helix AI Studio + Ollama + Qdrant + Mem0.
 
 ```bash
 ollama pull gemma3:27b
-ollama pull qwen3-embedding:8b  # For RAG & Mem0
+ollama pull qwen3-embedding:8b   # For RAG & Mem0
 ```
 
 ### 2. Qdrant (Required for RAG)
@@ -186,9 +203,9 @@ Open Settings and enter API keys:
 ### 4. CLI Agents (Optional)
 
 ```bash
-npm install -g @anthropic-ai/claude-code  # Claude Code
-npm install -g @openai/codex               # Codex CLI
-npm install -g @google/gemini-cli          # Gemini CLI
+npm install -g @anthropic-ai/claude-code   # Claude Code
+npm install -g @openai/codex                # Codex CLI
+npm install -g @google/gemini-cli           # Gemini CLI
 ```
 
 ### 5. Mem0 Shared Memory (Optional)
@@ -201,11 +218,11 @@ Configure Mem0 HTTP URL in Settings (default: http://localhost:8080).
 
 ```
 Browser (http://localhost:8504)
-    |
-    |-- WebSocket --- streaming chat
-    |-- REST API ---- settings, history, models, memory, rag, mcp, pipeline
-    |
-Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
+  |
+  |-- WebSocket --- streaming chat
+  |-- REST API ---- settings, history, models, memory, rag, mcp, pipeline
+  |
+  Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
     |
     |-- Cloud AI ---------> Claude API / OpenAI API
     |-- Local AI ---------> Ollama / OpenAI-Compatible (vLLM, llama.cpp)
@@ -257,7 +274,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 | POST/GET | `/api/conversations` | Create / List conversations |
 | GET/DELETE | `/api/conversations/{id}` | Get / Delete conversation |
 
-### RAG (NEW)
+### RAG
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -267,7 +284,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 | POST | `/api/rag/search` | Vector search |
 | DELETE | `/api/rag/documents/{doc_id}` | Delete document |
 
-### MCP (NEW)
+### MCP
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -306,6 +323,8 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 uv sync --dev
 uv run ruff check helix_studio/
 ```
+
+---
 
 ## Support
 
