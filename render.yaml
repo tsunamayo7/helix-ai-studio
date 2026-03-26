@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: free
     branch: master
-    healthCheckPath: /api/models
+    healthCheckPath: /healthz
     envVars:
       - key: PORT
         value: "10000"
