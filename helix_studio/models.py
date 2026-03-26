@@ -78,6 +78,7 @@ class PipelineStatus(BaseModel):
     step1_result: str | None = None
     step2_result: str | None = None
     step3_result: str | None = None
+    step4_result: str | None = None
     error_msg: str | None = None
     created_at: str
     completed_at: str | None = None

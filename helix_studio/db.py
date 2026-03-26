@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     step1_result TEXT,
     step2_result TEXT,
     step3_result TEXT,
+    step4_result TEXT,
     step1_model TEXT,
     step2_model TEXT,
     step3_model TEXT,

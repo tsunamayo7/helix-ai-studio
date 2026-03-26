@@ -15,6 +15,8 @@
         { nameKey: 'execStep', icon: 'local', status: 'idle', progress: 0, result: '' },
         { nameKey: 'verifyStep', icon: 'cloud', status: 'idle', progress: 0, result: '' },
     ],
+    finalAnswer: '',
+    finalAnswerLoading: false,
     history: [],
 
     // モデル一覧（プロバイダ別）
@@ -160,6 +162,8 @@
     async runPipeline() {
         if (!this.taskInput.trim() || this.isRunning) return;
         this.isRunning = true;
+        this.finalAnswer = '';
+        this.finalAnswerLoading = false;
         this.steps.forEach(s => { s.status = 'idle'; s.progress = 0; s.result = ''; });
 
         try {
@@ -216,6 +220,15 @@
                     if (status.step1_result) this.steps[0].result = status.step1_result;
                     if (status.step2_result) this.steps[1].result = status.step2_result;
                     if (status.step3_result) this.steps[2].result = status.step3_result;
+
+                    // Step4: Final answer
+                    if (status.current_step >= 4 && !status.step4_result) {
+                        this.finalAnswerLoading = true;
+                    }
+                    if (status.step4_result) {
+                        this.finalAnswer = status.step4_result;
+                        this.finalAnswerLoading = false;
+                    }
 
                     if (status.status === 'completed' || status.status === 'failed') {
                         this.steps.forEach((s, i) => {
@@ -485,24 +498,44 @@
             </template>
         </div>
 
-        <!-- 実行結果（全ステップ完了後に表示） -->
-        <template x-if="steps.every(s => s.status === 'done') && steps.some(s => s.result)">
-            <div class="bg-slate-800 rounded-xl border border-emerald-500/30 overflow-hidden">
-                <div class="px-5 py-3 border-b border-slate-700 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <h3 class="text-sm font-semibold text-emerald-300" x-text="$store.i18n.t('pipelineResults')"></h3>
-                </div>
+        <!-- Step4: 最終回答（大きく表示） -->
+        <div x-show="finalAnswer || finalAnswerLoading" x-transition class="bg-slate-800 rounded-xl border-2 border-emerald-500/50 overflow-hidden shadow-lg shadow-emerald-500/5">
+            <div class="px-5 py-3 border-b border-emerald-500/30 bg-emerald-500/5 flex items-center gap-2">
+                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <h3 class="text-base font-bold text-emerald-300" x-text="$store.i18n.t('finalAnswer')"></h3>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Step 4</span>
+            </div>
+            <div class="p-6">
+                <template x-if="finalAnswerLoading">
+                    <div class="flex items-center gap-3 text-sm text-blue-400">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <span x-text="$store.i18n.t('generatingFinalAnswer')"></span>
+                    </div>
+                </template>
+                <template x-if="finalAnswer">
+                    <div class="text-sm text-slate-200 markdown-body leading-relaxed" x-html="renderMarkdown(finalAnswer)"></div>
+                </template>
+            </div>
+        </div>
+
+        <!-- 各ステップ詳細（折りたたみ） -->
+        <template x-if="steps.some(s => s.result)">
+            <details class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+                <summary class="px-5 py-3 cursor-pointer text-sm font-medium text-slate-400 hover:text-slate-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    <span x-text="$store.i18n.t('stepDetails')"></span>
+                </summary>
                 <div class="divide-y divide-slate-700">
-                    <template x-for="(step, i) in steps" :key="'result-'+i">
+                    <template x-for="(step, i) in steps" :key="'detail-'+i">
                         <div x-show="step.result" class="p-5">
                             <div class="flex items-center gap-2 mb-2">
                                 <span class="text-xs font-medium text-slate-400" x-text="'Step ' + (i+1) + ': ' + $store.i18n.t(step.nameKey)"></span>
                             </div>
-                            <div class="text-sm text-slate-300 markdown-body max-h-[400px] overflow-y-auto" x-html="renderMarkdown(step.result)"></div>
+                            <div class="text-xs text-slate-400 markdown-body max-h-[300px] overflow-y-auto" x-html="renderMarkdown(step.result)"></div>
                         </div>
                     </template>
                 </div>
-            </div>
+            </details>
         </template>
 
         <!-- 実行履歴 -->

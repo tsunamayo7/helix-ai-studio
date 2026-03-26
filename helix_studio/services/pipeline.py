@@ -112,6 +112,32 @@ Comprehensively verify the following task, plan, and execution results.
 - (Conclusion in 3 lines or less)
 """
 
+STEP4_PROMPT = """You are a technical writer who creates clear, actionable final deliverables.
+You MUST respond in the same language as the task description below.
+
+Based on the entire pipeline results below, create a polished final answer that the user can directly use.
+
+## Original Task
+{input_text}
+
+## Step 1: Plan
+{step1_result}
+
+## Step 2: Execution
+{step2_result}
+
+## Step 3: Verification
+{step3_result}
+
+## Instructions
+1. Synthesize all results into a single, coherent final deliverable
+2. If the task requested code, include the final polished code
+3. If the task requested a document, include the final document
+4. Remove all meta-commentary (planning notes, verification notes)
+5. The output should be something the user can copy-paste and use immediately
+6. Keep it concise but complete
+"""
+
 ProgressCallback = Callable[[int, str, str], Awaitable[None]]
 
 
@@ -220,16 +246,37 @@ async def run_pipeline(
                 memory_context=memory_context,
             ),
         )
+        await db.execute(
+            "UPDATE pipeline_runs SET step3_result=?, current_step=4 WHERE id=?",
+            (step3_result, run_id),
+        )
+        await db.commit()
+
+        # ── Step 4: Final Answer (Cloud/CLI/Ollama) ──
+        if progress_callback:
+            await progress_callback(4, "running", "Step4: Generating final answer...")
+
+        step4_model = step3_model  # Same model as verification
+        step4_result = await _run_cloud_step(
+            step4_model,
+            STEP4_PROMPT.format(
+                input_text=input_text,
+                step1_result=step1_result,
+                step2_result=step2_result,
+                step3_result=step3_result,
+            ),
+        )
+
         now = datetime.now(timezone.utc).isoformat()
         await db.execute(
-            """UPDATE pipeline_runs SET step3_result=?, current_step=3,
-               status='completed', completed_at=? WHERE id=?""",
-            (step3_result, now, run_id),
+            """UPDATE pipeline_runs SET step3_result=?, step4_result=?,
+               current_step=4, status='completed', completed_at=? WHERE id=?""",
+            (step3_result, step4_result, now, run_id),
         )
         await db.commit()
 
         if progress_callback:
-            await progress_callback(3, "completed", "Pipeline completed")
+            await progress_callback(4, "completed", "Pipeline completed")
 
         return {
             "id": run_id,
@@ -237,6 +284,7 @@ async def run_pipeline(
             "step1_result": step1_result,
             "step2_result": step2_result,
             "step3_result": step3_result,
+            "step4_result": step4_result,
         }
 
     except Exception as e:
