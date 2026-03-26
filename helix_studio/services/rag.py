@@ -43,6 +43,7 @@ DOCLING_EXTENSIONS = {
 }
 
 DOCLING_URL = "http://localhost:5001"
+RERANKER_URL = "http://localhost:8480"  # TEI reranker (bge-reranker-v2-m3)
 
 
 # ── Docling パーサー ──────────────────────────────────────
@@ -362,10 +363,46 @@ async def search(
                     "chunk_index": payload.get("chunk_index", 0),
                     "score": round(point.get("score", 0), 4),
                 })
+
+            # Reranker で再スコアリング（TEI 起動時のみ）
+            if results:
+                results = await _rerank(query, results, top_n=limit)
+
             return results
     except Exception as e:
         logger.debug("RAG 検索失敗: %s", e)
         return []
+
+
+async def _rerank(
+    query: str, results: list[dict[str, Any]], top_n: int = 5
+) -> list[dict[str, Any]]:
+    """TEI reranker で結果を再スコアリング。失敗時はそのまま返す。"""
+    if not results or len(results) <= 1:
+        return results[:top_n]
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(10.0)) as c:
+            r = await c.post(
+                f"{RERANKER_URL}/rerank",
+                json={
+                    "query": query,
+                    "texts": [r["content"] for r in results],
+                },
+            )
+            r.raise_for_status()
+            ranked = r.json()
+            # TEI returns [{"index": 0, "score": 0.95}, ...]
+            reranked = []
+            for item in sorted(ranked, key=lambda x: x["score"], reverse=True)[:top_n]:
+                idx = item["index"]
+                entry = results[idx].copy()
+                entry["score"] = round(item["score"], 4)
+                reranked.append(entry)
+            return reranked
+    except Exception as e:
+        logger.debug("Reranker unavailable, using original scores: %s", e)
+        return results[:top_n]
 
 
 def format_rag_context(results: list[dict[str, Any]]) -> str:
