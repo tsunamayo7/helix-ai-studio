@@ -35,7 +35,7 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 ### Screenshots
 
 | Chat UI | RAG Knowledge Base | Pipeline | Settings |
-|:---:|:---:|:---:|:---:|
+| :---: | :---: | :---: | :---: |
 | ![Chat](docs/images/en/gh_01_chat_main.png) | ![RAG](docs/images/en/gh_03_knowledge_base.png) | ![Pipeline](docs/images/en/gh_04_pipeline.png) | ![Settings](docs/images/en/gh_05_settings.png) |
 | Dark theme, sidebar, history | Drag & drop, Qdrant search | Plan → Execute → Verify | Cloud/Local/Mem0/MCP config |
 
@@ -55,7 +55,7 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 ### 7 AI Providers
 
 | Provider | Method | Model Detection | Streaming |
-|----------|--------|:-:|:-:|
+| --- | --- | :---: | :---: |
 | **Ollama** | HTTP API (localhost:11434) | Auto | Yes |
 | **Claude API** | Anthropic SDK | Auto (key validation) | Yes |
 | **OpenAI API** | OpenAI SDK | Auto (`models.list()`) | Yes |
@@ -185,8 +185,8 @@ Open Settings and enter API keys:
 
 ```bash
 npm install -g @anthropic-ai/claude-code  # Claude Code
-npm install -g @openai/codex              # Codex CLI
-npm install -g @google/gemini-cli         # Gemini CLI
+npm install -g @openai/codex               # Codex CLI
+npm install -g @google/gemini-cli          # Gemini CLI
 ```
 
 ### 5. Mem0 Shared Memory (Optional)
@@ -220,7 +220,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ### Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+| --- | --- |
 | Backend | Python 3.12, FastAPI, aiosqlite, httpx |
 | Frontend | Jinja2, Tailwind CSS (CDN), Alpine.js (CDN) |
 | Database | SQLite (app data), Qdrant (vectors) |
@@ -235,7 +235,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ## Pages
 
 | Path | Description |
-|------|-------------|
+| --- | --- |
 | `/` | Chat |
 | `/knowledge` | RAG Knowledge Base |
 | `/pipeline` | Pipeline |
@@ -249,7 +249,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ### Chat
 
 | Method | Path | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | WebSocket | `/ws/chat` | Streaming chat |
 | POST | `/api/chat` | Non-streaming chat |
 | POST/GET | `/api/conversations` | Create / List conversations |
@@ -258,7 +258,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ### RAG (NEW)
 
 | Method | Path | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | GET | `/api/rag/status` | RAG service status |
 | GET | `/api/rag/documents` | List uploaded documents |
 | POST | `/api/rag/upload` | Upload document (multipart) |
@@ -268,7 +268,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ### MCP (NEW)
 
 | Method | Path | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | GET | `/api/mcp/servers` | List MCP servers |
 | POST | `/api/mcp/servers/start` | Start MCP server |
 | POST | `/api/mcp/servers/{name}/stop` | Stop MCP server |
@@ -278,7 +278,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ### Models / Settings / Memory / Tools / Pipeline / CrewAI
 
 | Method | Path | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | GET | `/api/models` | All provider models |
 | GET/PUT | `/api/settings` | Settings CRUD |
 | POST | `/api/memory/search` | Search Mem0 memories |
@@ -292,7 +292,7 @@ Helix AI Studio (FastAPI + Jinja2 + Tailwind CSS + Alpine.js)
 ## Related Projects
 
 | Project | Description |
-|---------|-------------|
+| --- | --- |
 | [helix-pilot](https://github.com/tsunamayo7/helix-pilot) | GUI automation MCP server — AI controls Windows desktop |
 | [helix-sandbox](https://github.com/tsunamayo7/helix-sandbox) | Secure sandbox MCP server — Docker + Windows Sandbox |
 
