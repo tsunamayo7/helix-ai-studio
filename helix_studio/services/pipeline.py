@@ -17,7 +17,7 @@ from typing import Any
 
 from helix_studio.config import get_setting
 from helix_studio.db import get_connection
-from helix_studio.services import cloud_ai, local_ai, mem0
+from helix_studio.services import cloud_ai, local_ai, cli_ai, mem0
 
 logger = logging.getLogger(__name__)
 
@@ -272,27 +272,50 @@ async def _get_memory_context(query: str) -> str:
         return ""
 
 
+_CLI_PROVIDERS = {"claude_code", "codex", "gemini_cli"}
+_CLI_MODEL_MAP = {
+    "opus": "claude_code", "sonnet": "claude_code", "haiku": "claude_code",
+    "gpt-5": "codex", "gpt-4": "codex",
+    "gemini": "gemini_cli",
+}
+
+
+def _detect_provider(model: str) -> str:
+    """モデル名からプロバイダを自動判定。"""
+    m = model.lower()
+    for prefix, provider in _CLI_MODEL_MAP.items():
+        if m.startswith(prefix):
+            return provider
+    if m.startswith("claude"):
+        return "claude"
+    if m.startswith(("gpt-", "o1", "o3", "o4")):
+        return "openai"
+    return "ollama"
+
+
 async def _run_cloud_step(model: str, prompt: str) -> str:
-    """AIにプロンプトを送信して応答を取得。Cloud/Ollamaを自動判定。"""
-    # モデル名からプロバイダを判定
-    if model.startswith("claude"):
-        provider = "claude"
-        api_key = await get_setting("claude_api_key") or ""
-    elif model.startswith(("gpt-", "o1", "o3", "o4")):
-        provider = "openai"
-        api_key = await get_setting("openai_api_key") or ""
-    else:
-        # Cloud APIキーがなければOllamaにフォールバック
-        provider = "claude"
-        api_key = await get_setting("claude_api_key") or ""
+    """AIにプロンプトを送信して応答を取得。CLI/Cloud/Ollamaを自動判定。"""
+    provider = _detect_provider(model)
 
-    # Cloud APIキーがない場合、Ollamaで実行
-    if not api_key:
-        logger.info("Cloud APIキー未設定、Ollamaで実行: %s", model)
-        return await _run_local_step(model, prompt)
+    # CLI (Claude Code / Codex / Gemini CLI)
+    if provider in _CLI_PROVIDERS:
+        logger.info("CLI実行: provider=%s model=%s", provider, model)
+        chunks: list[str] = []
+        async for chunk in cli_ai.stream_chat_cli(provider, model, prompt):
+            chunks.append(chunk)
+        return "".join(chunks)
 
-    messages = [{"role": "user", "content": prompt}]
-    return await cloud_ai.chat_once(provider, api_key, model, messages)
+    # Cloud API
+    if provider in ("claude", "openai"):
+        api_key_map = {"claude": "claude_api_key", "openai": "openai_api_key"}
+        api_key = await get_setting(api_key_map[provider]) or ""
+        if api_key:
+            messages = [{"role": "user", "content": prompt}]
+            return await cloud_ai.chat_once(provider, api_key, model, messages)
+
+    # Ollamaフォールバック
+    logger.info("Ollamaで実行: %s", model)
+    return await _run_local_step(model, prompt)
 
 
 async def _run_local_step(model: str, prompt: str) -> str:
