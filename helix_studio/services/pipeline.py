@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # ── プロンプトテンプレート（改良版）──
 
 STEP1_PROMPT = """You are an experienced software architect and project manager.
+You MUST respond in the same language as the task description below.
 Analyze the following task and create a structured execution plan.
 
 ## Task
@@ -54,6 +55,7 @@ Describe each step in the following format:
 """
 
 STEP2_PROMPT = """You are a skilled software engineer.
+You MUST respond in the same language as the task description below.
 Execute each step of the plan below thoroughly.
 
 ## Original Task
@@ -73,6 +75,7 @@ Execute each step of the plan below thoroughly.
 """
 
 STEP3_PROMPT = """You are a quality assurance expert.
+You MUST respond in the same language as the task description below.
 Comprehensively verify the following task, plan, and execution results.
 
 ## Original Task
