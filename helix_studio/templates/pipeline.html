@@ -212,12 +212,16 @@
                     // Update step UI based on current_step
                     const currentStep = status.current_step || 0;
                     for (let i = 0; i < 3; i++) {
-                        if (i < currentStep) {
+                        if (i < currentStep - 1) {
                             this.steps[i].status = 'done';
                             this.steps[i].progress = 100;
-                        } else if (i === currentStep && status.status === 'running') {
+                        } else if (i === currentStep - 1 && status.status === 'running') {
+                            // Current step is running (current_step is 1-based)
                             this.steps[i].status = 'running';
                             this.steps[i].progress = 50;
+                        } else if (i < currentStep && status.status !== 'running') {
+                            this.steps[i].status = 'done';
+                            this.steps[i].progress = 100;
                         }
                     }
 
