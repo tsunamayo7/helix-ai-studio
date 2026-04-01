@@ -1,5 +1,5 @@
 ---
-title: "helix-agent を helix-agents に拡張した: Ollama / Codex / OpenAI-compatible を 1 つの MCP で扱う"
+title: "helix-agents: Ollama / Codex / OpenAI を 1 つの MCP で扱う"
 emoji: "🛠️"
 type: "tech"
 topics: ["mcp", "claudecode", "ollama", "codex", "python"]
