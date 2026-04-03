@@ -260,12 +260,12 @@ Browser (http://localhost:8504)
     |-- Local AI ---------> Ollama / OpenAI-Compatible (vLLM, llama.cpp)
     |-- CLI Agents -------> Claude Code / Codex / Gemini CLI
     |-- RAG --------------> Qdrant + Ollama Embedding (helix_rag collection)
-|-- RAG Parsing ------> Docling Serve (PDF/Office/images)
+    |-- RAG Parsing ------> Docling Serve (PDF/Office/images)
     |-- Memory -----------> Mem0 HTTP -> Qdrant + Ollama Embedding (mem0_shared)
     |-- MCP --------------> stdio transport -> Any MCP server
     |-- CrewAI -----------> Multi-agent (Ollama-only, VRAM-managed)
     |-- Web Search -------> SearXNG (multi-engine) / DuckDuckGo fallback
-|-- Reranker ---------> TEI (bge-reranker-v2-m3)
+    |-- Reranker ---------> TEI (bge-reranker-v2-m3)
     |-- File Operations --> Local filesystem (path traversal protected)
     |-- Pipeline ---------> Plan -> Execute -> Verify
 ```
@@ -363,7 +363,9 @@ Browser (http://localhost:8504)
 
 | Project | Description |
 | --- | --- |
-| [helix-pilot](https://github.com/tsunamayo7/helix-pilot) | GUI automation MCP server — AI controls Windows desktop |
+| [helix-pilot](https://github.com/tsunamayo7/helix-pilot) | GUI automation MCP server — AI controls Windows desktop via local Vision LLM |
+| [helix-agent](https://github.com/tsunamayo7/helix-agent) | Extend Claude Code with local Ollama models — cut token costs by 60-80% |
+| [claude-code-codex-agents](https://github.com/tsunamayo7/claude-code-codex-agents) | MCP bridge to Codex CLI (GPT-5.4) with structured JSONL traces |
 | [helix-sandbox](https://github.com/tsunamayo7/helix-sandbox) | Secure sandbox MCP server — Docker + Windows Sandbox |
 
 ---

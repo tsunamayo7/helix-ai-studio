@@ -248,12 +248,12 @@ npm install -g @google/gemini-cli           # Gemini CLI
     |-- Local AI ---------> Ollama / OpenAI互換 (vLLM, llama.cpp)
     |-- CLI Agents -------> Claude Code / Codex / Gemini CLI
     |-- RAG --------------> Qdrant + Ollama Embedding (helix_rag)
-|-- RAG解析 ----------> Docling Serve (PDF/Office/画像)
+    |-- RAG解析 ----------> Docling Serve (PDF/Office/画像)
     |-- Memory -----------> Mem0 HTTP -> Qdrant + Ollama Embedding (mem0_shared)
     |-- MCP --------------> stdio transport -> 任意のMCPサーバー
     |-- CrewAI -----------> マルチエージェント (Ollamaのみ, VRAM管理)
     |-- Web Search -------> SearXNG (複数エンジン横断) / DuckDuckGo フォールバック
-|-- Reranker ---------> TEI (bge-reranker-v2-m3)
+    |-- Reranker ---------> TEI (bge-reranker-v2-m3)
     |-- File Operations --> ローカルファイルシステム (パストラバーサル保護)
     |-- Pipeline ---------> 計画 -> 実行 -> 検証
 ```
@@ -351,7 +351,9 @@ npm install -g @google/gemini-cli           # Gemini CLI
 
 | プロジェクト | 説明 |
 | --- | --- |
-| [helix-pilot](https://github.com/tsunamayo7/helix-pilot) | GUI自動操作MCPサーバー — AIがWindowsデスクトップを操作 |
+| [helix-pilot](https://github.com/tsunamayo7/helix-pilot) | GUI自動操作MCPサーバー — ローカルVision LLMでWindowsデスクトップを操作 |
+| [helix-agent](https://github.com/tsunamayo7/helix-agent) | Claude Codeをローカル Ollama モデルで拡張 — トークンコスト60-80%削減 |
+| [claude-code-codex-agents](https://github.com/tsunamayo7/claude-code-codex-agents) | Codex CLI (GPT-5.4) へのMCPブリッジ — 構造化JSONLトレース付き |
 | [helix-sandbox](https://github.com/tsunamayo7/helix-sandbox) | セキュアサンドボックスMCPサーバー — Docker + Windows Sandbox |
 
 ---
