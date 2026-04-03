@@ -1,14 +1,17 @@
 # Helix AI Studio
 
-7つのAIプロバイダ・RAGナレッジベース・MCPツール統合・Mem0共有記憶・CrewAIマルチエージェント・パイプラインを統合した軽量Webアプリです。
+**CLI AIエージェント (Claude Code/Codex/Gemini) を統合した、唯一のオールインワンAIチャットスタジオ。** 7プロバイダ・RAG・MCP・Mem0・パイプラインを軽量Webアプリで。
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-helix--ai--studio-blue?style=for-the-badge&logo=rocket&logoColor=white)](https://helix-ai-studio.onrender.com)
 
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Tests](https://img.shields.io/badge/tests-118%20passed-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-supported-black?logo=ollama&logoColor=white)](https://ollama.com/)
 [![Self-Hosted](https://img.shields.io/badge/Self--Hosted-100%25-green)](https://github.com/tsunamayo7/helix-ai-studio)
+[![gemma4](https://img.shields.io/badge/gemma4-supported-orange)](https://ollama.com/library/gemma4)
 
 > **[English README (README.md)](README.md)**
 
@@ -196,9 +199,11 @@ Helix AI Studio + Ollama + Qdrant + Mem0 が起動します。
 ### 1. Ollama（必須）
 
 ```bash
-ollama pull gemma3:27b
-ollama pull qwen3-embedding:8b   # RAG & Mem0用
+ollama pull gemma4:31b            # 推奨（2026年4月リリース）
+ollama pull qwen3-embedding:8b    # RAG & Mem0用
 ```
+
+> **ヒント**: `gemma4:31b` がデフォルトモデルです。`gemma3:27b` などの他モデルもUIから選択可能です。
 
 ### 2. Qdrant（RAGに必須）
 
@@ -355,6 +360,7 @@ npm install -g @google/gemini-cli           # Gemini CLI
 
 ```bash
 uv sync --dev
+uv run python -m pytest tests/ -v    # 118テスト
 uv run ruff check helix_studio/
 ```
 

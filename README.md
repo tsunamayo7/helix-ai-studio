@@ -1,14 +1,17 @@
 # Helix AI Studio
 
-All-in-one AI chat studio — 7 providers, RAG knowledge base, MCP tool integration, Mem0 shared memory, CrewAI multi-agent, and 3-step pipeline in a single lightweight web app.
+**The only AI chat studio that integrates CLI agents (Claude Code, Codex, Gemini) alongside 7 providers, RAG, MCP tools, and a 3-step pipeline — all in a lightweight, self-hosted web app.**
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-helix--ai--studio-blue?style=for-the-badge&logo=rocket&logoColor=white)](https://helix-ai-studio.onrender.com)
 
+[![Version](https://img.shields.io/badge/version-2.1.0-blue.svg)](https://github.com/tsunamayo7/helix-ai-studio/releases)
+[![Tests](https://img.shields.io/badge/tests-118%20passed-brightgreen.svg)](https://github.com/tsunamayo7/helix-ai-studio)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-supported-black?logo=ollama&logoColor=white)](https://ollama.com/)
 [![Self-Hosted](https://img.shields.io/badge/Self--Hosted-100%25-green)](https://github.com/tsunamayo7/helix-ai-studio)
+[![gemma4](https://img.shields.io/badge/gemma4-supported-orange)](https://ollama.com/library/gemma4)
 
 > **[日本語版 README はこちら (README.ja.md)](README.ja.md)**
 
@@ -74,7 +77,18 @@ Chat → Pipeline → Knowledge Base → Settings — everything in a single lig
 
 ## Why Helix AI Studio?
 
-- **7 providers in one UI** — Ollama, Claude, OpenAI, vLLM/llama.cpp, Claude Code CLI, Codex CLI, Gemini CLI. Switch with one click.
+> Open WebUI and LobeChat are great for chatting with LLMs. Helix goes further — it's built for developers who want **CLI agent integration, automated pipelines, and MCP tool orchestration** in one place.
+
+| | Helix AI Studio | Open WebUI | LobeChat |
+|---|:---:|:---:|:---:|
+| CLI Agent Integration (Claude Code/Codex/Gemini) | Yes | No | No |
+| Plan-Execute-Verify Pipeline | Yes | No | No |
+| MCP Tool Integration | Yes | No | Marketplace |
+| 100% Local (Ollama + Qdrant) | Yes | Yes | Partial |
+| RAG + Shared Memory | Yes | RAG only | RAG only |
+| Lightweight (~4K Python LOC) | Yes | No | No |
+
+- **7 providers in one UI** — Ollama (gemma4, gemma3, qwen3.5, ...), Claude, OpenAI, vLLM/llama.cpp, Claude Code CLI, Codex CLI, Gemini CLI. Switch with one click.
 - **100% local-capable** — Run entirely on your machine with Ollama + Qdrant. No cloud API required.
 - **No vendor lock-in** — Bring your own models, swap providers anytime, keep your data on your hardware.
 - **RAG + Mem0 + MCP in a single app** — Knowledge base, persistent shared memory, and external tool integration — all built in, no plugins needed.
@@ -197,9 +211,11 @@ This starts Helix AI Studio + Ollama + Qdrant + Mem0.
 ### 1. Ollama (Required)
 
 ```bash
-ollama pull gemma3:27b
-ollama pull qwen3-embedding:8b   # For RAG & Mem0
+ollama pull gemma4:31b            # Recommended (released April 2026)
+ollama pull qwen3-embedding:8b    # For RAG & Mem0
 ```
+
+> **Tip**: `gemma4:31b` is now the default model. `gemma3:27b` and other Ollama models also work — select any model from the UI.
 
 ### 2. Qdrant (Required for RAG)
 
@@ -356,6 +372,7 @@ Browser (http://localhost:8504)
 
 ```bash
 uv sync --dev
+uv run python -m pytest tests/ -v    # 118 tests
 uv run ruff check helix_studio/
 ```
 

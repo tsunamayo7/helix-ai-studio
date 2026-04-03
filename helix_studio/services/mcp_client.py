@@ -81,7 +81,7 @@ class MCPSession:
         resp = await self._send_request("initialize", {
             "protocolVersion": "2024-11-05",
             "capabilities": {},
-            "clientInfo": {"name": "helix-ai-studio", "version": "2.0.0"},
+            "clientInfo": {"name": "helix-ai-studio", "version": "2.1.0"},
         })
         if resp is None:
             await self.stop()

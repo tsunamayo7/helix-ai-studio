@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Helix AI Studio",
         description="ローカルLLM + クラウドAI統合チャットスタジオ",
-        version="2.0.0",
+        version="2.1.0",
         lifespan=lifespan,
     )
 

@@ -104,6 +104,7 @@ MODEL_SIZE_ESTIMATES_GB: dict[str, float] = {
     "qwen3-next:80b": 47.0,
     "nemotron-cascade-2:latest": 23.0,
     "nemotron-3-nano:30b": 23.0,
+    "gemma4:31b": 18.0,
     "gemma3:27b": 16.0,
     "translategemma:27b": 16.0,
     "mistral-small3.2:latest": 14.0,

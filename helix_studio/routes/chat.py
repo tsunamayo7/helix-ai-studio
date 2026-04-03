@@ -458,7 +458,7 @@ async def _save_message(
 _TOOL_USE_MODELS = {
     "qwen3", "qwen3.5", "llama4", "llama3.3", "llama3.1",
     "mistral", "mistral-small", "command-a", "command-r",
-    "nemotron", "gpt-oss", "devstral", "gemma3",
+    "nemotron", "gpt-oss", "devstral", "gemma3", "gemma4",
 }
 
 

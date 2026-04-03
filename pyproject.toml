@@ -1,6 +1,6 @@
 [project]
 name = "helix-ai-studio"
-version = "2.0.0"
+version = "2.1.0"
 description = "All-in-one AI chat studio — 7 providers, Mem0 memory, CrewAI multi-agent, web search, file ops, pipeline"
 license = {text = "MIT"}
 authors = [{name = "tsunamayo7"}]
@@ -23,5 +23,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-asyncio>=1.0.0",
+    "httpx>=0.28.1",
     "ruff>=0.15.7",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

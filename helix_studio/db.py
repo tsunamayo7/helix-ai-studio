@@ -68,7 +68,7 @@ DEFAULT_SETTINGS: dict[str, str] = {
     "mcp_helix_sandbox_cmd": "",
     "default_cloud_provider": "claude",
     "default_cloud_model": "claude-sonnet-4-20250514",
-    "default_local_model": "gemma3:27b",
+    "default_local_model": "gemma4:31b",
     "pipeline_step1_model": "claude-sonnet-4-20250514",
     "pipeline_step2_model": "gemma3:27b",
     "pipeline_step3_model": "claude-sonnet-4-20250514",
