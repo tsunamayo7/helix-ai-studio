@@ -6,6 +6,21 @@ topics: ["gemma4", "qlora", "finetuning", "claudecode", "llm"]
 published: true
 ---
 
+:::message
+**📌 2026-04-10 追記: LoRA は v3 でさらに進化、デュアル GPU 環境で運用中**
+
+本記事は v2 LoRA (Loss 0.98 / Token Accuracy 96.8% / 9.4→10.0) の解説ですが、その後の v3 では以下を達成しました:
+
+- **gemma4-agent-coder-v3**: bf16 / r=32 / 3 エポック / 4,430 サンプル
+- **Final loss 0.5816** (v2 の 0.98 から -40%) / **Token Accuracy 97.83%**
+- 総合ベンチ **6.7 → 9.6 / 10** (+3.0、確信度フッター 0%→100%、純粋 JSON 出力 77%→100%)
+- 学習時間 2 時間 51 分
+
+GPU 環境も拡張: **NVIDIA RTX PRO 6000 96GB + ASUS PRIME RTX 5070 Ti 16GB のデュアル構成** (推論と学習を分離)。RTX PRO 6000 での GPU 方式マージにより、RAM 使用量を 48GB → 4.7GB に削減しました。
+
+helix-agent (v0.15.1) のローカル下請けエージェントとして、日々の 4 層コードレビュー (gemma4 → Sonnet → Opus → Codex) の L2 を担当しています。
+:::
+
 ## はじめに
 
 Google の Gemma4-31B-IT を QLoRA でファインチューニングし、**日本語でのエージェント型コーディング**に特化したモデルを作成しました。

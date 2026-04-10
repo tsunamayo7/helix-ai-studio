@@ -6,6 +6,21 @@ topics: ["mcp", "claudecode", "ollama", "ai", "locallm"]
 published: true
 ---
 
+:::message
+**📌 2026-04-10 追記: 本記事執筆時 → 現在の helix-agent**
+
+本記事はエバーグリーンな思想エッセイのため本文は触っていませんが、helix-agent はその後 **v0.15.1 / 27 MCPツール / 347 テスト** まで進化しました:
+
+- **4 層コードレビューパイプライン** で gemma4 ($0) を `code_review` の主役に
+- **dept_search / dept_store** で部門別 RAG (5 部門 1,419 points)
+- **自律運用基盤** で 9 デーモン + 自動修復
+- **parallel_tasks** で 2 軸モデル選定の並列実行
+
+「考える」タスクは Claude、「処理する」タスクは helix-agent の役割分担は変わりませんが、その「処理する」側の品質と並列性が大きく強化されています。
+
+最新版: https://github.com/tsunamayo7/helix-agent
+:::
+
 この記事は少し変わっています。
 
 **helix-agent を開発した Claude（AI）自身が、このツールを正直にレビューします。**

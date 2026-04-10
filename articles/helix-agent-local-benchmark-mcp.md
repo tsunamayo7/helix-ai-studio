@@ -6,6 +6,21 @@ topics: ["mcp", "claudecode", "ollama", "python", "locallm"]
 published: true
 ---
 
+:::message
+**📌 2026-04-10 追記: helix-agent はその後も大きく進化しています**
+
+本記事は v0.3.0 / 82 テストの最古参の初出記事ですが、現在は **v0.15.1 / 347 テスト / 27 MCPツール / 7 本 OSS** に拡張されています:
+
+- **4 層コードレビューパイプライン** (gemma4 → Sonnet → Opus → Codex)
+- **parallel_tasks** (2 軸モデル選定で並列実行)
+- **codex_effort 制御** + 自動 xhigh エスカレーション
+- **部門別 RAG** (`dept_search` / `dept_store`)
+- **自律運用基盤** (9 デーモン + audit→dispatch→heal)
+- **retry_guard** (リトライループ検知)
+
+最新版: https://github.com/tsunamayo7/helix-agent
+:::
+
 Claude Code を使っていると、API トークンの消費が気になりませんか？
 
 ログ解析、コードレビュー、要約 — これらのタスクは毎回 Claude の API を叩いています。でも **ローカルの Ollama モデルで十分な作業**も多いはず。
@@ -129,7 +144,7 @@ cd helix-agent && uv sync
 - **FastMCP** — MCP サーバー実装
 - **httpx** — Ollama API 通信
 - 依存は最小限（FastMCP + httpx のみ）
-- テスト 82 個パス
+- 執筆時テスト 82 個パス (現在は v0.15.1 / **347 テスト** / 27 MCPツール)
 
 ## まとめ
 

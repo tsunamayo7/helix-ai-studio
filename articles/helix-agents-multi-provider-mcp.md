@@ -6,6 +6,21 @@ topics: ["mcp", "claudecode", "ollama", "codex", "python"]
 published: true
 ---
 
+:::message
+**📌 2026-04-10 追記: helix-agent はその後も進化しています**
+
+本記事は v0.9.0 時点 (11 ツール / 280 テスト) のマルチプロバイダ統合の解説ですが、現在は **v0.15.1 / 27 MCPツール / 347 テスト** まで拡張されています:
+
+- **4 層コードレビューパイプライン** (gemma4 → Sonnet → Opus → Codex、`code_review` MCPツール)
+- **codex_effort 制御** (none/minimal/low/medium/high/xhigh、P1≥3 で自動 xhigh)
+- **parallel_tasks** (2 軸モデル選定で並列実行)
+- **部門別 RAG** (`dept_search` / `dept_store`)
+- **retry_guard** (リトライループ検知、`retry_guard_check`)
+- **自律運用基盤** (9 デーモン + audit→dispatch→heal)
+
+最新版: https://github.com/tsunamayo7/helix-agent
+:::
+
 `helix-agent` はもともと、Claude Code からローカル Ollama モデルへタスクを委譲するための MCP サーバーでした。
 
 そこから発展させて、今は **helix-agents** として次の provider を 1 つの MCP で扱えるようにしています。
