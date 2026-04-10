@@ -6,6 +6,20 @@ topics: ["claudecode", "mcp", "rust", "playwright", "agent"]
 published: true
 ---
 
+:::message
+**📌 2026-04-10 追記: helix-agent はその後も進化しています**
+
+本記事執筆時のバージョンは v0.13.0 でしたが、現在は **v0.15.1** です:
+
+- **27 MCPツール / 347 テスト** (執筆時 Tools 20 / 322 tests から拡張)
+- **4層コードレビューパイプライン**: gemma4 ($0) → Sonnet 4.6 → Opus 4.6 → Codex (P1≥3 で自動 xhigh エスカレーション)
+- **parallel_tasks**: 2 軸モデル選定 (タスク種別 × 入力複雑度) で並列実行 (5 並列 51 秒 / 10GB VRAM)
+- **部門別 RAG** (`dept_search` / `dept_store`): 5 部門 1,419 points 蓄積
+- **自律運用基盤**: 9 デーモン + audit→dispatch→heal 自動修復チェーン + critical_files_guard (SHA-256 監視)
+
+最新の README: https://github.com/tsunamayo7/helix-agent
+:::
+
 ## TL;DR
 
 helix-agent v0.13.0 で、Vercel の `agent-browser`（Rust/CDP）を MCP の `computer_use` バックエンドとして統合しました。
@@ -13,8 +27,8 @@ helix-agent v0.13.0 で、Vercel の `agent-browser`（Rust/CDP）を MCP の `c
 - **同一フロー50件**のベンチマークで**トークン消費量を82-93%削減**
 - React Controlled Component（Wantedly/LinkedIn/Greenhouse等）にも**ネイティブキー入力で貫通**
 - Playwright/helix-pilotへの**フォールバック**を維持
-- Anthropic Academy MCP公式パターン完全準拠（Tools 20 + Resources 3 + Prompts 3）
-- 全322テスト合格
+- Anthropic Academy MCP公式パターン完全準拠（執筆時 Tools 20 + Resources 3 + Prompts 3、現在 **Tools 27**）
+- 全322テスト合格 (現在は **347 テスト**)
 
 ## 背景：Playwrightのトークンコストが限界に
 
@@ -121,7 +135,7 @@ Claude Code の `~/.claude/settings.json`:
 - **82-93% トークン削減**で Max プランのクォータ節約
 - React SPA のフォーム自動化が実用レベルに
 - MCP 3プリミティブ完全対応（Anthropic Academy準拠）
-- 322テスト合格、MIT
+- 執筆時 322 テスト合格、MIT (現在は v0.15.1 / **347 テスト** / 27 ツール)
 
 リポジトリ: https://github.com/tsunamayo7/helix-agent
 
